@@ -45,3 +45,43 @@ test('propose_topic_plan label shows the goal', () => {
   expect(label.labelKey).toBe('chat.tool.propose_topic_plan');
   expect(label.argMono).toBe('Learn Kubernetes');
 });
+
+const confirmArgs = {
+  goal: 'Learn Kubernetes',
+  level: 'beginner',
+  modules: [
+    {
+      title: 'Pods',
+      outcome: 'Run a container on a node.',
+      prerequisiteIndexes: [],
+      urls: ['https://kubernetes.io/docs/concepts/workloads/pods/'],
+    },
+    {
+      title: 'Services',
+      outcome: 'Expose a set of pods.',
+      prerequisiteIndexes: [0],
+      urls: [],
+    },
+  ],
+};
+
+test('confirm arguments become plan rows', () => {
+  expect(topicPlanCardRows(confirmArgs as unknown as string)).toEqual([
+    {
+      title: 'Pods',
+      outcome: 'Run a container on a node.',
+      urls: ['https://kubernetes.io/docs/concepts/workloads/pods/'],
+    },
+    {
+      title: 'Services',
+      outcome: 'Expose a set of pods.',
+      urls: [],
+    },
+  ]);
+});
+
+test('create_topic_plan label shows the goal', () => {
+  const label = toolLabel('create_topic_plan', { goal: 'Learn Kubernetes' });
+  expect(label.labelKey).toBe('chat.tool.create_topic_plan');
+  expect(label.argMono).toBe('Learn Kubernetes');
+});

@@ -55,6 +55,7 @@ describe('repository contracts', () => {
     const head = journal.entries.at(-1)?.tag;
     expect(head).toBe('0044_study_day');
     expect(journal.entries.some((row) => row.tag === '0042_youtube_source')).toBe(true);
+    expect(journal.entries.some((row) => row.tag === '0043_topic_plan')).toBe(true);
 
     const backfill = readRepoFile('packages/db/src/migrations/0020_known_klaw.sql');
     const insertAt = backfill.indexOf('INSERT INTO "notebook_sources"');
