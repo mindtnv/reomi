@@ -37,6 +37,8 @@ export interface SourceUnit {
   page?: number;
   /** EPUB chapter / section heading (when known). */
   heading?: string;
+  /** YouTube cue start, in whole seconds (when known). */
+  startSeconds?: number;
 }
 
 /** Document chunking configuration. */
@@ -62,6 +64,8 @@ export interface KbChunkInput {
   page?: number;
   /** Document path: source heading (when known). */
   heading?: string;
+  /** Document path: YouTube cue start, in whole seconds (when known). */
+  startSeconds?: number;
   /** Estimated token count for the chunk (chars/4 heuristic). */
   tokenCount?: number;
   meta?: Record<string, string>;
@@ -117,15 +121,15 @@ function chunkDocument(input: SourceInput): KbChunkInput[] {
 
   // Flatten units into segments, splitting any single oversized unit on paragraph
   // / whitespace boundaries so one giant unit can't produce a multi-target chunk.
-  type Seg = { text: string; page?: number; heading?: string };
+  type Seg = { text: string; page?: number; heading?: string; startSeconds?: number };
   const segs: Seg[] = [];
   for (const u of units) {
     if (estimateTokens(u.text) <= target) {
-      segs.push({ text: u.text.trim(), page: u.page, heading: u.heading });
+      segs.push({ text: u.text.trim(), page: u.page, heading: u.heading, startSeconds: u.startSeconds });
       continue;
     }
     for (const piece of splitToTarget(u.text, target)) {
-      segs.push({ text: piece, page: u.page, heading: u.heading });
+      segs.push({ text: piece, page: u.page, heading: u.heading, startSeconds: u.startSeconds });
     }
   }
 
@@ -133,6 +137,7 @@ function chunkDocument(input: SourceInput): KbChunkInput[] {
   let bufTokens = 0;
   let page: number | undefined;
   let heading: string | undefined;
+  let startSeconds: number | undefined;
   let position = 0;
 
   const flush = () => {
@@ -151,6 +156,7 @@ function chunkDocument(input: SourceInput): KbChunkInput[] {
       text,
       page,
       heading,
+      ...(startSeconds != null ? { startSeconds } : {}),
       tokenCount: estimateTokens(text),
       meta: input.meta,
     });
@@ -165,15 +171,17 @@ function chunkDocument(input: SourceInput): KbChunkInput[] {
       buf = [];
       bufTokens = 0;
     }
-    // page/heading reset to the next contributing seg.
+    // Location resets so an overlap tail does not keep the previous cue's time.
     page = undefined;
     heading = undefined;
+    startSeconds = undefined;
   };
 
   for (const seg of segs) {
-    if (buf.length === 0 || (page === undefined && heading === undefined)) {
+    if (buf.length === 0 || (page === undefined && heading === undefined && startSeconds === undefined)) {
       if (page === undefined) page = seg.page;
       if (heading === undefined) heading = seg.heading;
+      if (startSeconds === undefined) startSeconds = seg.startSeconds;
     }
     buf.push(seg.text);
     bufTokens += estimateTokens(seg.text);
@@ -231,6 +239,8 @@ export interface SourceCitation {
   position?: number;
   /** 1-based source page (PDF), when known. */
   page?: number;
+  /** YouTube cue start, in whole seconds, when known. */
+  startSeconds?: number;
   sourceTitle?: string;
   snippet?: string;
 }

@@ -38,6 +38,7 @@ import { requestLogFromContext } from '../logger.ts';
 import {
   countLibraryItems,
   createInlineSource,
+  SourceInputError,
   deleteSourceCompletely,
   finalizeUploadSource,
   MAX_INLINE_TEXT,
@@ -419,15 +420,23 @@ export const libraryModule = new Elysia({ prefix: '/library' })
           .limit(1);
         if (!nb) return status(404, { error: 'not_found' });
       }
-      const row = await createInlineSource(
-        user.id,
-        body.kind === 'url'
-          ? { kind: 'url', title: body.title, url: body.url }
-          : { kind: 'text', title: body.title, text: body.text },
-        body.notebookId,
-        log,
-      );
-      return row;
+      try {
+        return await createInlineSource(
+          user.id,
+          body.kind === 'url'
+            ? { kind: 'url', title: body.title, url: body.url }
+            : { kind: 'text', title: body.title, text: body.text },
+          body.notebookId,
+          log,
+        );
+      } catch (err) {
+        if (err instanceof SourceInputError) {
+          return status(err.status, err.existingSourceId
+            ? { error: err.code, existingSourceId: err.existingSourceId }
+            : { error: err.code });
+        }
+        throw err;
+      }
     },
     {
       auth: true,

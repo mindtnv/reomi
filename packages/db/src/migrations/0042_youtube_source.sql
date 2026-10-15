@@ -1,0 +1,2 @@
+ALTER TABLE "source_chunks" ADD COLUMN "start_seconds" integer;--> statement-breakpoint
+CREATE UNIQUE INDEX "sources_youtube_url_uq" ON "sources" USING btree ("user_id","url") WHERE "sources"."kind" = 'youtube' AND "sources"."status" NOT IN ('error', 'deleting');

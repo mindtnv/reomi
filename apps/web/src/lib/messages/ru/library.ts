@@ -24,6 +24,7 @@ const library = {
     kindPdf: 'PDF',
     kindEpub: 'EPUB',
     kindUrl: 'URL',
+    kindYoutube: 'YouTube',
     kindText: 'Текст',
     readingAll: 'Любой статус',
     readingUnread: 'Не начато',
@@ -187,6 +188,8 @@ const library = {
     fetch_failed: 'Не удалось загрузить URL.',
     unsupported_mime: 'Неподдерживаемый тип файла.',
     empty_source: 'Не найден читаемый текст.',
+    no_subtitles: 'У этого видео нет субтитров на языке ролика, русском или английском.',
+    video_unavailable: 'Это видео закрыто, удалено или недоступно.',
   },
 
   // ── Интеграция с workspace (пикер подключения + отключение в ноутбуке) ────────
