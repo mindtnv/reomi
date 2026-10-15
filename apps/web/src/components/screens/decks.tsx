@@ -19,7 +19,7 @@ import { useSmallAction } from '@/lib/use-small-action';
 import { uiActionRequest } from '@/lib/ui-actions-api';
 import { SaveFeedback } from '@/components/save-feedback';
 import { draftFingerprint } from '@/lib/editor-drafts';
-import { useNN } from '@/lib/store';
+import { mirrorAccountGeneration, useNN } from '@/lib/store';
 import { api, ok } from '@/lib/api';
 import { deckFromApi } from '@/lib/mappers';
 import { useStudyOverview } from '@/lib/use-study-overview';
@@ -63,11 +63,12 @@ export const NNDecks = () => {
   useEffect(() => {
     if (!bootstrapped || !ownerId) return;
     let active = true;
+    const account = mirrorAccountGeneration();
     const before = useNN.getState();
     setHierarchyError(false);
     void uiActionRequest<{ revision: number; decks: unknown[] }>(ownerId, '/deck-hierarchy').then((snapshot) => {
       const current = useNN.getState();
-      if (!active || current.profile?.userId !== before.profile?.userId) return;
+      if (!active || account !== mirrorAccountGeneration() || current.profile?.userId !== before.profile?.userId) return;
       if (!Array.isArray(snapshot.decks) || !Number.isSafeInteger(snapshot.revision)) throw new Error('invalid_hierarchy');
       const fresh = snapshot.decks.map(deckFromApi);
       setHierarchyRevision(snapshot.revision);
@@ -160,8 +161,8 @@ export const NNDecks = () => {
     router.replace(`/decks${next.size ? `?${next}` : ''}`, { scroll: false, track: false });
   }, [focusRequested, bootstrapped, decks, params, router, t]);
   useEffect(() => { if (createRequested) { openCreateAt(null); router.replace('/decks'); } }, [createRequested]);
-  const acceptAppearance = (accepted: Awaited<ReturnType<typeof appearanceAction.run>>) => {
-    if (!accepted?.response.result || useNN.getState().profile?.userId !== ownerId) return;
+  const acceptAppearance = (accepted: Awaited<ReturnType<typeof appearanceAction.run>>, account: number) => {
+    if (account !== mirrorAccountGeneration() || !accepted?.response.result || useNN.getState().profile?.userId !== ownerId) return;
     const updated = deckFromApi(accepted.response.result);
     useNN.setState(state => ({ decks: state.decks.map(row => row.id === updated.id ? updated : row) }));
     if (accepted.response.outcome === 'applied') { setAppearanceRevision(updated.metadataRevision ?? 0); if (accepted.currentMatches) closeForm(); }
@@ -169,8 +170,9 @@ export const NNDecks = () => {
   const saveForm = async () => {
     if (creating && !newName.trim()) return false;
     if (appearanceId) {
+      const account = mirrorAccountGeneration();
       const accepted = await appearanceAction.run(`/decks/${appearanceId}`, { expectedRevision: appearanceRevision, patch: { color: newColor, icon: newIcon } });
-      acceptAppearance(accepted);
+      acceptAppearance(accepted, account);
       return Boolean(accepted?.currentMatches && accepted.response.outcome === 'applied');
     }
     const saved = await mutate(async () => {
@@ -192,7 +194,7 @@ export const NNDecks = () => {
       value: 'save', options: [{ value: 'save', label: t('editor.draft.saveAndLeave') }, { value: 'discard', label: t('editor.draft.discardAndLeave') }], cancelLabel: t('editor.draft.stay') });
     if (choice === 'discard') return true;
     if (choice !== 'save') return false;
-    if (appearanceAction.uncertain) { const accepted = await appearanceAction.retry(); acceptAppearance(accepted); return Boolean(accepted?.currentMatches && accepted.response.outcome === 'applied'); }
+    if (appearanceAction.uncertain) { const account = mirrorAccountGeneration(); const accepted = await appearanceAction.retry(); acceptAppearance(accepted, account); return Boolean(accepted?.currentMatches && accepted.response.outcome === 'applied'); }
     return saveForm();
   };
 
@@ -203,8 +205,8 @@ export const NNDecks = () => {
   const moveAction = useSmallAction(ownerId);
   const moveIntent = useRef<{ id: string; targetId: string | null; placement: DeckPlacement } | null>(null);
   const moveOptions = useMemo(() => flattenTree(tree, new Set(decks.map(d => d.id))).filter(n => movingId && canBeParentOf(decks, movingId, n.deck.id)), [tree, decks, movingId]);
-  const acceptMove = (accepted: Awaited<ReturnType<typeof moveAction.run>>) => {
-    if (!accepted?.response.result || useNN.getState().profile?.userId !== ownerId) return;
+  const acceptMove = (accepted: Awaited<ReturnType<typeof moveAction.run>>, account: number) => {
+    if (account !== mirrorAccountGeneration() || !accepted?.response.result || useNN.getState().profile?.userId !== ownerId) return;
     if (Array.isArray(accepted.response.result)) useNN.setState({ decks: accepted.response.result.map(deckFromApi) });
     if (accepted.response.outcome !== 'applied') return;
     setHierarchyRevision(Number(accepted.response.receipt.target.revision));
@@ -215,7 +217,8 @@ export const NNDecks = () => {
   const performMove = async (id: string, targetId: string | null, place: DeckPlacement) => {
     if (hierarchyRevision === null || moveAction.busy || moveAction.uncertain) return;
     moveIntent.current = { id, targetId, placement: place };
-    acceptMove(await moveAction.run(`/decks/${id}/move`, { expectedRevision: hierarchyRevision, targetId, placement: place }, 'POST'));
+    const account = mirrorAccountGeneration();
+    acceptMove(await moveAction.run(`/decks/${id}/move`, { expectedRevision: hierarchyRevision, targetId, placement: place }, 'POST'), account);
   };
 
   const [menu, setMenu] = useState<{ id: string; x: number; y: number; anchor: HTMLElement } | null>(null);
@@ -230,11 +233,11 @@ export const NNDecks = () => {
     { label: t('decks.details.study'), icon: 'play', run: () => router.push(`/review?deck=${menuDeck.id}`) },
     { label: t('decks.addCard'), icon: 'plus', run: () => router.push(`/editor?deck=${menuDeck.id}`) },
     { label: t('decks.newSubDeck'), icon: 'decks', run: () => openCreateAt(menuDeck.id) },
-    { label: t('actions.rename'), icon: 'edit', run: () => { void edit({ title: t('decks.renamePrompt'), defaultValue: menuDeck.name,
+    { label: t('actions.rename'), icon: 'edit', run: () => { const account = mirrorAccountGeneration(); void edit({ title: t('decks.renamePrompt'), defaultValue: menuDeck.name,
       path: `/decks/${menuDeck.id}`, revision: menuDeck.metadataRevision ?? 0, maxLength: 100,
       patch: name => ({ name }), validate: name => name.trim() ? null : ' ',
       readCurrent: async () => { const rows: any = await ok(await api.decks.get()); const current = rows.find((row: any) => row.id === menuDeck.id); if (!current) throw new Error('not_found'); return { revision: current.metadataRevision ?? 0, value: current.name }; },
-      onSaved: result => { if (result.result) { const updated = deckFromApi(result.result); useNN.setState(state => ({ decks: state.decks.map(row => row.id === updated.id ? updated : row) })); } },
+      onSaved: result => { if (account !== mirrorAccountGeneration() || !result.result) return; const updated = deckFromApi(result.result); useNN.setState(state => ({ decks: state.decks.map(row => row.id === updated.id ? updated : row) })); },
     }); } },
     { label: t('decks.appearance.title'), icon: 'star', run: () => openAppearance(menuDeck) },
     { label: t('decks.move.title'), icon: 'stack', run: () => { setMovingId(menuDeck.id); setMoveTarget(''); setPlacement('inside'); setMoveError(''); } },
@@ -260,10 +263,10 @@ export const NNDecks = () => {
           {creating && <><p className="reomi-modal-description">{t('decks.underParent')}: {newParentId ? deckPathLabel(decks,newParentId) : t('decks.move.root')}</p>
             <Field label={t('decks.name')}><TextInput autoFocus required maxLength={100} value={newName} disabled={busy} onChange={event => setNewName(event.target.value)} placeholder={t('decks.namePlaceholder')}/></Field></>}
           <DeckAppearance icon={newIcon} color={newColor} disabled={busy || appearanceAction.busy} onIcon={setNewIcon} onColor={setNewColor}/>
-          {appearanceId && <SaveFeedback status={appearanceAction.snapshot.status} errorCode={appearanceAction.snapshot.error} onRetry={() => { void appearanceAction.retry().then(acceptAppearance); }} />}
+          {appearanceId && <SaveFeedback status={appearanceAction.snapshot.status} errorCode={appearanceAction.snapshot.error} onRetry={() => { const account = mirrorAccountGeneration(); void appearanceAction.retry().then(accepted => acceptAppearance(accepted, account)); }} />}
           {appearanceId && appearanceAction.snapshot.status === 'conflict' && <div>
             <NNBtn size="sm" onClick={() => { void api.decks.get().then(ok).then(rows => { const row = rows.find(row => row.id === appearanceId); if (row && useNN.getState().profile?.userId === ownerId) setAppearanceLatest(deckFromApi(row)); }).catch(() => setFormError(t('common.toasts.error'))); }}>{t('actionsRecovery.current')}</NNBtn>
-            {appearanceLatest && <><p>{appearanceLatest.name} · {appearanceLatest.color} · {appearanceLatest.icon}</p><NNBtn size="sm" onClick={() => { appearanceAction.controller.resolveConflict(); void appearanceAction.run(`/decks/${appearanceId}`, { expectedRevision: appearanceLatest.metadataRevision ?? 0, patch: { color: newColor, icon: newIcon } }).then(acceptAppearance); }}>{t('actionsRecovery.keepMine')}</NNBtn></>}
+            {appearanceLatest && <><p>{appearanceLatest.name} · {appearanceLatest.color} · {appearanceLatest.icon}</p><NNBtn size="sm" onClick={() => { appearanceAction.controller.resolveConflict(); const account = mirrorAccountGeneration(); void appearanceAction.run(`/decks/${appearanceId}`, { expectedRevision: appearanceLatest.metadataRevision ?? 0, patch: { color: newColor, icon: newIcon } }).then(accepted => acceptAppearance(accepted, account)); }}>{t('actionsRecovery.keepMine')}</NNBtn></>}
           </div>}
           {formError && <p role="alert">{formError}</p>}
         </div><footer className="reomi-modal-footer"><NNBtn variant="ghost" disabled={busy || appearanceAction.busy} onClick={() => { void beforeAppearanceClose().then(allowed => { if (allowed) closeForm(); }); }}>{t('actions.cancel')}</NNBtn><NNBtn variant="primary" type="submit" loading={busy || appearanceAction.busy} disabled={(creating && !newName.trim()) || Boolean(appearanceId && (appearanceAction.uncertain || appearanceAction.snapshot.status === 'conflict'))}>{t(creating ? 'actions.create' : 'actions.save')}</NNBtn></footer></form>
@@ -277,13 +280,13 @@ export const NNDecks = () => {
             <Field label={t('decks.move.placement')}><select className="reomi-input" aria-label={t('decks.move.placement')} value={placement} disabled={busy || !moveTarget} onChange={event => setPlacement(event.target.value as DeckPlacement)}>
               {(['inside','before','after'] as const).map(value => <option key={value} value={value}>{t(`decks.move.${value}`)}</option>)}
             </select></Field><p className="reomi-modal-description">{t('decks.move.subtree')}</p>
-            <SaveFeedback status={moveAction.snapshot.status} errorCode={moveAction.snapshot.error} onRetry={() => { void moveAction.retry().then(acceptMove); }} />
+            <SaveFeedback status={moveAction.snapshot.status} errorCode={moveAction.snapshot.error} onRetry={() => { const account = mirrorAccountGeneration(); void moveAction.retry().then(accepted => acceptMove(accepted, account)); }} />
             {moveAction.snapshot.status === 'conflict' && <NNBtn size="sm" onClick={() => { setHierarchyRevision(null); setRefreshRevision(value => value + 1); moveAction.controller.resolveConflict(); }}>{t('actionsRecovery.current')}</NNBtn>}
             {moveError && <p role="alert">{moveError}</p>}
           </div><footer className="reomi-modal-footer"><NNBtn variant="ghost" disabled={busy || moveAction.busy} onClick={() => setMovingId(null)}>{t('actions.cancel')}</NNBtn><NNBtn type="submit" variant="primary" loading={busy || moveAction.busy} disabled={!decks.some(deck => deck.id === movingId) || hierarchyRevision === null || moveAction.uncertain || moveAction.snapshot.status === 'conflict'}>{t('decks.move.apply')}</NNBtn></footer>
         </form>
       </Modal>
-      <SaveFeedback status={moveAction.snapshot.status} errorCode={moveAction.snapshot.error} onRetry={() => { void moveAction.retry().then(acceptMove); }} />
+      <SaveFeedback status={moveAction.snapshot.status} errorCode={moveAction.snapshot.error} onRetry={() => { const account = mirrorAccountGeneration(); void moveAction.retry().then(accepted => acceptMove(accepted, account)); }} />
       {moveAction.snapshot.status === 'conflict' && <NNBtn size="sm" onClick={() => { setRefreshRevision(value => value + 1); moveAction.controller.resolveConflict(); }}>{t('actionsRecovery.current')}</NNBtn>}
       {(decks.length > 0 || filterActive) && <div className="reomi-decks-toolbar">
         <div className="reomi-decks-search"><NNIcon name="search" size={16} />

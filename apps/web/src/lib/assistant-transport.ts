@@ -3,7 +3,7 @@ import { streamChat, resumeChat, regenerateChat } from './chat-stream';
 import type { AssistantConversation, AssistantTransport } from './assistant-controller';
 import type { PersistedMessageRow, ToolCallVM } from './chat-activity';
 import { WRITE_SRS_TOOL_NAMES } from './chat-activity';
-import { useNN } from './store';
+import { mirrorAccountGeneration, useNN } from './store';
 import { deckFromApi } from './mappers';
 import { clearSessionResourceCache } from './session-resource';
 
@@ -14,7 +14,8 @@ function protocolFailure(error: unknown): never {
 
 /** All continuations check the current account before publishing store updates. */
 export function createAssistantTransport(ownerId: string): AssistantTransport {
-  const owned = () => useNN.getState().profile?.userId === ownerId;
+  const account = mirrorAccountGeneration();
+  const owned = () => useNN.getState().profile?.userId === ownerId && account === mirrorAccountGeneration();
   const requireOwner = () => { if (!owned()) throw new Error('account_changed'); };
   return {
     async create(context) {
@@ -29,13 +30,13 @@ export function createAssistantTransport(ownerId: string): AssistantTransport {
     async stream(id, content, handlers, options) { requireOwner(); await streamChat(id, content, handlers, options); },
     async resume(id, request, handlers, signal) { requireOwner(); await resumeChat(id, request, handlers, signal); },
     async regenerate(id, options, handlers, signal) { requireOwner(); await regenerateChat(id, options, handlers, signal); },
-    onToolResult(call, success) { if (success && owned()) void syncAssistantMutation(ownerId, call); },
+    onToolResult(call, success) { if (success && owned()) void syncAssistantMutation(ownerId, account, call); },
   };
 }
 
-async function syncAssistantMutation(ownerId: string, call: ToolCallVM): Promise<void> {
+async function syncAssistantMutation(ownerId: string, account: number, call: ToolCallVM): Promise<void> {
   if (!WRITE_SRS_TOOL_NAMES.has(call.name)) return;
-  const owned = () => useNN.getState().profile?.userId === ownerId;
+  const owned = () => useNN.getState().profile?.userId === ownerId && account === mirrorAccountGeneration();
   if (!owned()) return;
   const args = (call.args && typeof call.args === 'object' ? call.args : {}) as Record<string, unknown>;
   try {
