@@ -15,10 +15,11 @@ export async function loadStudyCounts(userId: string, now: Date): Promise<Map<st
     learningCount: sql<number>`count(*) filter (where ${active} and ${learning})`.mapWith(Number),
     reviewCount: sql<number>`count(*) filter (where ${active} and ${cards.state} = 'review')`.mapWith(Number),
     suspendedCount: sql<number>`count(*) filter (where ${cards.suspended})`.mapWith(Number),
+    dueNew: sql<number>`count(*) filter (where ${active} and ${cards.state} = 'new' and ${cards.due} <= ${nowIso})`.mapWith(Number),
     dueLearning: sql<number>`count(*) filter (where ${active} and ${learning} and ${cards.due} <= ${nowIso})`.mapWith(Number),
     dueReview: sql<number>`count(*) filter (where ${active} and ${cards.state} = 'review' and ${cards.due} <= ${nowIso})`.mapWith(Number),
     nextLearningAt: sql<string | null>`min(${cards.due}) filter (where ${active} and ${learning} and ${cards.due} > ${nowIso})`,
-    nextDueAt: sql<string | null>`min(${cards.due}) filter (where ${active} and ${cards.state} <> 'new' and ${cards.due} > ${nowIso})`,
+    nextDueAt: sql<string | null>`min(${cards.due}) filter (where ${active} and ${cards.due} > ${nowIso})`,
   }).from(cards).where(eq(cards.userId, userId)).groupBy(cards.deckId);
   return new Map(rows.map(({ deckId, ...counts }) => [deckId, {
     ...counts,
@@ -30,10 +31,10 @@ export async function loadStudyCounts(userId: string, now: Date): Promise<Map<st
 export function sumStudyCounts(rows: Iterable<StudyCounts>): StudyCounts {
   const total: StudyCounts = {
     total: 0, newCount: 0, learningCount: 0, reviewCount: 0, suspendedCount: 0,
-    dueLearning: 0, dueReview: 0, nextLearningAt: null, nextDueAt: null,
+    dueNew: 0, dueLearning: 0, dueReview: 0, nextLearningAt: null, nextDueAt: null,
   };
   for (const row of rows) {
-    for (const key of ['total', 'newCount', 'learningCount', 'reviewCount', 'suspendedCount', 'dueLearning', 'dueReview'] as const) {
+    for (const key of ['total', 'newCount', 'learningCount', 'reviewCount', 'suspendedCount', 'dueNew', 'dueLearning', 'dueReview'] as const) {
       total[key] += row[key];
     }
     for (const key of ['nextLearningAt', 'nextDueAt'] as const) {
@@ -44,12 +45,12 @@ export function sumStudyCounts(rows: Iterable<StudyCounts>): StudyCounts {
 }
 
 export function studyAvailability(counts: StudyCounts, newRemaining: number, reviewRemaining: number, now: Date): StudySummary {
-  const availableNew = Math.min(counts.newCount, newRemaining);
+  const availableNew = Math.min(counts.dueNew, newRemaining);
   const availableReview = Math.min(counts.dueReview, reviewRemaining);
   return {
     ...counts, newRemaining, reviewRemaining, availableNew, availableReview,
     totalAvailable: counts.dueLearning + availableNew + availableReview,
-    limitedNew: counts.newCount - availableNew,
+    limitedNew: counts.dueNew - availableNew,
     limitedReview: counts.dueReview - availableReview,
     serverNow: now.toISOString(),
   };
