@@ -46,13 +46,13 @@ Accounts, stored cards, notebooks, media and personal tokens are unchanged. Cook
 
 ## Rollback
 
-Restore API `WEB_ORIGIN` and `BETTER_AUTH_URL` to the old web/API values and web runtime `NEXT_PUBLIC_API_URL` to the old API. Point both Coolify apps at the recorded baseline immutable tag and deploy API then web. Verify health and old-origin sign-in again. Keep both domain aliases and the additive S3 rule; they do not require rollback. The temporary redirect disappears with the old image. Revert the repository's build URL/redirect change before the next main deploy so automation does not reapply the cutover.
+Point both Coolify apps at the recorded baseline immutable tag and deploy API then web. Verify `https://api.reomi.ru/ready` and sign-in on `https://app.reomi.ru`. Do not point `WEB_ORIGIN`, `BETTER_AUTH_URL`, or `NEXT_PUBLIC_API_URL` back at `https://api.neuronexus.mihailantonov.pro`. That host is not a supported endpoint and is not kept as a compatibility alias. The old web hostname may keep its redirect to `https://app.reomi.ru`. The additive S3 rule does not require rollback. Revert a repository build-URL change before the next main deploy only when it would send clients away from `https://api.reomi.ru`.
 
 No database or storage rollback is necessary.
 
 ## Staging verification — 2026-09-21
 
-- Both Coolify applications run the baseline SHA with old and new domain aliases; both are `running:healthy`. Old sign-in page returns 200 and old API `/ready` reports `ready`.
+- Both Coolify applications ran the baseline SHA and were `running:healthy`. The old web sign-in page returned 200. API readiness belongs to `https://api.reomi.ru`. `https://api.neuronexus.mihailantonov.pro` is not a supported endpoint.
 - Production S3 OPTIONS for POST/content-type returns 200 and the matching allowed origin for both old and new web addresses.
 - PR #20 code revision `60366b62bdf4be4273ecfd92c2f969276b392577` passed CI run `35582664461`, including migration-faithful tests, typecheck, builds, strict specs and real-S3 round trips.
 - Initial staging waited for DNS propagation and certificates before changing active origins; the completed cutover is recorded below.
@@ -63,5 +63,5 @@ No database or storage rollback is necessary.
 - PR #20 merged as `6997fe310fc0654f07521fe6d3f361b4b1991e00`; gated deployment `35583851169` succeeded. Both Coolify apps run that immutable SHA and report `running:healthy`.
 - Cloudflare and Google DNS resolve both domains to `82.202.165.26`. Both domains have valid Let's Encrypt certificates (expiry 2026-12-20), verified without certificate bypass.
 - API production `WEB_ORIGIN`/`BETTER_AUTH_URL` and web runtime/build API URL now use the Reomi addresses.
-- Live checks passed: web/CSP, HTTPS `sw.js` JavaScript, sign-in preflight 204 with exact origin and credentials, session response 200, protected profile 401, unrelated origin rejected by CORS, API readiness `ready`, old API health, old-web 307 preserving path/query, and S3 upload preflight.
+- Live checks passed: web/CSP, HTTPS `sw.js` JavaScript, sign-in preflight 204 with exact origin and credentials, session response 200, protected profile 401, unrelated origin rejected by CORS, API readiness `ready` on `https://api.reomi.ru`, old-web 307 preserving path/query, and S3 upload preflight. The former API hostname is not a supported endpoint.
 - A fresh browser opened the sign-in form with no console warnings/errors. Existing-account sign-in and an authenticated upload were not performed because no authenticated browser session was available. Users with an already open old build must reload, then sign in on the new origin.

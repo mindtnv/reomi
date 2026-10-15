@@ -44,8 +44,13 @@ describe('repository contracts', () => {
     );
 
     const compose = readRepoFile('docker-compose.yml');
-    expect(compose).toContain('quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z');
-    expect(compose).toContain('quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z');
+    expect(compose).toContain(
+      'docker.io/pgsty/silo:RELEASE.2026-09-16T00-00-00Z@sha256:635197cb9f36d01bee221d34d1c7d7960f6a95c48b0b6c01d99cd13bdae51a46',
+    );
+    expect(compose).toContain(
+      'docker.io/pgsty/mc:RELEASE.2026-09-16T00-00-00Z@sha256:cfc83108c3abb371f8fb84d99c1fdc88f8c237e022409b0081fb7c0a3be634dd',
+    );
+    expect(compose).not.toContain('quay.io/minio/');
 
     for (const path of ['.github/workflows/ci.yml', '.github/workflows/deploy.yml']) {
       const workflow = readRepoFile(path);
