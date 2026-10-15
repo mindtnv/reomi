@@ -25,8 +25,6 @@ export function Button({
   loading = false, loadingLabel, active, block, disabled, type = 'button',
   className, title, 'aria-label': label, ...props
 }: ButtonProps) {
-  // Chrome that already owns its look (toolbar, menu, tab, icon) stays a
-  // Button so the native tag is gone, without the shared skin or tooltip.
   if (variant === 'bare') {
     return (
       <button

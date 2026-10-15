@@ -1,5 +1,3 @@
-// Idempotent rename of raw <button> and <input> to design-system primitives.
-// Selects stay for a separate pass. Re-running a migrated file is a no-op.
 import { parse } from '@babel/parser';
 import fs from 'node:fs';
 
