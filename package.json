@@ -19,6 +19,7 @@
     "test:api": "NODE_ENV=test bun --env-file=./.env test apps/api",
     "e2e": "bash scripts/verify-reomi.sh",
     "e2e:prod": "E2E_TARGET=prod bash scripts/verify-reomi.sh",
+    "e2e:visual": "E2E_TARGET=prod bash scripts/visual-audit.sh",
     "e2e:doctor": "bash scripts/verify-reomi-doctor.sh",
     "pretest": "bun run db:migrate:apply:test",
     "spec:validate": "openspec validate --all --strict --no-interactive",

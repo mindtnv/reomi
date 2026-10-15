@@ -1,0 +1,59 @@
+# Manual production screenshot walk. Reads the same E2E_EMAIL / E2E_PASSWORD
+# secrets as e2e-prod. Uploads PNG evidence only; traces and videos stay off.
+
+name: visual-audit
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: visual-audit
+  cancel-in-progress: false
+
+jobs:
+  visual-audit:
+    name: Production visual audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Cache bun packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Mask production password
+        env:
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+        run: |
+          if [ -n "${E2E_PASSWORD}" ]; then
+            echo "::add-mask::${E2E_PASSWORD}"
+          fi
+
+      - name: Capture production screens
+        env:
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+        run: bun run e2e:visual
+
+      - name: Upload visual audit screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-audit-screenshots
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            e2e/artifacts/visual/**/*.png
+            e2e/artifacts/visual/index.json
