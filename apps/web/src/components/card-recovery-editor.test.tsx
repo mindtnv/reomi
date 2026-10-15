@@ -50,6 +50,16 @@ test('lost card creation resolves once, retains newer text across reload, then u
     if (path.endsWith('/session')) return Response.json({ sessionId: newUuidV7() });
     if (path.includes('/receipts/')) return Response.json({ ...committed, replayed: true });
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+    if (/\/notes\/operations\/[0-9a-f-]{36}$/i.test(path)) {
+      if ((init?.method ?? 'GET') !== 'POST') {
+        return committed
+          ? Response.json({ status: 'committed', result: committed.result })
+          : Response.json({ error: 'operation_not_found' }, { status: 404 });
+      }
+      creates++;
+      committed = receipt('operation', body.fieldValues.Front, '2026-09-23T00:00:01.000Z');
+      throw new Error('reply lost after commit');
+    }
     if (path.endsWith('/card-notes')) {
       creates++; committed = receipt(body.requestId, body.input.fieldValues.Front, '2026-09-23T00:00:01.000Z');
       throw new Error('reply lost after commit');

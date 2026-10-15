@@ -3,7 +3,8 @@ import type { PendingSave } from './recoverable-save';
 import type { NoteType } from './types';
 import type { FieldValues } from '@reomi/shared';
 
-export type NoteDraftValue = { fieldValues: FieldValues; deckId: string; noteTypeId: string; tagsText: string; acceptedAnswersText: string;
+const operationId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export type NoteDraftValue = { fieldValues: FieldValues; deckId: string; noteTypeId: string; tagsText: string; acceptedAnswersText: string; createOperationId?: string;
   pendingSave?: PendingSave<RecoveryAction> | null; savedNoteId?: string; baseVersion?: string; baseDeckId?: string; cardId?: string; label?: string; noteType?: NoteType; clozeRetainHistoryFor?: Record<string, number> };
 export type TypeDraftValue = { pendingSave?: PendingSave<RecoveryAction> | null; savedType?: NoteType; name: string; fields: NoteType['fields']; templates: NoteType['templates']; styling: string; baseVersion?: string; kind?: NoteType['kind'] };
 const object = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x);
@@ -23,7 +24,7 @@ export function isTypeDraftValue(x: unknown): x is TypeDraftValue {
 }
 export function isNoteDraftValue(x: unknown): x is NoteDraftValue {
   return object(x) && pending(x.pendingSave) && (x.savedNoteId === undefined || text(x.savedNoteId)) && object(x.fieldValues) && Object.values(x.fieldValues).every(text) &&
-    (x.label === undefined || text(x.label)) && (x.cardId === undefined || text(x.cardId)) && (x.baseDeckId === undefined || text(x.baseDeckId)) && text(x.deckId) && text(x.noteTypeId) && text(x.tagsText) && text(x.acceptedAnswersText) && version(x.baseVersion) &&
+    (x.label === undefined || text(x.label)) && (x.cardId === undefined || text(x.cardId)) && (x.baseDeckId === undefined || text(x.baseDeckId)) && (x.createOperationId === undefined || text(x.createOperationId) && operationId.test(x.createOperationId)) && text(x.deckId) && text(x.noteTypeId) && text(x.tagsText) && text(x.acceptedAnswersText) && version(x.baseVersion) &&
     (x.clozeRetainHistoryFor === undefined || object(x.clozeRetainHistoryFor) && Object.values(x.clozeRetainHistoryFor).every(n => Number.isInteger(n) && Number(n) > 0)) &&
     (x.noteType === undefined || object(x.noteType) && text(x.noteType.id) && text(x.noteType.name) && text(x.noteType.styling) &&
       ['basic', 'custom', 'cloze', 'typein'].includes(String(x.noteType.kind)) && fields(x.noteType.fields) && templates(x.noteType.templates) && version(x.noteType.updatedAt));

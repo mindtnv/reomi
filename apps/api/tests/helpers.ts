@@ -45,6 +45,7 @@ const TABLES = [
   'notebooks',
   'reviews',
   'cards',
+  'note_operations',
   'notes',
   'note_types',
   'filtered_deck',

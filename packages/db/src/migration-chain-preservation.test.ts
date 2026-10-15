@@ -20,7 +20,7 @@ test('a migration-built database keeps the 0020 backfill, 0027 cloze constraint,
   const journal = JSON.parse(await readFile(join(folder, 'meta/_journal.json'), 'utf8'));
   const entry = journal.entries.find((row: { tag: string }) => row.tag === '0020_known_klaw');
   expect(entry).toBeDefined();
-  expect(journal.entries.at(-1).tag).toBe('0039_daily_ken_ellis');
+  expect(journal.entries.at(-1).tag).toBe('0040_note_operations');
 
   const originalUrl = new URL(process.env.TEST_DATABASE_URL!);
   if (!originalUrl.pathname.includes('test')) {

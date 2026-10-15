@@ -12,9 +12,9 @@
 // Deck assignment (Decision A1): all generated cards get the note's chosen
 // deckId. FSRS is initialised per generated card via `newFsrsCard`.
 
-import { Elysia, t, status as reply } from 'elysia';
-import { and, asc, eq, isNull, or } from 'drizzle-orm';
-import { cards, db, decks, noteTypes, notes, type Db } from '@reomi/db';
+import { Elysia, ElysiaCustomStatusResponse, t, status as reply } from 'elysia';
+import { and, asc, eq, isNull, or, sql } from 'drizzle-orm';
+import { cards, db, decks, noteOperations, noteTypes, notes, type Db } from '@reomi/db';
 import {
   generateCards,
   acceptedAnswerVariants,
@@ -40,6 +40,7 @@ import { sanitizeFieldValues } from '../sanitize.ts';
 import { defFromRow } from './note-types.ts';
 import { enqueueIndex } from '../ai/index-queue.ts';
 import { applyRegeneration, loadRegenerationCards, NoteWriteConflict, planRegeneration, regenerationImpact, regenerationToken } from './card-regeneration';
+import { actionHash } from './ui-action-receipts.ts';
 
 /** A Drizzle transaction handle (the arg passed to `db.transaction(async (tx) => …)`). */
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
@@ -442,9 +443,80 @@ export async function createNoteForRequest(context: { user: { id: string }; body
       return result;
 }
 
+async function readOwnedNote(executor: Pick<Db, 'select'>, userId: string, noteId: string) {
+  const [note] = await executor.select().from(notes).where(and(eq(notes.id, noteId), eq(notes.userId, userId))).limit(1);
+  if (!note) return null;
+  const generated = await executor.select().from(cards)
+    .where(and(eq(cards.userId, userId), eq(cards.noteId, noteId)))
+    .orderBy(asc(cards.templateOrd), asc(cards.clozeNumber), asc(cards.id));
+  return { note, cards: generated };
+}
+
+function noteOperationHash(body: typeof noteCreateBody.static) {
+  return actionHash({
+    noteTypeId: body.noteTypeId,
+    expectedTypeUpdatedAt: body.expectedTypeUpdatedAt ?? null,
+    deckId: body.deckId,
+    fieldValues: body.fieldValues,
+    acceptedAnswers: body.acceptedAnswers ?? [],
+    tags: body.tags ?? [],
+  });
+}
+
+/** Versioned create. The same operation id replays one note; legacy POST /notes stays insert-only. */
+export async function createNoteOperation(
+  context: { user: { id: string }; body: typeof noteCreateBody.static },
+  operationId: string,
+) {
+  const argumentsHash = noteOperationHash(context.body);
+  const deferred: string[] = [];
+  const outcome = await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${context.user.id}:${operationId}`}, 941))`);
+    const [receipt] = await tx.select().from(noteOperations)
+      .where(and(eq(noteOperations.userId, context.user.id), eq(noteOperations.operationId, operationId)))
+      .limit(1);
+    if (receipt) {
+      if (receipt.argumentsHash !== argumentsHash) return reply(409, { error: 'operation_conflict' });
+      const existing = receipt.noteId ? await readOwnedNote(tx, context.user.id, receipt.noteId) : null;
+      if (!existing) return reply(409, { error: 'operation_reverted' });
+      return { ...existing, replayed: true as const };
+    }
+    const created = await createNoteForRequest(context, tx, deferred);
+    if (created instanceof ElysiaCustomStatusResponse || !created || typeof created !== 'object' || !('note' in created)) return created;
+    await tx.insert(noteOperations).values({
+      userId: context.user.id,
+      operationId,
+      argumentsHash,
+      noteId: created.note.id,
+    });
+    return { note: created.note, cards: created.cards, replayed: false as const };
+  });
+  if (outcome && typeof outcome === 'object' && 'replayed' in outcome && outcome.replayed === false) enqueueCardsForIndex(deferred);
+  return outcome;
+}
+
+export async function getNoteOperation(userId: string, operationId: string) {
+  const [receipt] = await db.select().from(noteOperations)
+    .where(and(eq(noteOperations.userId, userId), eq(noteOperations.operationId, operationId)))
+    .limit(1);
+  if (!receipt) return reply(404, { error: 'operation_not_found' });
+  const existing = receipt.noteId ? await readOwnedNote(db, userId, receipt.noteId) : null;
+  if (!existing) return { status: 'reverted' as const };
+  return { status: 'committed' as const, result: existing };
+}
+
 export const notesModule = new Elysia({ prefix: '/notes' })
   .use(authPlugin)
   .post('/', createNoteForRequest, { auth: true, body: noteCreateBody })
+  .post('/operations/:operationId', (context) => createNoteOperation(context, context.params.operationId), {
+    auth: true,
+    body: noteCreateBody,
+    params: t.Object({ operationId: t.String({ format: 'uuid' }) }),
+  })
+  .get('/operations/:operationId', ({ user, params }) => getNoteOperation(user.id, params.operationId), {
+    auth: true,
+    params: t.Object({ operationId: t.String({ format: 'uuid' }) }),
+  })
   .patch('/:id', editNote, noteEditOptions)
   .get('/:id', async ({ user, params, status }) => {
     const [row] = await db.select({ note: notes, noteType: noteTypes }).from(notes)
