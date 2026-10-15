@@ -58,10 +58,10 @@ const TABLES = [
   '"user"', // `user` is a reserved word in Postgres and must be quoted
 ];
 
-// Defense-in-depth: the primary guarantee that the pgvector extension exists is
-// the `predb:push:test` hook (runs BEFORE `drizzle-kit push`); this one-time
-// ensure covers any path that bypasses push (e.g. a hand-run migrate against a
-// bare DB). Memoized so concurrent suites share one ensure.
+// Defense-in-depth: migration `0010` creates pgvector, and an explicit
+// `db:push*` hook ensures it on TEST_DATABASE_URL. This one-time ensure covers
+// a bare test database reached without those hooks. Memoized so concurrent
+// suites share one ensure.
 let vectorEnsured: Promise<void> | null = null;
 function ensureVectorOnce(): Promise<void> {
   if (!vectorEnsured) vectorEnsured = ensureVectorExtension();

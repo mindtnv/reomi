@@ -18,11 +18,18 @@ Every migration-gated CI workflow SHALL apply the committed migration chain to i
 - **THEN** it applies committed migrations and executes the same migration-faithful test command before deployment can proceed
 
 ### Requirement: Local tests remain convenient
-The default local full-test command SHALL continue to synchronize the disposable test database from the current Drizzle schema before executing tests.
+The default local full-test command SHALL prepare the disposable test database by applying the committed migration chain before executing tests. That command SHALL NOT reconcile the test database with schema push.
 
 #### Scenario: Developer runs the default test command
 - **WHEN** a developer runs the documented local full-test command
-- **THEN** the test database schema is pushed before the test runner starts
+- **THEN** committed migrations are applied to the test database before the test runner starts
+
+### Requirement: Schema push does not connect to the application database
+A schema-push command SHALL open only the disposable test database identified by `TEST_DATABASE_URL`. It SHALL NOT connect using `DATABASE_URL`.
+
+#### Scenario: Schema push is invoked
+- **WHEN** a schema-push command runs
+- **THEN** its connection URL is `TEST_DATABASE_URL` and is not `DATABASE_URL`
 
 ### Requirement: OpenSpec artifacts are validated in CI
 Pull-request and main-branch CI SHALL reject invalid OpenSpec changes or specifications.

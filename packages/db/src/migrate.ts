@@ -1,10 +1,10 @@
-// Programmatic migrator. Runs the committed SQL migrations under
-// src/migrations/ against the current DATABASE_URL. Invoked from:
-//   - CI  : `bun run db:migrate:apply`  (before tests / before deploy)
-//   - Prod: Docker entrypoint / release task
+// Programmatic migrator. Applies src/migrations to TEST_DATABASE_URL when
+// NODE_ENV=test, otherwise DATABASE_URL. Invoked from:
+//   - Local `bun run test` pretest and CI: `db:migrate:apply:test`
+//   - Dev/prod: `db:migrate:apply` and the API image entrypoint
 //
-// Dev loop still uses `drizzle-kit push --force` for speed, but the committed
-// migrations are the source of truth for any long-lived environment.
+// `drizzle-kit push` is not this path. Push targets TEST_DATABASE_URL only and
+// cannot replay ordered backfills, partial constraints, or triggers.
 
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';

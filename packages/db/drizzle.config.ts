@@ -1,9 +1,11 @@
 import { defineConfig } from 'drizzle-kit';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { resolveDrizzleDatabaseUrl } from './src/drizzle-url.ts';
 
 // drizzle-kit spawns a Node subprocess and doesn't inherit Bun's auto-loaded
-// env. Walk up from packages/db and load the root .env manually.
+// env. Walk up from packages/db and load the root .env manually. Existing
+// process env wins, so a push script can force TEST_DATABASE_URL.
 function loadRootEnv() {
   let dir = process.cwd();
   for (let i = 0; i < 5; i++) {
@@ -28,23 +30,14 @@ function loadRootEnv() {
 }
 loadRootEnv();
 
-const DATABASE_URL =
-  process.env.NODE_ENV === 'test'
-    ? process.env.TEST_DATABASE_URL
-    : process.env.DATABASE_URL;
-if (!DATABASE_URL) {
-  throw new Error(
-    process.env.NODE_ENV === 'test'
-      ? 'TEST_DATABASE_URL is not set — add it to .env'
-      : 'DATABASE_URL is not set — copy .env.example to .env in repo root',
-  );
-}
+// Push never reads DATABASE_URL. Studio and generate keep the non-test URL.
+const connectionUrl = resolveDrizzleDatabaseUrl(process.env, process.argv);
 
 export default defineConfig({
   dialect: 'postgresql',
   schema: './src/schema/index.ts',
   out: './src/migrations',
-  dbCredentials: { url: DATABASE_URL },
+  dbCredentials: { url: connectionUrl },
   strict: true,
   verbose: true,
 });

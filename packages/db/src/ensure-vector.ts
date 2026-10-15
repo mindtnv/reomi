@@ -1,9 +1,9 @@
-// pgvector bootstrap. `CREATE EXTENSION vector` is PER-DATABASE and is NOT run
-// by initdb or by `drizzle-kit push` — so the extension must be created before
-// any `vector(N)` column is pushed/migrated. This helper opens its OWN
-// short-lived connection (not the shared pool) so it can run as a standalone
-// pre-script (`predb:push` / `predb:push:test`) before the schema is touched.
-// Kept as defense-in-depth in the test bootstrap too.
+// pgvector bootstrap. `CREATE EXTENSION vector` is PER-DATABASE. Migration
+// `0010` creates it, and an explicit schema push still needs it first because
+// push does not run that migration. This helper opens its OWN short-lived
+// connection (not the shared pool) so the `predb:push` / `predb:push:test`
+// scripts can run it before push. Those scripts set NODE_ENV=test, so the
+// default URL is TEST_DATABASE_URL and they do not open DATABASE_URL.
 
 import postgres from 'postgres';
 import { getDatabaseUrl } from './env.ts';
