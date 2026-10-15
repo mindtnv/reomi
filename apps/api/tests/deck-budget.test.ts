@@ -168,4 +168,31 @@ describe('deck budgets', () => {
     expect(row!.reviewsDoneToday).toBe(1);
     expect(row!.newIntroducedToday).toBe(0);
   });
+
+  test('a filtered grade does not spend the last new introduction', async () => {
+    const { cookie, userId } = await signUpAndCookie(app, uniqueEmail('filtered'));
+    await callApp(app, 'GET', '/profile', { cookie });
+    const id = await deck(cookie, 'Solo');
+    await bind(userId, id, 'Solo', { newPerDay: 1 });
+    const [first, second] = await seedNew(cookie, id, 2, 'f');
+    expect((await callApp(app, 'POST', '/reviews', { cookie, body: { cardId: first, rating: 3, source: 'filtered' } })).status).toBe(200);
+    expect((await callApp(app, 'POST', '/reviews', { cookie, body: { cardId: second, rating: 3 } })).status).toBe(200);
+    const [row] = await db.select().from(profile).where(eq(profile.userId, userId));
+    expect(row!.newIntroducedToday).toBe(1);
+    expect((await queue(cookie, id)).new).toHaveLength(0);
+  });
+
+  test('undo returns the introduction to the deck budget', async () => {
+    const { cookie, userId } = await signUpAndCookie(app, uniqueEmail('undo'));
+    await callApp(app, 'GET', '/profile', { cookie });
+    const id = await deck(cookie, 'Solo');
+    await bind(userId, id, 'Solo', { newPerDay: 1 });
+    const [first, second] = await seedNew(cookie, id, 2, 'u');
+    expect((await callApp(app, 'POST', '/reviews', { cookie, body: { cardId: first, rating: 3 } })).status).toBe(200);
+    expect((await callApp(app, 'POST', '/reviews', { cookie, body: { cardId: second, rating: 3 } })).status).toBe(409);
+    expect((await callApp(app, 'POST', '/reviews/undo', { cookie })).status).toBe(200);
+    expect((await callApp(app, 'POST', '/reviews', { cookie, body: { cardId: second, rating: 3 } })).status).toBe(200);
+    const [row] = await db.select().from(profile).where(eq(profile.userId, userId));
+    expect(row!.newIntroducedToday).toBe(1);
+  });
 });

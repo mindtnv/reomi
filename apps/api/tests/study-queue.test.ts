@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { cards, db, profile } from '@reomi/db';
+import { cards, db, profile, reviews } from '@reomi/db';
 import { eq } from 'drizzle-orm';
 import { legacyOpenEpoch } from '@reomi/shared';
 import { buildApp } from '../src/app.ts';
@@ -15,6 +15,21 @@ function openUtcEpoch(label: string) {
 }
 
 const app = buildApp();
+
+async function recordSpend(userId: string, deckId: string, cardId: string, state: 'new' | 'review', count: number) {
+  if (!count) return;
+  await db.insert(reviews).values(Array.from({ length: count }, () => ({
+    userId,
+    cardId,
+    deckId,
+    rating: 3,
+    reviewedAt: new Date(),
+    nextDue: new Date(),
+    nextStability: 1,
+    nextDifficulty: 5,
+    undoSnapshot: { countsTowardBudget: true, card: { state }, profile: null } as never,
+  })));
+}
 
 async function setup() {
   const { cookie, userId } = await signUpAndCookie(app, uniqueEmail());
@@ -37,6 +52,7 @@ describe('study queue', () => {
     const today = new Date().toISOString().slice(0, 10);
     await db.update(profile).set({ reviewsDoneToday: 200, ...openUtcEpoch(today) })
       .where(eq(profile.userId, userId));
+    await recordSpend(userId, deckId, ids[2]!, 'review', 200);
     const result = await callApp(app, 'GET', '/cards/queue', { cookie });
     expect(result.status).toBe(200);
     const queue = await result.json<any>();
@@ -115,6 +131,8 @@ describe('study queue', () => {
     const today = new Date().toISOString().slice(0, 10);
     await db.update(profile).set({ newIntroducedToday: 20, reviewsDoneToday: 200, ...openUtcEpoch(today) })
       .where(eq(profile.userId, userId));
+    await recordSpend(userId, deckId, due.id, 'new', 20);
+    await recordSpend(userId, deckId, due.id, 'review', 200);
     const queue = await (await callApp(app, 'GET', '/cards/queue', { cookie })).json<any>();
     expect(queue.total).toBe(0);
     expect(queue.summary).toMatchObject({
