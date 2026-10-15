@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { eq } from 'drizzle-orm';
-import { cards as cardsTable, db, deckOptionsPreset, decks as decksTable } from '@neuronexus/db';
+import { cards as cardsTable, db, deckOptionsPreset, decks as decksTable } from '@reomi/db';
 import { buildApp } from '../src/app.ts';
 import {
   callApp,

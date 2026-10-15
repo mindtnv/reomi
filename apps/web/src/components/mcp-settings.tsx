@@ -64,7 +64,7 @@ export function McpSettings() {
     finally { mutationLock.current = false; setBusy(false); }
   };
   const endpoint = `${apiBase}/mcp`;
-  const command = `codex mcp add neuronexus --url ${JSON.stringify(endpoint)} --bearer-token-env-var NEURONEXUS_MCP_TOKEN`;
+  const command = `codex mcp add reomi --url ${JSON.stringify(endpoint)} --bearer-token-env-var REOMI_MCP_TOKEN`;
   return <section className="reomi-mcp-settings" aria-label={t('settings.mcp.title')} style={{ display: 'grid', gap: 16 }}>
     <p style={{ margin: 0, fontSize: 13, color: 'var(--text-dim)' }}>{t('settings.mcp.hint')}</p>
     {error && <div role="alert" style={{ color: 'var(--rose-400)', fontSize: 13 }}>{t('settings.mcp.error')} <NNBtn size="sm" onClick={refresh}>{t('settings.mcp.retry')}</NNBtn></div>}

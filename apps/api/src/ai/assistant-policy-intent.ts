@@ -1,5 +1,5 @@
 import type { Logger } from 'pino';
-import type { AssistantContextPolicy } from '@neuronexus/shared';
+import type { AssistantContextPolicy } from '@reomi/shared';
 import { complete } from './openai-client';
 export type AssistantPolicyIntent = { kind:'unchanged' } | { kind:'set'; policy:AssistantContextPolicy } | { kind:'selection_required' };
 // This only decides whether a structured check is needed; it never changes the

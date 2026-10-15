@@ -23,7 +23,7 @@ ensureTestDom();
 const { default: DOMPurify } = await import('dompurify');
 // Imported AFTER the DOM is registered so DOMPurify binds to the happy-dom window.
 const { renderCardHtml, renderCardHtmlWithMermaid, resanitize, sanitizeHtml } = await import('./render-card.tsx');
-import type { NoteTypeDef } from '@neuronexus/shared';
+import type { NoteTypeDef } from '@reomi/shared';
 
 // The EXACT config `render-card.tsx` uses to DOMPurify KaTeX output (plan A3/C-5).
 // `style` is permitted ONLY here; the TAG allowlist (`span` only) is the

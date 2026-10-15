@@ -5,7 +5,7 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { mkdtemp, mkdir, readFile, writeFile, copyFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { newUuidV7 } from '@neuronexus/shared';
+import { newUuidV7 } from '@reomi/shared';
 
 test('context migration preserves old transcripts and approvals, backfills notebooks, and detaches deleted context', async () => {
   const folder = join(import.meta.dir, 'migrations');

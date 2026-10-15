@@ -6,7 +6,7 @@ export const nextConfig: NextConfig = {
   ...(process.env.NODE_ENV === 'development' && process.env.DESIGN_HOST
     ? { allowedDevOrigins: [process.env.DESIGN_HOST] }
     : {}),
-  transpilePackages: ['@neuronexus/auth', '@neuronexus/shared', '@neuronexus/api'],
+  transpilePackages: ['@reomi/auth', '@reomi/shared', '@reomi/api'],
   // Produce a minimal runtime bundle at .next/standalone — consumed by the
   // web Dockerfile for a ~120 MB final image.
   output: 'standalone',

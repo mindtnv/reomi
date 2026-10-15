@@ -36,7 +36,7 @@ import yaml from 'highlight.js/lib/languages/yaml';
 import csharp from 'highlight.js/lib/languages/csharp';
 import cpp from 'highlight.js/lib/languages/cpp';
 import java from 'highlight.js/lib/languages/java';
-import { cardClozePlugin, cardMathPlugin, cardMediaPlugin, ClozeSyntaxError, MATH_RE, renderTemplate, type NoteTypeDef, type FieldValues } from '@neuronexus/shared';
+import { cardClozePlugin, cardMathPlugin, cardMediaPlugin, ClozeSyntaxError, MATH_RE, renderTemplate, type NoteTypeDef, type FieldValues } from '@reomi/shared';
 
 
 // ── Syntax highlighting (Step 6a, plan A2) ───────────────────────────────────

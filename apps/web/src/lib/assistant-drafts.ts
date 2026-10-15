@@ -1,10 +1,12 @@
-import { parseAssistantContext, type AssistantObjectSnapshot, type MessageAttachmentInput } from '@neuronexus/shared';
+import { parseAssistantContext, type AssistantObjectSnapshot, type MessageAttachmentInput } from '@reomi/shared';
 import type { AssistantConversation, AssistantSession } from './assistant-controller';
+import { currentStorageKey, readBrowserValue, writeBrowserValue, type MigratingStorage } from './storage-migration';
 
 export type AssistantDraftRecord = Pick<AssistantSession, 'key' | 'conversationId' | 'draft' | 'refs' | 'pins' | 'policy' | 'policySelection' | 'attachments' | 'model' | 'research' | 'queue'> & { conversation?: AssistantConversation };
 const MAX_BYTES = 1024 * 1024;
 export const MAX_ASSISTANT_DRAFTS = 10;
-export const assistantDraftStorageKey = (ownerId: string) => `nn:assistant:drafts:v1:${encodeURIComponent(ownerId)}`;
+const legacyAssistantDraftKey = (ownerId: string) => `nn:assistant:drafts:v1:${encodeURIComponent(ownerId)}`;
+export const assistantDraftStorageKey = (ownerId: string) => currentStorageKey(legacyAssistantDraftKey(ownerId));
 type Failure = { ok: false; error: 'draft_storage_invalid' | 'draft_storage_full' | 'draft_storage_unavailable' };
 const text = (value: unknown, max: number) => typeof value === 'string' && value.length <= max;
 function snapshots(value: unknown): value is AssistantObjectSnapshot[] {
@@ -38,9 +40,9 @@ function valid(records: unknown): records is AssistantDraftRecord[] {
       && Number.isSafeInteger(q.expectedRevision) && q.expectedRevision >= 0 && (q.model === undefined || text(q.model,200)));
   });
 }
-export function readAssistantDrafts(storage: Pick<Storage,'getItem'>, ownerId: string): { ok:true;records:AssistantDraftRecord[] } | Failure {
+export function readAssistantDrafts(storage: MigratingStorage, ownerId: string): { ok:true;records:AssistantDraftRecord[] } | Failure {
   try {
-    const raw = storage.getItem(assistantDraftStorageKey(ownerId));
+    const raw = readBrowserValue(storage, legacyAssistantDraftKey(ownerId));
     if (!raw) return {ok:true,records:[]};
     if (new TextEncoder().encode(raw).length > MAX_BYTES) return {ok:false,error:'draft_storage_full'};
     const data = JSON.parse(raw);
@@ -48,12 +50,12 @@ export function readAssistantDrafts(storage: Pick<Storage,'getItem'>, ownerId: s
     return {ok:true,records:data.records};
   } catch { return {ok:false,error:'draft_storage_unavailable'}; }
 }
-export function writeAssistantDrafts(storage: Pick<Storage,'setItem'>, ownerId: string, records: AssistantDraftRecord[]): {ok:true} | Failure {
+export function writeAssistantDrafts(storage: MigratingStorage, ownerId: string, records: AssistantDraftRecord[]): {ok:true} | Failure {
   if (records.length > MAX_ASSISTANT_DRAFTS) return {ok:false,error:'draft_storage_full'};
   if (!valid(records)) return {ok:false,error:'draft_storage_invalid'};
   try {
     const raw=JSON.stringify({version:1,ownerId,records});
     if (new TextEncoder().encode(raw).length>MAX_BYTES) return {ok:false,error:'draft_storage_full'};
-    storage.setItem(assistantDraftStorageKey(ownerId),raw); return {ok:true};
+    writeBrowserValue(storage, legacyAssistantDraftKey(ownerId), raw); return {ok:true};
   } catch { return {ok:false,error:'draft_storage_unavailable'}; }
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import type { UiActionReceipt } from '@neuronexus/shared';
+import type { UiActionReceipt } from '@reomi/shared';
 import { fetchUiActionOffers, getUiActionReceipt, undoUiActionRequest } from '@/lib/ui-actions-api';
 import { useNN } from '@/lib/store';
 import { useT } from '@/lib/i18n';

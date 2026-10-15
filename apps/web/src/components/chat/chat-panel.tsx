@@ -3,7 +3,7 @@
 // Existing route/notebook entry points share the shell-owned assistant runtime.
 // Transcript rendering lives in chat-presentation; no page owns a stream.
 import React from 'react';
-import type { SourceCitation } from '@neuronexus/shared';
+import type { SourceCitation } from '@reomi/shared';
 import { AssistantPageEntry, NotebookAssistantEntry } from './assistant-entry';
 
 export interface ComposerPrefillHandle {

@@ -30,9 +30,9 @@ import {
   notebookSources as notebookSourcesTable,
   sourceChunks as sourceChunksTable,
   sources as sourcesTable,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import { and, eq } from 'drizzle-orm';
-import { NOTE_CONTENT_MAX } from '@neuronexus/shared';
+import { NOTE_CONTENT_MAX } from '@reomi/shared';
 import { buildApp } from '../src/app.ts';
 import {
   __resetAiClientForTests,

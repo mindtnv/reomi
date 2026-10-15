@@ -2,7 +2,7 @@ import {
   MAX_ASSISTANT_CONCURRENT_TURNS, assistantRefKey, mergeAssistantSnapshots, newUuidV7, parseAssistantContext,
   type AssistantContextInput, type AssistantContextPolicy, type AssistantObjectSnapshot,
   type ChatResumeRequest, type MessageAttachmentInput,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import { applySummaryFrom, reconstructMessages, type MessageVM, type PersistedMessageRow, type ToolCallVM } from './chat-activity';
 import type { ChatStreamHandlers, ChatTurnOpts } from './chat-stream';
 import type { AssistantDraftRecord } from './assistant-drafts';

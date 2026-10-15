@@ -36,7 +36,7 @@
 //     token inside a field value (the cloze `{{c1::…}}` markup is the only
 //     double-brace form the engine expects). JSX single-brace `{x}` is fine.
 
-import { type Rating, type RenderKind } from '@neuronexus/shared';
+import { type Rating, type RenderKind } from '@reomi/shared';
 
 export type DeckColor = 'lime' | 'amber' | 'violet' | 'sky' | 'rose' | 'neutral';
 

@@ -17,7 +17,7 @@
 
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
 import { and, eq } from 'drizzle-orm';
-import { db, kbChunk } from '@neuronexus/db';
+import { db, kbChunk } from '@reomi/db';
 import { buildApp } from '../src/app.ts';
 import {
   __resetAiClientForTests,

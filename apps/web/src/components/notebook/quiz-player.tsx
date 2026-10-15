@@ -18,7 +18,7 @@
 //  Big touch targets (this is also an iPad surface); lime/rose verdicts.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { QuizContent, QuizQuestion } from '@neuronexus/shared';
+import type { QuizContent, QuizQuestion } from '@reomi/shared';
 import { NNBtn, NNIcon, NNSkeleton } from '@/components/ui';
 import { raiseToast } from '@/components/toasts';
 import { useLocale } from '@/lib/i18n';

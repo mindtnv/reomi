@@ -37,6 +37,7 @@ import type {
   SourceMark,
 } from '@/lib/types';
 import { useT } from '@/lib/i18n';
+import { readBrowserValue, writeBrowserValue } from '@/lib/storage-migration';
 import { transientLayers } from '@/lib/layer-stack';
 import { ActiveLayerScope, LayerParent, useTransientLayer } from '@/lib/use-transient-layer';
 import { useWcoTopInsets } from '@/lib/ui-store';
@@ -45,7 +46,7 @@ import { raiseToast } from '@/components/toasts';
 import { PdfReader, type PdfOutlineEntry, type PdfReaderHandle } from '@/components/pdf-reader/pdf-reader';
 import { TextChunkReader, type TextChunkReaderHandle } from '@/components/screens/text-reader';
 import { askAssistant } from '../chat/assistant-provider';
-import { ASSISTANT_CONTEXT_LIMITS } from '@neuronexus/shared';
+import { ASSISTANT_CONTEXT_LIMITS } from '@reomi/shared';
 import { buildMarkupMarkdown, downloadMarkdown } from '@/lib/markup-export';
 import { createReadingProgressWriter } from '@/lib/reading-progress';
 
@@ -190,7 +191,7 @@ export const SourceStudyWorkspace = ({ sourceId, initialLocation, origin }: Sour
         if (src.kind === 'pdf') {
           let stored: string | null = null;
           try {
-            stored = localStorage.getItem(`nn:nb:readermode:${src.id}`);
+            stored = readBrowserValue(localStorage, `nn:nb:readermode:${src.id}`);
           } catch {
             stored = null;
           }
@@ -226,7 +227,7 @@ export const SourceStudyWorkspace = ({ sourceId, initialLocation, origin }: Sour
               pendingPageRef.current = rs.page;
             } else {
               try {
-                const raw = localStorage.getItem(POS_KEY(sourceId));
+                const raw = readBrowserValue(localStorage, POS_KEY(sourceId));
                 if (raw) {
                   const { page } = JSON.parse(raw) as { page?: number };
                   if (typeof page === 'number' && page >= 1) {
@@ -250,7 +251,7 @@ export const SourceStudyWorkspace = ({ sourceId, initialLocation, origin }: Sour
         // sticks); a plain restore keeps the stored preference untouched.
         if (src.kind === 'pdf' && (markParam || pageParam || chunkParam || posParam)) {
           try {
-            localStorage.setItem(`nn:nb:readermode:${src.id}`, mode);
+            writeBrowserValue(localStorage, `nn:nb:readermode:${src.id}`, mode);
           } catch {
             /* best-effort */
           }
@@ -291,7 +292,7 @@ export const SourceStudyWorkspace = ({ sourceId, initialLocation, origin }: Sour
     (m: 'pdf' | 'text') => {
       setReaderMode(m);
       try {
-        localStorage.setItem(`nn:nb:readermode:${sourceId}`, m);
+        writeBrowserValue(localStorage, `nn:nb:readermode:${sourceId}`, m);
       } catch {
         /* best-effort */
       }
@@ -404,7 +405,7 @@ export const SourceStudyWorkspace = ({ sourceId, initialLocation, origin }: Sour
     setTocOpen((v) => {
       const next = !v;
       try {
-        localStorage.setItem(TOC_KEY(sourceId), next ? '1' : '0');
+        writeBrowserValue(localStorage, TOC_KEY(sourceId), next ? '1' : '0');
       } catch {
         /* best-effort */
       }
@@ -450,7 +451,7 @@ export const SourceStudyWorkspace = ({ sourceId, initialLocation, origin }: Sour
   useEffect(() => {
     if (!loaded || !source) return;
     try {
-      if (remembered?.fields.tocOpen === true || (remembered?.fields.tocOpen === undefined && localStorage.getItem(TOC_KEY(sourceId)) === '1')) {
+      if (remembered?.fields.tocOpen === true || (remembered?.fields.tocOpen === undefined && readBrowserValue(localStorage, TOC_KEY(sourceId)) === '1')) {
         setTocOpen(true);
         void ensureToc();
       }

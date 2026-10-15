@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { bigint, index, jsonb, pgTable, text, timestamp, uuid, uniqueIndex } from 'drizzle-orm/pg-core';
-import type { UiActionInverse, UiActionKind, UiActionTarget } from '@neuronexus/shared';
+import type { UiActionInverse, UiActionKind, UiActionTarget } from '@reomi/shared';
 import { user } from './auth';
 
 export const uiActionReceipts = pgTable('ui_action_receipts', {

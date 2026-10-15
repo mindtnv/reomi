@@ -262,6 +262,6 @@ test('type draft reload preserves template source and the original definition ve
     expect(readEditorDraft(scope)).not.toBeNull();
   } finally {
     await act(async () => root.render(null));
-    for (let i = localStorage.length - 1; i >= 0; i--) { const key = localStorage.key(i)!; if (key.startsWith('nn:editor-draft:')) localStorage.removeItem(key); }
+    for (let i = localStorage.length - 1; i >= 0; i--) { const key = localStorage.key(i)!; if (key.startsWith('nn:editor-draft:') || key.startsWith('reomi:editor-draft:')) localStorage.removeItem(key); }
   }
 });

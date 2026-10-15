@@ -14,7 +14,7 @@ import {
   notebookSources as notebookSourcesTable,
   sourceChunks as sourceChunksTable,
   sources as sourcesTable,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import { and, asc, eq } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import {

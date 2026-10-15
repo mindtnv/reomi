@@ -29,8 +29,8 @@ import {
   quizAttempts as attemptsTable,
   sourceChunks as sourceChunksTable,
   sources as sourcesTable,
-} from '@neuronexus/db';
-import type { QuizContent } from '@neuronexus/shared';
+} from '@reomi/db';
+import type { QuizContent } from '@reomi/shared';
 import { buildApp } from '../src/app.ts';
 import {
   __resetAiClientForTests,

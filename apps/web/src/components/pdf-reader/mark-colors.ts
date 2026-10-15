@@ -1,4 +1,4 @@
-import type { SourceMarkColor } from '@neuronexus/shared';
+import type { SourceMarkColor } from '@reomi/shared';
 
 export const MARK_COLOR_CSS: Record<SourceMarkColor, string> = {
   lime: 'var(--lime-500)', amber: 'var(--amber-400)', rose: 'var(--rose-400)',

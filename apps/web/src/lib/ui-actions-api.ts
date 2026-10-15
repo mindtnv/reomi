@@ -1,7 +1,8 @@
-import type { UiActionEnvelope, UiActionOffers, UiActionResult } from '@neuronexus/shared';
+import type { UiActionEnvelope, UiActionOffers, UiActionResult } from '@reomi/shared';
 import { apiBaseURL, apiErrorFromResponse, ApiError } from './api';
 import { useNN } from './store';
 import { acknowledgeInactiveDraft } from './acknowledge-inactive-draft';
+import { readBrowserValue, writeBrowserValue } from './storage-migration';
 
 const sessions = new Map<string, Promise<string>>();
 const volatileSessions = new Set<string>();
@@ -25,14 +26,14 @@ export function uiActionSession(owner: string): Promise<string> {
   if (!owned(owner)) return Promise.reject(new ApiError('owner_changed', { status: 409 }));
   const key = `nn:ui-actions:session:v1:${encodeURIComponent(owner)}`;
   try {
-    const stored = sessionStorage.getItem(key);
+    const stored = readBrowserValue(sessionStorage, key);
     if (stored && uuid.test(stored)) { const restored = Promise.resolve(stored); sessions.set(owner, restored); volatileSessions.delete(owner); return restored; }
   } catch { volatileSessions.add(owner); }
   const previous = sessions.get(owner);
   if (previous) { if (volatileSessions.has(owner)) notifyVolatile(owner); return previous; }
   const request = uiActionRequest<{ sessionId: string }>(owner, '/session', 'POST').then(value => {
     if (!uuid.test(value.sessionId) || !owned(owner)) throw new ApiError('owner_changed', { status: 409 });
-    try { sessionStorage.setItem(key, value.sessionId); volatileSessions.delete(owner); } catch {
+    try { writeBrowserValue(sessionStorage, key, value.sessionId); volatileSessions.delete(owner); } catch {
       volatileSessions.add(owner); notifyVolatile(owner);
     }
     return value.sessionId;

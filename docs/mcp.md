@@ -1,6 +1,6 @@
 # Connect your knowledge base through MCP
 
-NeuroNexus exposes **62 tools**, two resources and two prompts at the API's `/mcp` endpoint. It supports Streamable HTTP with JSON responses and personal bearer tokens. AI provider keys are optional: browsing, source-text reading and management work without them. Semantic search reports unavailable when embeddings are disabled.
+Reomi exposes **62 tools**, two resources and two prompts at the API's `/mcp` endpoint. It supports Streamable HTTP with JSON responses and personal bearer tokens. AI provider keys are optional: browsing, source-text reading and management work without them. Semantic search reports unavailable when embeddings are disabled.
 
 ## Create a personal token
 
@@ -9,28 +9,28 @@ Open **Settings → MCP & personal tokens** in the environment you want to use. 
 The list shows a non-secret prefix, permissions, expiration and last use. Revoke a token there to stop new requests. Up to 30 unexpired, unrevoked tokens can exist per account. The API permits 20 new tokens per hour per account. Tokens grant access exclusively to their owner's data and cannot create more tokens, export/delete the account, or authorize ordinary REST requests.
 
 - Local URL: `http://localhost:3000/mcp` → the local API's configured database.
-- Deployed URL after the [Reomi domain cutover](./reomi-domain-migration.md): `https://api.reomi.ru/mcp` → the deployed API's configured database. `https://api.neuronexus.mihailantonov.pro/mcp` remains a compatibility alias using the same tokens and scopes.
+- Canonical deployed URL: `https://api.reomi.ru/mcp` → the deployed API's configured database. The former API host is a removable alias and is not a supported endpoint. See [Reomi domain migration](./reomi-domain-migration.md).
 - The Settings URL is generated from `NEXT_PUBLIC_API_URL`. Local and production credentials are separate. A local token does not authorize production access.
 
 ## Codex
 
-Set `NEURONEXUS_MCP_TOKEN` securely in the environment of the client process, then:
+Set `REOMI_MCP_TOKEN` securely in the environment of the client process. `NEURONEXUS_MCP_TOKEN` remains a fallback when the Reomi variable is unset. Then:
 
 ```sh
-codex mcp add neuronexus --url http://localhost:3000/mcp --bearer-token-env-var NEURONEXUS_MCP_TOKEN
+codex mcp add reomi --url http://localhost:3000/mcp --bearer-token-env-var REOMI_MCP_TOKEN
 ```
 
 Use the deployed URL and a token generated there for production. Retain write approvals in the client:
 
 ```toml
-[mcp_servers.neuronexus]
+[mcp_servers.reomi]
 url = "http://localhost:3000/mcp"
-bearer_token_env_var = "NEURONEXUS_MCP_TOKEN"
+bearer_token_env_var = "REOMI_MCP_TOKEN"
 default_tools_approval_mode = "writes"
 tool_timeout_sec = 60
 ```
 
-Desktop applications may not inherit shell startup variables. For clients supporting `http_headers_helper`, use a local command that reads a private token file and writes only `{"Authorization":"Bearer ..."}` to its stdout. Alternatively use the stdio bridge below with `NEURONEXUS_MCP_TOKEN_FILE`; no environment inheritance or inline secret is needed. Restart/reconnect the MCP server after changing configuration. An already-running agent's tool catalog may require a new task or client restart.
+Desktop applications may not inherit shell startup variables. For clients supporting `http_headers_helper`, use a local command that reads a private token file and writes only `{"Authorization":"Bearer ..."}` to its stdout. Alternatively use the stdio bridge below with `REOMI_MCP_TOKEN_FILE` (`NEURONEXUS_MCP_TOKEN_FILE` remains a fallback); no environment inheritance or inline secret is needed. Restart/reconnect the MCP server after changing configuration. An already-running agent's tool catalog may require a new task or client restart.
 
 See the [official Codex MCP documentation](https://learn.chatgpt.com/docs/extend/mcp?surface=cli) and [configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference).
 
@@ -43,12 +43,12 @@ The repository includes an SDK-based stdio bridge. Install dependencies with Bun
 ```json
 {
   "mcpServers": {
-    "neuronexus": {
+    "reomi": {
       "command": "/absolute/path/to/bun",
-      "args": ["/absolute/path/to/neuronexus/apps/api/scripts/mcp-stdio.ts"],
+      "args": ["/absolute/path/to/reomi/apps/api/scripts/mcp-stdio.ts"],
       "env": {
-        "NEURONEXUS_MCP_URL": "http://localhost:3000/mcp",
-        "NEURONEXUS_MCP_TOKEN_FILE": "/absolute/private/path/neuronexus-token"
+        "REOMI_MCP_URL": "http://localhost:3000/mcp",
+        "REOMI_MCP_TOKEN_FILE": "/absolute/private/path/reomi-token"
       }
     }
   }
@@ -75,7 +75,7 @@ Notebook-scoped chat tools (`search_source`, `read_source`, `list_marked_passage
 
 Source-owned study work does not require a notebook. Source-list tools take the live source ID; direct `get_source_note` / `get_source_artifact` reads take the study object's ID and remain available after its source is deleted. Follow the returned offset and content version for bounded reads. Retained content keeps its historical source origin; it does not grant access to a deleted or foreign source. `save_source_note` uses the same stored preview and explicit `confirm_action` protocol as other writes. Existing notebook-scoped MCP adapters retain their `notebookId` requirement, even though the in-app assistant now has a unified context-aware catalog.
 
-The two resources are `neuronexus://guide` (workflow and safety rules) and `neuronexus://connection` (current scope and tool count). Prompts are `research_knowledge` (requires `question`) and `study_plan`.
+The listed resources are `reomi://guide` (workflow and safety rules) and `reomi://connection` (current scope and tool count). A read of the former `neuronexus://guide` or `neuronexus://connection` URI returns the same body and the same scope. Unknown URIs return an error and no account data. Personal tokens still use the `nn_pat_` prefix. Prompts are `research_knowledge` (requires `question`) and `study_plan`.
 
 Binary upload, account/security administration, grading/undo, source-file deletion and paid artifact-generation workflows are intentionally outside this catalog. Existing app interfaces remain available for those operations. Add new write tools only when they have a meaningful preview, ownership validation and transactional execution.
 
@@ -92,8 +92,8 @@ A bearer credential is a delegated capability. The server cannot prove that an e
 ## Verify a connection
 
 ```sh
-NEURONEXUS_MCP_URL=http://localhost:3000/mcp \
-NEURONEXUS_MCP_TOKEN_FILE=/absolute/private/path/neuronexus-token \
+REOMI_MCP_URL=http://localhost:3000/mcp \
+REOMI_MCP_TOKEN_FILE=/absolute/private/path/reomi-token \
 bun run mcp:smoke
 ```
 

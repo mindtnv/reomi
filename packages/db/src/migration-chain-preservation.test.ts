@@ -5,7 +5,7 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { mkdtemp, mkdir, readFile, writeFile, copyFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { newUuidV7 } from '@neuronexus/shared';
+import { newUuidV7 } from '@reomi/shared';
 
 const TRIGGER_NAMES = [
   'sources_metadata_revision',

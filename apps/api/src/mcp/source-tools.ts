@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { and, count, eq } from 'drizzle-orm';
-import { db, notebooks, notebookSources, sources, type Source } from '@neuronexus/db';
+import { db, notebooks, notebookSources, sources, type Source } from '@reomi/db';
 import { insertInlineSource, enqueueInlineSource, MAX_INLINE_TEXT } from '../modules/sources-shared.ts';
 import { env, embeddingEnabled } from '../env.ts';
 import { McpToolError, type KnowledgeTool } from './types.ts';

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { typedAnswerField, type NoteConversionInput, type NoteConversionPreview } from '@neuronexus/shared';
+import { typedAnswerField, type NoteConversionInput, type NoteConversionPreview } from '@reomi/shared';
 import { useNN } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { api, ApiError, ok } from '@/lib/api';

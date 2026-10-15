@@ -2,7 +2,7 @@ import { ensureTestDom, GlobalRegistrator } from '../../lib/test-dom-setup';
 import { afterAll, afterEach, beforeEach, expect, test } from 'bun:test';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
-import type { AssistantObjectRef } from '@neuronexus/shared';
+import type { AssistantObjectRef } from '@reomi/shared';
 
 ensureTestDom();
 const { createRoot } = await import('react-dom/client');

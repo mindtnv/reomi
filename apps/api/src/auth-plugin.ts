@@ -8,7 +8,7 @@
 //     .get('/me', ({ user }) => user, { auth: true })
 
 import { Elysia } from 'elysia';
-import { auth } from '@neuronexus/auth/server';
+import { auth } from '@reomi/auth/server';
 import { internalReadUser } from './mcp/internal-read.ts';
 
 export const authPlugin = new Elysia({ name: 'better-auth' })

@@ -3,6 +3,7 @@
 import { useNavigationScroll, NavigationRestoreNotice } from '@/lib/use-navigation-scroll';
 import { NNIcon } from '@/components/ui';
 import { PdfPageVisibility } from '@/lib/pdf-page-visibility';
+import { readBrowserValue, writeBrowserValue } from '@/lib/storage-migration';
 
 // M4 — native PDF reader. Renders the ORIGINAL PDF client-side with pdf.js
 // (dynamically imported — never SSR'd), continuous vertical pages, Intersection
@@ -31,8 +32,8 @@ import React, {
   useState,
 } from 'react';
 import { useAppNavigation, useNavigationWorkspace, useWorkspaceState } from '@/components/navigation';
-import type { InkStroke, MarkRect, PageAnnotations, SourceMarkColor } from '@neuronexus/shared';
-import { ANNOTATION_MAX_STROKES, MARKED_TEXT_MAX } from '@neuronexus/shared';
+import type { InkStroke, MarkRect, PageAnnotations, SourceMarkColor } from '@reomi/shared';
+import { ANNOTATION_MAX_STROKES, MARKED_TEXT_MAX } from '@reomi/shared';
 import { extractMarkedText, textItemBBox, type PdfTextItem } from '@/lib/pdf-ink';
 import { destroyPdfResources } from '@/lib/pdf-task-cleanup';
 import {
@@ -459,7 +460,7 @@ export const PdfReader = forwardRef<PdfReaderHandle, PdfReaderProps>(
           const fit = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, (containerW - 48) / vp1.width));
           setFitScale(fit);
           let preferredScale=fit;
-          try{const saved=JSON.parse(localStorage.getItem(POS_KEY(sourceId))??'null');if(typeof saved?.scale==='number'&&saved.scale>=ZOOM_MIN&&saved.scale<=ZOOM_MAX)preferredScale=saved.scale;}catch{}
+          try{const saved=JSON.parse(readBrowserValue(localStorage,POS_KEY(sourceId))??'null');if(typeof saved?.scale==='number'&&saved.scale>=ZOOM_MIN&&saved.scale<=ZOOM_MAX)preferredScale=saved.scale;}catch{}
           setScale(preferredScale);
 
           // L3 — surface doc metadata + a lazy page-1 cover renderer ONCE so the
@@ -576,7 +577,7 @@ export const PdfReader = forwardRef<PdfReaderHandle, PdfReaderProps>(
       if (posSaveTimer.current) clearTimeout(posSaveTimer.current);
       posSaveTimer.current = setTimeout(() => {
         try {
-          localStorage.setItem(POS_KEY(sourceId), JSON.stringify({ page: currentPage, scale }));
+          writeBrowserValue(localStorage, POS_KEY(sourceId), JSON.stringify({ page: currentPage, scale }));
         } catch {
           /* best-effort */
         }
@@ -599,7 +600,7 @@ export const PdfReader = forwardRef<PdfReaderHandle, PdfReaderProps>(
         return;
       }
       try {
-        const raw = localStorage.getItem(POS_KEY(sourceId));
+        const raw = readBrowserValue(localStorage, POS_KEY(sourceId));
         if (raw) {
           const { page, scale: storedScale } = JSON.parse(raw) as { page?: number; scale?: number };
           if (typeof storedScale === 'number' && storedScale >= ZOOM_MIN && storedScale <= ZOOM_MAX) {

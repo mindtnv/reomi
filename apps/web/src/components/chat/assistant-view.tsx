@@ -6,11 +6,12 @@ import { NotebookScopePicker } from './notebook-scope-picker';
 import { answerNoteDestinations, type AnswerNoteDestination } from '@/lib/answer-note-destinations';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ASSISTANT_CONTEXT_LIMITS, assistantRefKey, mergeAssistantSnapshots, isSourceCitation, MAX_MEDIA_BYTES, MEDIA_MIME_ALLOWLIST, type AssistantObjectSnapshot, type SourceCitation } from '@neuronexus/shared';
+import { ASSISTANT_CONTEXT_LIMITS, assistantRefKey, mergeAssistantSnapshots, isSourceCitation, MAX_MEDIA_BYTES, MEDIA_MIME_ALLOWLIST, type AssistantObjectSnapshot, type SourceCitation } from '@reomi/shared';
 import { useAssistant, useAssistantSnapshot } from './assistant-provider';
 import { ContextPicker, type ContextPickerHandle } from './context-picker';
 import { MessageRow, ConfirmationAvailability, ModelPicker, ResearchToggle, stripCardTokens } from './chat-presentation';
 import { CHAT_RAIL, readChatRailWidth } from '@/lib/panel-width';
+import { writeBrowserValue } from '@/lib/storage-migration';
 import { ThreadRail } from './thread-rail';
 import { SlashMenu } from './mention-popover';
 import { ChatUnavailable } from './chat-unavailable';
@@ -348,8 +349,8 @@ function AssistantConversationView({ sessionKey, locale }: { sessionKey: string;
           <NNBtn variant="ghost" size="sm" icon="plus" ariaLabel={t('chat.composer.attach')} disabled={disabled} onClick={() => files.current?.click()}/>
           <NNBtn variant="ghost" size="sm" disabled={disabled} ariaLabel={t('assistant.addContext')} title={t('assistant.addMaterialHint',{count:mergeAssistantSnapshots(session.pins,session.refs).length})} onClick={() => { textarea.current?.focus(); caret.current=session.draft.length; setTrigger({ kind:'mention',query:'',start:session.draft.length }); }}>@</NNBtn>
           <span style={{flex:1}}/>
-          {!!a.status?.models.length && <ModelPicker models={a.status.models} value={session.model ?? null} onSelect={id => { a.controller.setModel(sessionKey,id); try {localStorage.setItem('nn:chat:model',id);} catch{} }} t={t}/>}
-          {a.status?.fetchPageEnabled && <ResearchToggle active={session.research} onToggle={() => { a.controller.setResearch(sessionKey,!session.research); try{localStorage.setItem('nn:chat:research',!session.research?'1':'0');}catch{} }} t={t}/>}
+          {!!a.status?.models.length && <ModelPicker models={a.status.models} value={session.model ?? null} onSelect={id => { a.controller.setModel(sessionKey,id); try {writeBrowserValue(localStorage,'nn:chat:model',id);} catch{} }} t={t}/>}
+          {a.status?.fetchPageEnabled && <ResearchToggle active={session.research} onToggle={() => { a.controller.setResearch(sessionKey,!session.research); try{writeBrowserValue(localStorage,'nn:chat:research',!session.research?'1':'0');}catch{} }} t={t}/>}
           {session.busy && <NNBtn variant="soft" size="sm" icon="stop" ariaLabel={t('chat.composer.stop')} onClick={() => a.controller.stop(sessionKey)}/>}
           <NNBtn variant="primary" size="sm" icon="send" ariaLabel={t('assistant.send')} disabled={disabled || (!session.draft.trim() && !session.attachments.length)} onClick={() => void a.controller.send(sessionKey)}/>
         </div>

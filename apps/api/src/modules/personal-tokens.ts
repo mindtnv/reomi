@@ -1,6 +1,6 @@
 import { Elysia, t } from 'elysia';
 import { and, count, desc, eq, gt, isNull, sql } from 'drizzle-orm';
-import { db, personalAccessTokens, user as users } from '@neuronexus/db';
+import { db, personalAccessTokens, user as users } from '@reomi/db';
 import { authPlugin } from '../auth-plugin.ts';
 import { newPersonalToken, tokenMetadata } from '../mcp/tokens.ts';
 import { env } from '../env.ts';

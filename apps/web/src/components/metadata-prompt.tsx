@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import type { UiActionResult } from '@neuronexus/shared';
+import type { UiActionResult } from '@reomi/shared';
 import { RecoverableSave } from '@/lib/recoverable-save';
 import { saveUiAction, getUiActionReceipt } from '@/lib/ui-actions-api';
 import { useNN } from '@/lib/store';

@@ -25,8 +25,8 @@ import {
   messages as messagesTable,
   noteTypes as noteTypesTable,
   notes as notesTable,
-} from '@neuronexus/db';
-import { BUILTIN_NOTE_TYPES } from '@neuronexus/shared';
+} from '@reomi/db';
+import { BUILTIN_NOTE_TYPES } from '@reomi/shared';
 import { asc, eq } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import {

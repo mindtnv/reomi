@@ -39,7 +39,7 @@ import {
   type ArtifactErrorCode,
   type ArtifactStatus,
   type NotebookArtifactType,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import { NNBtn, NNCard, NNIcon, NNSkeleton } from '@/components/ui';
 import { useDialog } from '@/components/dialog';
 import { raiseToast } from '@/components/toasts';

@@ -19,12 +19,12 @@ import {
   sources,
   type Db,
   type Source,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import {
   newUuidV7,
   SOURCE_MIME_TO_KIND,
   type SourceMime,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import { env } from '../env.ts';
 import { logCorrelation, rootLogger } from '../logger.ts';
 import type { Logger } from 'pino';

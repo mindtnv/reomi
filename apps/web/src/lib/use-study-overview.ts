@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect } from 'react';
-import type { StudyOverview } from '@neuronexus/shared';
+import type { StudyOverview } from '@reomi/shared';
 import { api, ok } from './api';
 import { useSessionResource } from './session-resource';
 import { useNN } from './store';

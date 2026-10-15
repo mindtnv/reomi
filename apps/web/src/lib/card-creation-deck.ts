@@ -1,4 +1,4 @@
-import { parseCardQuery, type CardQueryNode } from '@neuronexus/shared';
+import { parseCardQuery, type CardQueryNode } from '@reomi/shared';
 import { deckPathLabel } from './decks';
 import type { Deck } from './types';
 

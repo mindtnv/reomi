@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { OperationObserver } from './operation-observer';
-import type { OperationsFeed, OperationItem } from '@neuronexus/shared';
+import type { OperationsFeed, OperationItem } from '@reomi/shared';
 
 const row: OperationItem = { id: 'book', runId: 'run', kind: 'source', title: 'Book', artifactType: null,
   phase: 'parsing', canRead: false, canSearch: false, progress: null, startedAt: null, finishedAt: null,

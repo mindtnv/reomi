@@ -6,7 +6,7 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { mkdtemp, mkdir, readFile, writeFile, copyFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { newUuidV7 } from '@neuronexus/shared';
+import { newUuidV7 } from '@reomi/shared';
 
 for (const storedHash of [null, 'hash \"quoted\" \\ value'] as const) test(`legacy backlink migration preserves evidence with ${storedHash === null ? 'null' : 'string'} source hashes`, async () => {
   const folder = join(import.meta.dir, 'migrations');

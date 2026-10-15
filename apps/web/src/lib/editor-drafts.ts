@@ -1,4 +1,5 @@
-import { newUuidV7 } from '@neuronexus/shared';
+import { newUuidV7 } from '@reomi/shared';
+import { currentStorageKey, readBrowserValue, removeBrowserValue, writeBrowserValue } from './storage-migration';
 
 export const MAX_DRAFT_BYTES = 256 * 1024;
 export const MAX_DRAFTS = 10;
@@ -9,8 +10,35 @@ type DraftStorage = Pick<Storage, 'length' | 'key' | 'getItem' | 'setItem' | 're
 export class DraftStorageError extends Error {
   constructor(readonly code: 'unavailable' | 'invalid' | 'too_large' | 'capacity' | 'changed') { super(code); }
 }
-const prefix = (owner: string) => `nn:editor-draft:1:${encodeURIComponent(owner)}:`;
-export const editorDraftKey = (scope: DraftScope) => `${prefix(scope.ownerId)}${scope.kind}:${encodeURIComponent(scope.entityId)}`;
+const legacyPrefix = (owner: string) => `nn:editor-draft:1:${encodeURIComponent(owner)}:`;
+const currentPrefix = (owner: string) => currentStorageKey(legacyPrefix(owner));
+const legacyDraftKey = (scope: DraftScope) => `${legacyPrefix(scope.ownerId)}${scope.kind}:${encodeURIComponent(scope.entityId)}`;
+export const editorDraftKey = (scope: DraftScope) => currentStorageKey(legacyDraftKey(scope));
+const logicalDraftId = (scope: DraftScope) => `${scope.kind}:${encodeURIComponent(scope.entityId)}`;
+function parseDraftCandidate(ownerId: string, candidate: string): DraftScope | null {
+  const current = candidate.startsWith(currentPrefix(ownerId));
+  const legacy = candidate.startsWith(legacyPrefix(ownerId));
+  if (!current && !legacy) return null;
+  const parts = candidate.slice((current ? currentPrefix(ownerId) : legacyPrefix(ownerId)).length).split(':');
+  if (parts.length !== 2 || !['note', 'type', 'study-note'].includes(parts[0]!)) return null;
+  try { return { ownerId, kind: parts[0] as DraftScope['kind'], entityId: decodeURIComponent(parts[1]!) }; } catch { return null; }
+}
+function draftSlots(store: DraftStorage, ownerId: string): Map<string, DraftScope> {
+  const slots = new Map<string, DraftScope>();
+  const tombstones = new Set<string>();
+  for (let i = 0; i < store.length; i++) {
+    const candidate = store.key(i);
+    if (!candidate) continue;
+    const scope = parseDraftCandidate(ownerId, candidate);
+    if (!scope) continue;
+    const id = logicalDraftId(scope);
+    if (candidate.startsWith(currentPrefix(ownerId)) && store.getItem(candidate) === '') { tombstones.add(id); slots.delete(id); continue; }
+    if (tombstones.has(id)) continue;
+    if (!slots.has(id) || candidate.startsWith(currentPrefix(ownerId))) slots.set(id, scope);
+  }
+  for (const id of tombstones) slots.delete(id);
+  return slots;
+}
 function backend(storage?: DraftStorage): DraftStorage {
   try { return storage ?? localStorage; } catch { throw new DraftStorageError('unavailable'); }
 }
@@ -23,7 +51,11 @@ function guarded<T>(run: () => T): T {
 export function readEditorDraft<T = unknown>(scope: DraftScope, storage?: DraftStorage): EditorDraft<T> | null {
   return guarded(() => {
     if (!scope.ownerId || !scope.entityId) return null;
-    const raw = backend(storage).getItem(editorDraftKey(scope));
+    const store = backend(storage);
+    const legacy = legacyDraftKey(scope);
+    store.getItem(currentStorageKey(legacy));
+    store.getItem(legacy);
+    const raw = readBrowserValue(store, legacy);
     if (!raw) return null;
     if (new TextEncoder().encode(raw).byteLength > MAX_DRAFT_BYTES) throw new DraftStorageError('invalid');
     let entry: EditorDraft<T>;
@@ -44,14 +76,15 @@ export function writeEditorDraft<T extends object>(scope: DraftScope, value: T, 
     const bytes = new TextEncoder().encode(raw).byteLength;
     if (bytes > MAX_DRAFT_BYTES) throw new DraftStorageError('too_large');
     let count = 0; let total = bytes;
-    for (let i = 0; i < store.length; i++) {
-      const candidate = store.key(i);
-      if (!candidate?.startsWith(prefix(scope.ownerId)) || candidate === editorDraftKey(scope)) continue;
+    for (const other of draftSlots(store, scope.ownerId).values()) {
+      if (logicalDraftId(other) === logicalDraftId(scope)) continue;
+      const occupied = readBrowserValue(store, legacyDraftKey(other));
+      if (!occupied) continue;
       count++;
-      total += new TextEncoder().encode(store.getItem(candidate) ?? '').byteLength;
+      total += new TextEncoder().encode(occupied).byteLength;
     }
     if (count >= MAX_DRAFTS || total > MAX_OWNER_BYTES) throw new DraftStorageError('capacity');
-    store.setItem(editorDraftKey(scope), raw);
+    writeBrowserValue(store, legacyDraftKey(scope), raw);
     return record;
   });
 }
@@ -61,7 +94,7 @@ export function clearEditorDraft(scope: DraftScope, expectedRevision: string | n
     const store = backend(storage);
     const current = readEditorDraft(scope, store);
     if ((current?.revision ?? null) !== expectedRevision) return false;
-    store.removeItem(editorDraftKey(scope));
+    removeBrowserValue(store, legacyDraftKey(scope));
     return true;
   });
 }
@@ -75,7 +108,7 @@ export function draftFingerprint(value: unknown): string {
 export function clearInvalidEditorDraft(scope: DraftScope): void {
   guarded(() => {
     try { readEditorDraft(scope); } catch (error) {
-      if (error instanceof DraftStorageError && error.code === 'invalid') { backend().removeItem(editorDraftKey(scope)); return; }
+      if (error instanceof DraftStorageError && error.code === 'invalid') { removeBrowserValue(backend(), legacyDraftKey(scope)); return; }
       throw error;
     }
   });
@@ -87,13 +120,7 @@ export function listEditorDrafts(ownerId: string, storage?: DraftStorage): Draft
   return guarded(() => {
     if (!ownerId) return [];
     const store = backend(storage); const entries: DraftListEntry[] = [];
-    for (let i = 0; i < store.length; i++) {
-      const candidate = store.key(i);
-      if (!candidate?.startsWith(prefix(ownerId))) continue;
-      const parts = candidate.slice(prefix(ownerId).length).split(':');
-      if (parts.length !== 2 || !['note', 'type', 'study-note'].includes(parts[0]!)) continue;
-      let entityId: string; try { entityId = decodeURIComponent(parts[1]!); } catch { continue; }
-      const scope: DraftScope = { ownerId, kind: parts[0] as DraftScope['kind'], entityId };
+    for (const scope of draftSlots(store, ownerId).values()) {
       try { entries.push({ scope, record: readEditorDraft(scope, store) }); }
       catch (error) { if (error instanceof DraftStorageError && error.code === 'invalid') entries.push({ scope, record: null }); else throw error; }
     }
@@ -101,10 +128,15 @@ export function listEditorDrafts(ownerId: string, storage?: DraftStorage): Draft
   });
 }
 
+export function editorDraftDownload(value: unknown, kind: DraftScope['kind']): { filename: string; body: string } {
+  return { filename: `reomi-${kind}-draft.json`, body: JSON.stringify(value, null, 2) };
+}
+
 /** Download the current in-memory value as well as already persisted drafts. */
 export function downloadEditorDraft(value: unknown, kind: DraftScope['kind']): void {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }));
+  const file = editorDraftDownload(value, kind);
+  const url = URL.createObjectURL(new Blob([file.body], { type: 'application/json' }));
   try {
-    const link = document.createElement('a'); link.href = url; link.download = `neuronexus-${kind}-draft.json`; link.click();
+    const link = document.createElement('a'); link.href = url; link.download = file.filename; link.click();
   } finally { URL.revokeObjectURL(url); }
 }

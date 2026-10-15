@@ -1,7 +1,7 @@
 import { beforeEach, expect, test } from 'bun:test';
-import { db, conversations, messages, notebooks, notebookNotes, notebookArtifacts, notes, noteTypes } from '@neuronexus/db';
+import { db, conversations, messages, notebooks, notebookNotes, notebookArtifacts, notes, noteTypes } from '@reomi/db';
 import { eq } from 'drizzle-orm';
-import { newUuidV7, type AssistantContextSnapshot } from '@neuronexus/shared';
+import { newUuidV7, type AssistantContextSnapshot } from '@reomi/shared';
 import { buildToolRegistry, type ToolContext } from '../src/ai/tools';
 import { rootLogger } from '../src/logger';
 import { buildApp } from '../src/app';

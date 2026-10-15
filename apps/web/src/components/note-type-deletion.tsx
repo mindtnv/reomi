@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { NoteTypeDeletionPreview } from '@neuronexus/shared';
+import type { NoteTypeDeletionPreview } from '@reomi/shared';
 import { api, ApiError, ok } from '@/lib/api';
 import { useNN } from '@/lib/store';
 import { useT } from '@/lib/i18n';

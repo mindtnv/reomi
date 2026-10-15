@@ -10,7 +10,7 @@
 
 import { Elysia, t } from 'elysia';
 import { and, eq } from 'drizzle-orm';
-import { cards, db } from '@neuronexus/db';
+import { cards, db } from '@reomi/db';
 import { authPlugin } from '../auth-plugin.ts';
 import { similarCards } from '../ai/similar.ts';
 import { semanticEdges } from '../ai/semantic-edges.ts';

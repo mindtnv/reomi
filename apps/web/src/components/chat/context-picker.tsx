@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import {visibleAssistantViewport} from '@/lib/assistant-overlay-geometry';
 import { LayerParent, useTransientLayer } from '@/lib/use-transient-layer';
 import { createPortal } from 'react-dom';
-import { ASSISTANT_OBJECT_KINDS, assistantRefKey, type AssistantObjectKind, type AssistantObjectSnapshot } from '@neuronexus/shared';
+import { ASSISTANT_OBJECT_KINDS, assistantRefKey, type AssistantObjectKind, type AssistantObjectSnapshot } from '@reomi/shared';
 import { assistantApi, ok } from '@/lib/api';
 import { NNBtn, NNIcon } from '@/components/ui';
 import { useT } from '@/lib/i18n';

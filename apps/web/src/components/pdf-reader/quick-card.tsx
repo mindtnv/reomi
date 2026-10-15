@@ -21,12 +21,13 @@ import { NNSelect, type NNSelectOption } from '@/components/nn-select';
 import { quickCard, suggestCard } from '@/lib/pdf-annotations';
 import { raiseToast } from '@/components/toasts';
 import type { Deck, QuickCardResult } from '@/lib/types';
-import type { MarkRect, SourceTextSelection } from '@neuronexus/shared';
+import type { MarkRect, SourceTextSelection } from '@reomi/shared';
 import { LayerParent, useTransientLayer } from '@/lib/use-transient-layer';
 import { useModalFocus } from '@/lib/use-modal-focus';
 import { useNavigationGuard } from '@/components/navigation';
 import { useDialog } from '@/components/dialog';
 import { InlineDeckCreate } from '../inline-deck-create';
+import { readBrowserValue, writeBrowserValue } from '@/lib/storage-migration';
 
 const DECK_KEY = 'nn:nb:quickdeck';
 
@@ -102,7 +103,7 @@ export function QuickCardDialog({
     setSuggestError(false);
     setSubmitError(false);
     try {
-      const saved = localStorage.getItem(DECK_KEY);
+      const saved = readBrowserValue(localStorage, DECK_KEY);
       if (saved && decks.some((d: Deck) => d.id === saved)) {
         setDeckId(saved);
       } else if (decks.length > 0) {
@@ -119,7 +120,7 @@ export function QuickCardDialog({
 
   const handleDeckChange = useCallback((id: string) => {
     setDeckId(id);
-    try { localStorage.setItem(DECK_KEY, id); } catch { /* ignore */ }
+    try { writeBrowserValue(localStorage, DECK_KEY, id); } catch { /* ignore */ }
   }, []);
 
   const handleFormulate = useCallback(async () => {

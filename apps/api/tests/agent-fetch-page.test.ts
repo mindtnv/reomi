@@ -8,7 +8,7 @@
 // being absent when the reader is forced off.
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { db, ensureBuiltins } from '@neuronexus/db';
+import { db, ensureBuiltins } from '@reomi/db';
 import { buildApp } from '../src/app.ts';
 import {
   __resetAiClientForTests,

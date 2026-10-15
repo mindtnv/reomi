@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { ANKI_DEFAULTS } from '@neuronexus/shared';
-import type { Deck, DeckOptionsPreset, Profile } from '@neuronexus/db';
+import { ANKI_DEFAULTS } from '@reomi/shared';
+import type { Deck, DeckOptionsPreset, Profile } from '@reomi/db';
 import {
   DEFAULT_NEW_PER_DAY,
   DEFAULT_REVIEWS_PER_DAY,

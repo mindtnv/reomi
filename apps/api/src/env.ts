@@ -58,7 +58,7 @@ export const env = {
     // Optional model allow-list (CSV `model[|label]`, first=default) for the
     // per-turn reasoning/model picker. Unset ⇒ the picker is hidden and chat
     // uses CHAT_MODEL exactly as today (degrade — NO required()). Parsed via
-    // `parseChatModels` from @neuronexus/shared; only the parsed {id,label,
+    // `parseChatModels` from @reomi/shared; only the parsed {id,label,
     // default} is ever exposed via /ai/status — never the key/base URL.
     CHAT_MODELS: process.env.CHAT_MODELS,
     // Lets ops pause indexing independently of chat (default on).
@@ -173,7 +173,7 @@ export const env = {
     // ── PDF reader annotations (M4) — OPTIONAL ───────────────────────────────
     // Byte cap on one page's ink strokes (JSON.stringify(body.strokes) length).
     // Over it ⇒ PUT 400 `annotation_too_large` (DoS guard alongside the
-    // per-page stroke/point caps in @neuronexus/shared). Default 512 KiB.
+    // per-page stroke/point caps in @reomi/shared). Default 512 KiB.
     SOURCE_ANNOTATION_MAX_BYTES: Number(
       process.env.SOURCE_ANNOTATION_MAX_BYTES ?? 512 * 1024,
     ),

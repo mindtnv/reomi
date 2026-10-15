@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
-import { db, messages, notebookNotes, notebookArtifacts, notes, noteTypes } from '@neuronexus/db';
+import { db, messages, notebookNotes, notebookArtifacts, notes, noteTypes } from '@reomi/db';
 import { z } from 'zod';
 import { resolveAssistantRefs } from './assistant-context';
 import { env } from '../env';

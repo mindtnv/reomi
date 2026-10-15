@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { newUuidV7, OPERATION_GROUPS, type OperationItem, type OperationRetryInput } from '@neuronexus/shared';
+import { newUuidV7, OPERATION_GROUPS, type OperationItem, type OperationRetryInput } from '@reomi/shared';
 import { useNN } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { resolveOperationHref, OperationRequestError, requestOperationRetry } from '@/lib/operations-api';

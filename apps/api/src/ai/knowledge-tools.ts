@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
-import { db, user, notebooks, decks } from '@neuronexus/db';
+import { db, user, notebooks, decks } from '@reomi/db';
 import { env } from '../env.ts';
 import { safeError } from '../logger.ts';
 import { readTools } from '../mcp/reads.ts';

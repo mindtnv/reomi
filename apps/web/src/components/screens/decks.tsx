@@ -4,7 +4,7 @@ import { restoreLayerFocus } from '@/lib/use-transient-layer';
 
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import type { DeckPlacement } from '@neuronexus/shared';
+import type { DeckPlacement } from '@reomi/shared';
 import { AppLink, useAppNavigation, useNavigationWorkspace, useWorkspaceState, useWorkspaceSet } from '@/components/navigation';
 import { Modal } from '@/components/design-system/modal';
 import { TextInput, Field, PageSurface } from '@/components/design-system/primitives';
@@ -30,6 +30,7 @@ import { useDialog } from '@/components/dialog';
 import { raiseToast } from '@/components/toasts';
 import { filterDeckTree } from '@/lib/deck-filter';
 import { buildDeckTree, flattenTree, deckPathLabel, canBeParentOf } from '@/lib/decks';
+import { readBrowserValue, writeBrowserValue } from '@/lib/storage-migration';
 
 import { useNavigationScroll, NavigationRestoreNotice } from '@/lib/use-navigation-scroll';
 
@@ -85,10 +86,10 @@ export const NNDecks = () => {
   }, []);
   const filterActive = Boolean(deckSearch.trim());
   const clearFilters = () => { setDeckSearch(''); setFilterCollapsed(new Set()); };
-  useEffect(() => { if (workspace?.entry?.views.decks?.fields.collapsed) return; try { const raw = localStorage.getItem(EXPANDED_KEY); if (raw) setCollapsed(new Set(JSON.parse(raw))); } catch {} }, []);
+  useEffect(() => { if (workspace?.entry?.views.decks?.fields.collapsed) return; try { const raw = readBrowserValue(localStorage, EXPANDED_KEY); if (raw) setCollapsed(new Set(JSON.parse(raw))); } catch {} }, []);
   const saveCollapsed = (next: Set<string>) => {
     setCollapsed(next);
-    try { localStorage.setItem(EXPANDED_KEY, JSON.stringify([...next])); } catch {}
+    try { writeBrowserValue(localStorage, EXPANDED_KEY, JSON.stringify([...next])); } catch {}
   };
   const toggleCollapsed = (id: string) => {
     const next = new Set(filterActive ? filterCollapsed : collapsed);
@@ -151,7 +152,7 @@ export const NNDecks = () => {
       while (parent && !ancestors.has(parent)) { ancestors.add(parent); parent = decks.find(d => d.id === parent)?.parentId ?? null; }
       setCollapsed(previous => {
         const next = new Set([...previous].filter(id => !ancestors.has(id)));
-        try { localStorage.setItem(EXPANDED_KEY, JSON.stringify([...next])); } catch {}
+        try { writeBrowserValue(localStorage, EXPANDED_KEY, JSON.stringify([...next])); } catch {}
         return next;
       });
     } else raiseToast({ kind: 'error', title: t('common.toasts.error') });

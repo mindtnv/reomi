@@ -20,7 +20,7 @@
 // (§0 invariant). No attached vectors / nothing unattached ⇒ honest degrade.
 
 import { sql } from 'drizzle-orm';
-import { db } from '@neuronexus/db';
+import { db } from '@reomi/db';
 
 export interface SuggestedSource {
   sourceId: string;

@@ -13,7 +13,7 @@
 // assigned number (a token whose citation was dropped).
 
 import { useEffect, type RefObject } from 'react';
-import { SRC_TOKEN_RE, type SourceCitation } from '@neuronexus/shared';
+import { SRC_TOKEN_RE, type SourceCitation } from '@reomi/shared';
 
 /** Build the chip element for one citation number. The click handler is wired
  *  by the caller (it owns the per-chunk SourceCitation). */

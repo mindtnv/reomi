@@ -36,7 +36,7 @@ import {
   sources,
   type Citation,
   type Db,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import {
   AssistantContextError,
   MAX_ASSISTANT_CONCURRENT_TURNS,
@@ -53,7 +53,7 @@ import {
   type MessageMention,
   type MessageUsage,
   type AssistantContextSnapshot,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import {
   buildUserContent,
   isVisionEnabled,

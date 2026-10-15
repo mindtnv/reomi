@@ -1,4 +1,4 @@
-import type { OperationDestination, OperationRetryInput, OperationRetryResult, OperationsFeed } from '@neuronexus/shared';
+import type { OperationDestination, OperationRetryInput, OperationRetryResult, OperationsFeed } from '@reomi/shared';
 import { apiBaseURL, ApiError } from './api';
 import type { OperationCursors } from './operation-observer';
 

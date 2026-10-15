@@ -15,7 +15,7 @@ import { LayerParent, useTransientLayer } from '@/lib/use-transient-layer';
 import { createPortal } from 'react-dom';
 import { MetadataPrompt, type MetadataPromptOptions } from './metadata-prompt';
 import { useNN } from '@/lib/store';
-import { newUuidV7, type UiActionResult } from '@neuronexus/shared';
+import { newUuidV7, type UiActionResult } from '@reomi/shared';
 import { useT } from '@/lib/i18n';
 
 // ─────────────────────────────────────────────

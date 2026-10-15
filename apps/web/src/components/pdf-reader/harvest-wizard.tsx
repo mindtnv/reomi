@@ -34,6 +34,7 @@ import {
   type HarvestDecision,
 } from '@/lib/harvest';
 import type { Deck, HarvestCandidate } from '@/lib/types';
+import { readBrowserValue, writeBrowserValue } from '@/lib/storage-migration';
 
 const DECK_KEY = 'nn:nb:quickdeck';
 
@@ -87,7 +88,7 @@ export function HarvestWizard({ open, onClose, sourceId, locale, onApplied, t }:
     setApplyError(false);
     // Seed the deck from the shared quick-card memory.
     try {
-      const saved = localStorage.getItem(DECK_KEY);
+      const saved = readBrowserValue(localStorage, DECK_KEY);
       if (saved && decks.some((d: Deck) => d.id === saved)) setDeckId(saved);
       else if (decks.length > 0) setDeckId(decks[0]!.id);
       else setDeckId('');
@@ -126,7 +127,7 @@ export function HarvestWizard({ open, onClose, sourceId, locale, onApplied, t }:
 
   const handleDeckChange = useCallback((id: string) => {
     setDeckId(id);
-    try { localStorage.setItem(DECK_KEY, id); } catch { /* ignore */ }
+    try { writeBrowserValue(localStorage, DECK_KEY, id); } catch { /* ignore */ }
   }, []);
 
   const setDecision = useCallback((index: number, patch: Partial<HarvestDecision>) => {

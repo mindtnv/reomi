@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import { and, asc, desc, eq, exists, getTableColumns, inArray, isNull, or, sql } from 'drizzle-orm';
-import { db, conversations, conversationContexts, messages, notebookSources, sources, decks, type Db } from '@neuronexus/db';
-import { ASSISTANT_OBJECT_KINDS, AssistantContextError, assistantRefKey, mergeAssistantSnapshots, parseAssistantContext, type AssistantObjectKind, type AssistantObjectSnapshot, type AssistantContextSnapshot } from '@neuronexus/shared';
+import { db, conversations, conversationContexts, messages, notebookSources, sources, decks, type Db } from '@reomi/db';
+import { ASSISTANT_OBJECT_KINDS, AssistantContextError, assistantRefKey, mergeAssistantSnapshots, parseAssistantContext, type AssistantObjectKind, type AssistantObjectSnapshot, type AssistantContextSnapshot } from '@reomi/shared';
 import { resolveAssistantRefs } from './assistant-context';
-import type { AssistantObjectRef, MessageMention } from '@neuronexus/shared';
+import type { AssistantObjectRef, MessageMention } from '@reomi/shared';
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 type Conversation = typeof conversations.$inferSelect;

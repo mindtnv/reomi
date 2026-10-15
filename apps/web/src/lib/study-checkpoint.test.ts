@@ -33,5 +33,5 @@ test('an uncertain grade keeps its original operation arguments and storage fail
   expect(readStudyCheckpoint('alice','/review','s',disk)?.pending).toEqual(pending);
   expect(writeStudyCheckpoint({...value,view:{...value.view,typedAnswer:'x'.repeat(STUDY_CHECKPOINT_LIMITS.entryBytes)}},disk)).toBe(false);
   expect(readStudyCheckpoint('alice','/review','s',disk)?.view.typedAnswer).toBe('draft');
-  expect(writeStudyCheckpoint(value,{getItem(){throw Error();},setItem(){throw Error();},removeItem(){throw Error();}})).toBe(false);
+  expect(writeStudyCheckpoint(value,{getItem(){throw Error();},setItem(){throw Error();}})).toBe(false);
 });

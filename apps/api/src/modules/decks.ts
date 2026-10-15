@@ -1,8 +1,8 @@
 import { moveDeckInTransaction } from './ui-action-mutations';
 import { Elysia, t } from 'elysia';
 import { and, asc, eq, sql } from 'drizzle-orm';
-import { db, deckOptionsPreset, decks } from '@neuronexus/db';
-import { DECK_COLORS } from '@neuronexus/shared';
+import { db, deckOptionsPreset, decks } from '@reomi/db';
+import { DECK_COLORS } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin.ts';
 
 const deckColorSchema = t.Union(DECK_COLORS.map(color => t.Literal(color)));

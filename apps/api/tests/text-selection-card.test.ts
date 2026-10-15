@@ -1,6 +1,6 @@
 import { beforeEach, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
-import { db, sources, sourceChunks, decks, cards, cardSources, ensureBuiltins } from '@neuronexus/db';
+import { db, sources, sourceChunks, decks, cards, cardSources, ensureBuiltins } from '@reomi/db';
 import { eq } from 'drizzle-orm';
 import { buildApp } from '../src/app';
 import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers';

@@ -1,8 +1,8 @@
-# NeuroNexus
+# Reomi
 
 Anki reimagined — graph learning, garden gamification, grounded AI chat, and notebook-style source study.
 
-NeuroNexus is a Bun-workspace monorepo with an Elysia/Better Auth/Drizzle API and a Next.js 16/React 19 frontend. The current toolchain baseline is Bun 1.4.2, TypeScript 7.0.2, Node 26 Current for the standalone web image, and PostgreSQL 18 with pgvector 0.8.2.
+Reomi is a Bun-workspace monorepo with an Elysia/Better Auth/Drizzle API and a Next.js 16/React 19 frontend. The current toolchain baseline is Bun 1.4.2, TypeScript 7.0.2, Node 26 Current for the standalone web image, and PostgreSQL 18 with pgvector 0.8.2.
 
 The September 2026 dependency refresh uses Elysia 1.4.30, Next.js 16.3.5, React 19.3.0, and OpenSpec 1.13.1. Better Auth stays on `~1.6.33`: [1.7 requires an account-identity migration](https://github.com/better-auth/better-auth/releases/tag/v1.7.0), so a routine install must not cross that boundary. Mermaid stays on `^11.17.2`: [12 changes diagram defaults and requires Safari 17.4+](https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4012.0.0). Both upgrades need a separate compatibility review.
 

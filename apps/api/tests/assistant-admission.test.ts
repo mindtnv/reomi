@@ -107,7 +107,7 @@ test('suspension releases a slot and confirmation reacquires it before consuming
   expect(await suspended.text()).toContain('await_confirmation');
   const abort = new AbortController();
   const pending: Promise<string>[] = [];
-  const { db, decks } = await import('@neuronexus/db');
+  const { db, decks } = await import('@reomi/db');
   const { eq } = await import('drizzle-orm');
   const resume = () => callApp(app, 'POST', `/chat/context-v1/conversations/${ids[0]}/resume`, { cookie, body: { resumeToolCallId: 'admission-deck', decision: 'apply' } });
   try {

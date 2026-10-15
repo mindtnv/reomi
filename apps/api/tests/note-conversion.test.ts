@@ -123,7 +123,7 @@ test('obsolete accepted alternatives are disclosed and removed when the typed an
 });
 
 test('applying a personal copy never modifies the global source definition or unselected notes', async () => {
-  const { db, noteTypes } = await import('@neuronexus/db'); const { eq } = await import('drizzle-orm');
+  const { db, noteTypes } = await import('@reomi/db'); const { eq } = await import('drizzle-orm');
   const { cookie, source, created, input } = await fixture();
   await db.update(noteTypes).set({ userId: null, isBuiltin: true }).where(eq(noteTypes.id, source.id));
   try {
@@ -184,7 +184,7 @@ test('notes with directions in different decks can place new questions explicitl
 
 
 test('the conversion response is assembled before a concurrent type edit can change its definition', async () => {
-  const { db, noteTypes } = await import('@neuronexus/db'); const { eq, sql } = await import('drizzle-orm');
+  const { db, noteTypes } = await import('@reomi/db'); const { eq, sql } = await import('drizzle-orm');
   const enrichment = await import('../src/modules/cards');
   const { cookie, target, input, created } = await fixture();
   const preview = await (await callApp(app, 'POST', '/notes/convert/preview', { cookie, body: input })).json<any>();

@@ -1,5 +1,5 @@
 {
-  "name": "@neuronexus/auth",
+  "name": "@reomi/auth",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -15,8 +15,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@neuronexus/db": "workspace:*",
-    "@neuronexus/shared": "workspace:*",
+    "@reomi/db": "workspace:*",
+    "@reomi/shared": "workspace:*",
     "better-auth": "~1.6.33"
   },
   "devDependencies": {

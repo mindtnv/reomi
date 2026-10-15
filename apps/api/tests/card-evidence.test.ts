@@ -1,5 +1,5 @@
 import { beforeEach, expect, test } from 'bun:test';
-import { db, ensureBuiltins, sources, sourceChunks, cardSources, cards, decks } from '@neuronexus/db';
+import { db, ensureBuiltins, sources, sourceChunks, cardSources, cards, decks } from '@reomi/db';
 import { eq } from 'drizzle-orm';
 import { buildApp } from '../src/app';
 import { resetTestDb, seedBasicCard, signUpAndCookie, uniqueEmail } from './helpers';
@@ -87,7 +87,7 @@ for (const stale of [false,true,'before'] as const) test(`source-only assistant 
 for(const deletedNotebook of [false,true]) test(`legacy pending grounding survives ${deletedNotebook?'notebook deletion':'reopening'}`, async () => {
   const { __setAiClientForTests, __resetAiClientForTests } = await import('../src/ai/openai-client');
   const { callApp } = await import('./helpers');
-  const { notebooks, notebookSources, messages, conversations } = await import('@neuronexus/db');
+  const { notebooks, notebookSources, messages, conversations } = await import('@reomi/db');
   const f = await fixture(), app = buildApp();
   const [notebook] = await db.insert(notebooks).values({userId:f.userId,title:'Legacy notebook'}).returning();
   await db.update(sources).set({status:'ready'}).where(eq(sources.id,f.source.id));

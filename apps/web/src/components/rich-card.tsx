@@ -33,7 +33,7 @@ import {
 import { useT } from '@/lib/i18n';
 import { mermaidTheme } from '@/lib/mermaid-theme';
 import { useCodeCopyButtons } from './chat/code-copy';
-import type { FieldValues, NoteTypeDef } from '@neuronexus/shared';
+import type { FieldValues, NoteTypeDef } from '@reomi/shared';
 
 export interface RichCardProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Note-type (kind + templates) — same shape `renderCardHtml` consumes. */

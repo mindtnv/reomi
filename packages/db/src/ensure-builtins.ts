@@ -11,11 +11,11 @@
 // duplicate builtins.
 //
 // The builtin UUIDs / fields / templates come from `BUILTIN_NOTE_TYPES` in
-// @neuronexus/shared (single source of truth — same literals migration 0007
+// @reomi/shared (single source of truth — same literals migration 0007
 // uses), so the persisted ids are stable across every environment.
 
 import { sql } from 'drizzle-orm';
-import { BUILTIN_NOTE_TYPES } from '@neuronexus/shared';
+import { BUILTIN_NOTE_TYPES } from '@reomi/shared';
 import type { Db } from './client.ts';
 import { noteTypes } from './schema/index.ts';
 

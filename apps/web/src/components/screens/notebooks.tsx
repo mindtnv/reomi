@@ -25,7 +25,7 @@ import {
   type NotebookColor,
   type SourceMime,
   type SourceStatus,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import { NNBtn, NNCard, NNIcon, NNBadge, NNInlineRefresh, NNLoadError, NNSkeleton } from '@/components/ui';
 import { TextInput, PageSurface } from '@/components/design-system/primitives';
 import { useNN } from '@/lib/store';

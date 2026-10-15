@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import * as indexQueue from '../src/ai/index-queue';
-import { db, kbChunk } from '@neuronexus/db';
+import { db, kbChunk } from '@reomi/db';
 import { eq } from 'drizzle-orm';
 import { buildApp } from '../src/app';
 import { callApp, insertChunkFixture, resetTestDb, signUpAndCookie, uniqueEmail, vectorFixtureFor } from './helpers';

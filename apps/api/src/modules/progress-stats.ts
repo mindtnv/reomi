@@ -14,7 +14,7 @@
 // these into graceful `ToolResult`s (never an error into the loop, Principle 5).
 
 import { and, desc, eq, sql, type SQL } from 'drizzle-orm';
-import { cards, db, profile as profileTable, reviews } from '@neuronexus/db';
+import { cards, db, profile as profileTable, reviews } from '@reomi/db';
 
 /** Clamp the heatmap/aggregation window. undefined → 30; <1 → 1; >365 → 365. */
 export function clampDays(days: number | undefined): number {

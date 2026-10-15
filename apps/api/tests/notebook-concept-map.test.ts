@@ -29,7 +29,7 @@ import {
   notebookSources as notebookSourcesTable,
   sourceChunks as sourceChunksTable,
   sources as sourcesTable,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import { buildApp } from '../src/app.ts';
 import { conceptMap } from '../src/ai/concept-map.ts';
 import { callApp, resetTestDb, seedBasicCard, signUpAndCookie, uniqueEmail } from './helpers.ts';

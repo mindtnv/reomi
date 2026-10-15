@@ -10,7 +10,7 @@
 // bookkeeping (numbering by first appearance) WITHOUT touching HTML — injecting
 // `<sup>` here would be escaped to literal text by markdown-it (`html:false`).
 
-import { SRC_TOKEN_RE } from '@neuronexus/shared';
+import { SRC_TOKEN_RE } from '@reomi/shared';
 
 /**
  * A single-field "basic" note-type that feeds artifact markdown through the card

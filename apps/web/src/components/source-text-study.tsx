@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { assistantApi, ok } from '@/lib/api';
 import { captureSourceTextSelection, restoreSourceTextRange } from '@/lib/source-text-selection';
-import type { SourceTextSelection } from '@neuronexus/shared';
+import type { SourceTextSelection } from '@reomi/shared';
 import type { SourceChunkRow } from '@/lib/types';
 import { useT } from '@/lib/i18n';
 import { useNN } from '@/lib/store';

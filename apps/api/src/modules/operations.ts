@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia';
-import { db, notebookArtifacts, sources, notebooks } from '@neuronexus/db';
+import { db, notebookArtifacts, sources, notebooks } from '@reomi/db';
 import { and, eq, ne, sql } from 'drizzle-orm';
-import { OPERATION_GROUPS, type OperationDestination, type OperationGroup, type OperationItem, type OperationPage, type OperationsFeed } from '@neuronexus/shared';
+import { OPERATION_GROUPS, type OperationDestination, type OperationGroup, type OperationItem, type OperationPage, type OperationsFeed } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin';
 import { isArtifactGenerationEnabled, isEmbeddingEnabled } from '../ai/openai-client';
 import { embeddingDegraded } from '../ai/index-queue';

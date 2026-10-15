@@ -9,7 +9,7 @@
 //   const { data } = await api.decks({ id }).patch({ name: 'Renamed' });
 
 import { treaty } from '@elysiajs/eden';
-import type { App } from '@neuronexus/api';
+import type { App } from '@reomi/api';
 
 const baseURL =
   typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL

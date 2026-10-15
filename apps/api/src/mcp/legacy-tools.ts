@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { and, eq, inArray } from 'drizzle-orm';
-import { db, cards, notes, noteTypes, decks, notebooks, notebookSources, sources } from '@neuronexus/db';
+import { db, cards, notes, noteTypes, decks, notebooks, notebookSources, sources } from '@reomi/db';
 import { buildToolRegistry, enqueueToolCardsForIndex, type ToolContext } from '../ai/tools.ts';
 import { env, embeddingEnabled } from '../env.ts';
 import { McpToolError, type KnowledgeTool, type McpArgs } from './types.ts';

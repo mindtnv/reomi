@@ -29,7 +29,7 @@ describe('planHandoff', () => {
 
 describe('prefillKey', () => {
   test('is per-notebook namespaced', () => {
-    expect(prefillKey('nb-123')).toBe('nn:nb:prefill:nb-123');
+    expect(prefillKey('nb-123')).toBe('reomi:nb:prefill:nb-123');
     expect(prefillKey('a')).not.toBe(prefillKey('b'));
   });
 });

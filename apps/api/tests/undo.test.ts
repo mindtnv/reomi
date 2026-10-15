@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { eq, sql } from 'drizzle-orm';
-import { cards, db, deckOptionsPreset, decks, profile, reviews } from '@neuronexus/db';
+import { cards, db, deckOptionsPreset, decks, profile, reviews } from '@reomi/db';
 import { buildApp } from '../src/app.ts';
 import { callApp, resetTestDb, seedBasicCard, signUpAndCookie, uniqueEmail } from './helpers.ts';
 

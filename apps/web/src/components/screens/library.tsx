@@ -16,6 +16,7 @@
 // Inline styles + CSS vars + ui.tsx primitives only (no Tailwind).
 
 import { sourceOperationLabel } from '@/lib/source-operation-label';
+import { readBrowserValue, writeBrowserValue } from '@/lib/storage-migration';
 import { resolveMediaSrc } from '@/lib/media-url';
 import { useTransientLayer } from '@/lib/use-transient-layer';
 import { useNavigationGuard } from '@/components/navigation';
@@ -25,7 +26,7 @@ import { LibraryIngestIndicator } from '@/components/library-ingest-indicator';
 import { useLibraryPdfCovers } from '@/lib/library-pdf-cover';
 import React, { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from 'react';
 import { useSearchParams } from 'next/navigation';
-import type { IngestErrorCode, SourceKind, SourceMime, SourceStatus } from '@neuronexus/shared';
+import type { IngestErrorCode, SourceKind, SourceMime, SourceStatus } from '@reomi/shared';
 import { PageSurface, TextInput, SegmentedControl } from '@/components/design-system/primitives';
 import { NNBtn, NNCard, NNIcon, NNBadge, NNInlineRefresh, NNLoadError, NNSkeleton, type IconName } from '@/components/ui';
 import {
@@ -141,7 +142,7 @@ export const LibraryScreen = () => {
   // Hydrate the persisted view mode.
   useEffect(() => {
     try {
-      const v = localStorage.getItem(VIEW_KEY);
+      const v = readBrowserValue(localStorage, VIEW_KEY);
       if (v === 'grid' || v === 'list') setView(v);
     } catch {
       /* default grid */
@@ -150,7 +151,7 @@ export const LibraryScreen = () => {
   const setViewPersisted = useCallback((v: ViewMode) => {
     setView(v);
     try {
-      localStorage.setItem(VIEW_KEY, v);
+      writeBrowserValue(localStorage, VIEW_KEY, v);
     } catch {
       /* best-effort */
     }
@@ -176,7 +177,7 @@ export const LibraryScreen = () => {
   const SEARCHMODE_KEY = 'nn:lib:searchmode';
   useEffect(() => {
     try {
-      const v = localStorage.getItem(SEARCHMODE_KEY);
+      const v = readBrowserValue(localStorage, SEARCHMODE_KEY);
       if (!workspace?.entry?.views.library?.fields.searchMode && (v === 'content' || v === 'title')) setSearchMode(v);
     } catch {
       /* default title */
@@ -185,7 +186,7 @@ export const LibraryScreen = () => {
   const setSearchModePersisted = useCallback((m: 'title' | 'content') => {
     setSearchMode(m);
     try {
-      localStorage.setItem(SEARCHMODE_KEY, m);
+      writeBrowserValue(localStorage, SEARCHMODE_KEY, m);
     } catch {
       /* best-effort */
     }

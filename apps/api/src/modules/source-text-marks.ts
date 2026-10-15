@@ -1,8 +1,8 @@
 import { Elysia, t } from 'elysia';
 import { createHash } from 'node:crypto';
 import { and, asc, count, eq, inArray, sql } from 'drizzle-orm';
-import { db, sources, sourceChunks, sourceTextMarks } from '@neuronexus/db';
-import { parseSourceTextSelection, type SourceTextSelection } from '@neuronexus/shared';
+import { db, sources, sourceChunks, sourceTextMarks } from '@reomi/db';
+import { parseSourceTextSelection, type SourceTextSelection } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin';
 import { StudyError } from './study-notes';
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

@@ -18,7 +18,7 @@ import type {
   Citation,
   ConfirmImpact,
   MessageAttachmentInput,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import { ApiError, apiErrorFromResponse } from './api.ts';
 
 // Same resolution order as lib/api.ts so the two clients agree on the origin.
@@ -28,7 +28,7 @@ const baseURL =
     : 'http://localhost:3000';
 
 export interface ChatStreamHandlers {
-  onContext?: (context: import('@neuronexus/shared').AssistantContextSnapshot) => void;
+  onContext?: (context: import('@reomi/shared').AssistantContextSnapshot) => void;
   /** A token delta arrived — append it to the live assistant message. */
   onToken?: (delta: string) => void;
   /** The resolved citation set for this turn arrived. */
@@ -230,8 +230,8 @@ async function consumeSseResponse(
  * so the generic-error copy never flashes on a deliberate stop.
  */
 export interface ChatTurnOpts {
-  policySelection?: import('@neuronexus/shared').AssistantContextPolicy;
-  context?: import('@neuronexus/shared').AssistantContextInput;
+  policySelection?: import('@reomi/shared').AssistantContextPolicy;
+  context?: import('@reomi/shared').AssistantContextInput;
   expectedContextRevision?: number;
   model?: string;
   deckId?: string;
@@ -347,7 +347,7 @@ export async function resumeChat(
  */
 export async function regenerateChat(
   conversationId: string,
-  opts: { model?: string; deckId?: string; research?: boolean; policySelection?: import('@neuronexus/shared').AssistantContextPolicy; content?: string; sourceIds?: string[]; context?: import('@neuronexus/shared').AssistantContextInput; expectedContextRevision?: number },
+  opts: { model?: string; deckId?: string; research?: boolean; policySelection?: import('@reomi/shared').AssistantContextPolicy; content?: string; sourceIds?: string[]; context?: import('@reomi/shared').AssistantContextInput; expectedContextRevision?: number },
   handlers: ChatStreamHandlers,
   signal?: AbortSignal,
 ): Promise<void> {

@@ -1,6 +1,6 @@
 // Test-only transport adapter: reuse existing domain fixtures while exercising
 // the versioned client envelope. Real receipt semantics have API integration tests.
-import { newUuidV7 } from '@neuronexus/shared';
+import { newUuidV7 } from '@reomi/shared';
 
 export function adaptRecoveryFetch(domainFetch: typeof fetch): typeof fetch {
   const receipts = new Map<string, unknown>();

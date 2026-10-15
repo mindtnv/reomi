@@ -1,4 +1,4 @@
-import { DECK_COLORS } from '@neuronexus/shared';
+import { DECK_COLORS } from '@reomi/shared';
 import { relations, sql } from 'drizzle-orm';
 import {
   boolean,
@@ -37,7 +37,7 @@ import type {
   PageAnnotations,
   QuizContent,
   ToolCallRecord,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import { user } from './auth.ts';
 
 // Embedding vector dimension baked into the `kb_chunk.embedding` column type.
@@ -47,13 +47,13 @@ import { user } from './auth.ts';
 // migration (drop + re-add the vector column + rebuild the HNSW index) + reindex.
 export const EMBEDDING_DIM = 1536;
 
-// Citation is imported from @neuronexus/shared (packages/shared/src/kb-chunk.ts).
-// Re-export so consumers of @neuronexus/db/schema can import it from one place.
+// Citation is imported from @reomi/shared (packages/shared/src/kb-chunk.ts).
+// Re-export so consumers of @reomi/db/schema can import it from one place.
 export type { Citation };
 
 // Catalog of plant species. All species are available to every user (the
 // achievement-gated unlock flow was removed). Keep this list in sync with
-// PLANT_SPECIES in @neuronexus/shared.
+// PLANT_SPECIES in @reomi/shared.
 export const plantSpeciesEnum = [
   'fern',
   'cactus',
@@ -188,7 +188,7 @@ export const decks = pgTable(
 // owner means a GLOBAL built-in (visible to every user), seeded once with
 // `isBuiltin = true`. User-created / cloned types carry `userId = <owner>`.
 // `fields` / `templates` are typed JSON (NoteField[] / CardTemplate[] from
-// @neuronexus/shared). `kind` is the RenderKind denormalized for fast render-mode
+// @reomi/shared). `kind` is the RenderKind denormalized for fast render-mode
 // selection.
 
 export const noteTypes = pgTable(

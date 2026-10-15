@@ -34,7 +34,7 @@ import {
   renameFieldValues,
   type FieldValues,
   type CardRegenerationPreview,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 
 // ─────────────────────────────────────────────
 // Note editor (Milestone 1, Phase 5a)
@@ -78,7 +78,7 @@ const labelStyle: React.CSSProperties = {
 };
 
 // Client-side image pre-checks (server re-validates at presign + finalize). The
-// allowlist + cap come from @neuronexus/shared (single source of truth, mirrored
+// allowlist + cap come from @reomi/shared (single source of truth, mirrored
 // by the server) — they're a fast UX gate, not the security boundary. The label
 // is derived from the byte cap so the copy can never drift from the real limit.
 const ALLOWED_IMAGE_TYPES: readonly string[] = MEDIA_MIME_ALLOWLIST;

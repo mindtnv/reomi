@@ -28,7 +28,7 @@
 // 'relaxed_order'` inside a transaction around this query (pgvector ≥ 0.8).
 
 import { sql } from 'drizzle-orm';
-import { db } from '@neuronexus/db';
+import { db } from '@reomi/db';
 
 export interface SemanticEdge {
   /** Card ids of the undirected edge, a < b (uuid order). */

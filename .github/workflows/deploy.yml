@@ -167,6 +167,8 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/neuronexus-api:${{ github.sha }}
             ghcr.io/${{ github.repository_owner }}/neuronexus-api:latest
+            ghcr.io/${{ github.repository_owner }}/reomi-api:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/reomi-api:latest
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
           cache-from: type=gha,scope=api
@@ -198,6 +200,8 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/neuronexus-web:${{ github.sha }}
             ghcr.io/${{ github.repository_owner }}/neuronexus-web:latest
+            ghcr.io/${{ github.repository_owner }}/reomi-web:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/reomi-web:latest
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
           cache-from: type=gha,scope=web
@@ -257,7 +261,7 @@ jobs:
           for i in $(seq 1 30); do
             sleep 10
             left=$(curl -fsS "${auth[@]}" "$COOLIFY_URL/deployments" \
-              | python3 -c 'import json,sys; d=json.load(sys.stdin); items=d if isinstance(d,list) else d.get("deployments",[]); print(sum(1 for x in items if "neuronexus" in str(x.get("application_name",""))))')
+              | python3 -c 'import json,sys; d=json.load(sys.stdin); items=d if isinstance(d,list) else d.get("deployments",[]); print(sum(1 for x in items if (name:=str(x.get("application_name","")).lower()) and ("neuronexus" in name or "reomi" in name)))')
             echo "[$i] in-flight: $left"
             [ "$left" = "0" ] && break
           done

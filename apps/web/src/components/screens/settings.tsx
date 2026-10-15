@@ -4,7 +4,7 @@ import { downloadProfileExport } from '@/lib/profile-export';
 import React, { createContext, useContext, useCallback, useEffect, useRef, useState, useId, Children, isValidElement, cloneElement } from 'react';
 
 import { useAppNavigation } from '@/components/navigation';
-import { ANKI_DEFAULTS, MIN_RETENTION, MAX_RETENTION, isValidLearningSteps } from '@neuronexus/shared';
+import { ANKI_DEFAULTS, MIN_RETENTION, MAX_RETENTION, isValidLearningSteps } from '@reomi/shared';
 import { NNBadge, NNBtn, NNIcon, NNLoadError, NNPageSkeleton, NNSkeleton } from '@/components/ui';
 import { signOut, useSession } from '@/lib/auth';
 import { api, ok } from '@/lib/api';

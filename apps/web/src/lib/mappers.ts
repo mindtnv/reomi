@@ -1,12 +1,12 @@
-import { isLegacyClozeCard } from '@neuronexus/shared';
+import { isLegacyClozeCard } from '@reomi/shared';
 // Map API responses (ISO date strings, server column names) into the UI shape
 // that apps/web components already expect. Keeps the component surface stable
 // while the source of truth shifts from Dexie to the server.
 
 import { State, type Card as FsrsCard } from 'ts-fsrs';
-import type { RenderKind } from '@neuronexus/shared';
-import type { ArtifactStatus, NotebookArtifactType, NotebookColor, NotebookNoteKind, SourceKind } from '@neuronexus/shared';
-import type { QuizAttemptAnswer } from '@neuronexus/shared';
+import type { RenderKind } from '@reomi/shared';
+import type { ArtifactStatus, NotebookArtifactType, NotebookColor, NotebookNoteKind, SourceKind } from '@reomi/shared';
+import type { QuizAttemptAnswer } from '@reomi/shared';
 import type { Card, Deck, DeckOptionsPreset, FilteredDeck, FilteredDeckSortOrder, Note, Notebook, NotebookArtifact, NotebookNote, NoteType, Profile, QuizAttempt, Review } from './types';
 
 type IsoOrDate = string | Date | null | undefined;

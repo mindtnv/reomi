@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { ChunkCardEvidenceSnapshot, QuotedCardEvidenceSnapshot } from '@neuronexus/shared';
+import type { ChunkCardEvidenceSnapshot, QuotedCardEvidenceSnapshot } from '@reomi/shared';
 
 /** UTF-16 budget, without leaving a lone surrogate in PostgreSQL JSONB. */
 export function evidenceExcerpt(text: string, limit: number): string {

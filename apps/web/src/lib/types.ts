@@ -16,9 +16,9 @@ import type {
   SourceMarkColor,
   SourceMarkKind,
   SourceStatus,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 
-export type DeckColor = import('@neuronexus/shared').DeckColor;
+export type DeckColor = import('@reomi/shared').DeckColor;
 export type PlantSpecies = 'fern' | 'cactus' | 'succulent' | 'bonsai' | 'sakura' | 'mushroom';
 
 export interface Deck {
@@ -499,7 +499,7 @@ export interface HarvestCandidate {
  *  NULL after the source/notebook is deleted — a tombstone row («источник удалён»). */
 export interface CardSourceLink {
   cardId?: string;
-  sourceSnapshot?: import('@neuronexus/shared').CardEvidenceSnapshot | null;
+  sourceSnapshot?: import('@reomi/shared').CardEvidenceSnapshot | null;
   locationAvailable?: boolean;
   id: string;
   sourceChunkId: string | null;

@@ -1,6 +1,6 @@
 import { beforeEach, expect, test } from 'bun:test';
-import { db, cards, decks, notes, noteTypes, notebookNotes, notebookArtifacts, notebooks, conversations, sources, sourceChunks } from '@neuronexus/db';
-import { BASIC_NOTE_TYPE, newUuidV7 } from '@neuronexus/shared';
+import { db, cards, decks, notes, noteTypes, notebookNotes, notebookArtifacts, notebooks, conversations, sources, sourceChunks } from '@reomi/db';
+import { BASIC_NOTE_TYPE, newUuidV7 } from '@reomi/shared';
 import { buildApp } from '../src/app';
 import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers';
 

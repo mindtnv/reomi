@@ -10,7 +10,7 @@
 // suspended-card exclusion.
 
 import { and, eq, isNotNull } from 'drizzle-orm';
-import { db, kbChunk } from '@neuronexus/db';
+import { db, kbChunk } from '@reomi/db';
 import { retrieve } from './retrieve.ts';
 
 export interface SimilarCardItem {

@@ -2,9 +2,9 @@
  * NODE_ENV=test OPERATIONS_PROOF_DATABASE=<local-test-db> bun --env-file=.env apps/api/scripts/operations-query-proof.ts
  */
 import assert from 'node:assert/strict';
-import { db, user, closeDb } from '@neuronexus/db';
+import { db, user, closeDb } from '@reomi/db';
 import { inArray, sql, type SQL } from 'drizzle-orm';
-import { newUuidV7, OPERATION_GROUPS, type OperationGroup } from '@neuronexus/shared';
+import { newUuidV7, OPERATION_GROUPS, type OperationGroup } from '@reomi/shared';
 import { listOperations } from '../src/modules/operations';
 
 const target = new URL(process.env.TEST_DATABASE_URL ?? 'http://invalid');

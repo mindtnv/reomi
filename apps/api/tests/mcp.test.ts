@@ -32,7 +32,7 @@ describe('personal MCP credentials', () => {
     expect(text).toContain(created.item.id);
     expect(text).not.toContain(created.token);
     expect(text).not.toContain('tokenHash');
-    const { db, personalAccessTokens } = await import('@neuronexus/db');
+    const { db, personalAccessTokens } = await import('@reomi/db');
     const { eq } = await import('drizzle-orm');
     const [stored] = await db.select().from(personalAccessTokens).where(eq(personalAccessTokens.id, created.item.id));
     expect(stored!.tokenHash).toMatch(/^[a-f0-9]{64}$/);
@@ -62,7 +62,7 @@ describe('personal MCP credentials', () => {
   });
 
   test('rejects cross-origin token administration and keeps active tokens visible after rotation', async () => {
-    const { db, personalAccessTokens } = await import('@neuronexus/db');
+    const { db, personalAccessTokens } = await import('@reomi/db');
     const { cookie, userId } = await signUpAndCookie(app, 'rotation-mcp@example.com');
     const active = await issue(cookie);
     expect((await callApp(app, 'POST', '/profile/tokens', { cookie, headers: { origin: 'https://evil.example' }, body: { name: 'bad' } })).status).toBe(403);
@@ -81,7 +81,10 @@ describe('MCP protocol', () => {
       protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'test', version: '1' },
     });
     expect(initialized.status).toBe(200);
-    expect((await initialized.json<any>()).result.serverInfo.name).toBe('neuronexus');
+    const initializedBody = await initialized.json<any>();
+    expect(initializedBody.result.serverInfo.name).toBe('reomi');
+    expect(initializedBody.result.instructions).toContain('Reomi');
+    expect(initializedBody.result.instructions).not.toContain('NeuroNexus');
     const tools = (await (await rpc(token, 'tools/list')).json<any>()).result.tools;
     expect(tools.length).toBeGreaterThan(20);
     expect(tools.find((t: any) => t.name === 'browse_cards')).toBeDefined();
@@ -96,6 +99,42 @@ describe('MCP protocol', () => {
     expect((await callApp(app, 'POST', '/mcp', { cookie, body: {} })).status).toBe(401);
     expect((await callApp(app, 'POST', '/mcp', {
       headers: { authorization: `Bearer ${token}`, origin: 'https://evil.example' }, body: {},
+    })).status).toBe(403);
+  });
+
+  test('serves Reomi resources, keeps legacy URIs equivalent, and hides unknown ones', async () => {
+    const denied = await callApp(app, 'POST', '/mcp', {
+      headers: { accept: 'application/json, text/event-stream' },
+      body: { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
+    });
+    expect(denied.status).toBe(401);
+    expect(denied.headers['www-authenticate']).toBe('Bearer realm="Reomi MCP"');
+    const { cookie, userId } = await signUpAndCookie(app, 'identity-mcp@example.com');
+    const { token } = await issue(cookie);
+    const uris = (await (await rpc(token, 'resources/list')).json<any>()).result.resources.map((item: { uri: string }) => item.uri);
+    expect(uris).toEqual(['reomi://guide', 'reomi://connection']);
+    const guide = (await (await rpc(token, 'resources/read', { uri: 'reomi://guide' })).json<any>()).result.contents[0].text;
+    const legacyGuide = (await (await rpc(token, 'resources/read', { uri: 'neuronexus://guide' })).json<any>()).result.contents[0].text;
+    expect(legacyGuide).toBe(guide);
+    expect(guide).toContain('Reomi');
+    const connection = JSON.parse((await (await rpc(token, 'resources/read', { uri: 'reomi://connection' })).json<any>()).result.contents[0].text);
+    const legacyConnection = JSON.parse((await (await rpc(token, 'resources/read', { uri: 'neuronexus://connection' })).json<any>()).result.contents[0].text);
+    expect(legacyConnection).toEqual(connection);
+    expect(connection.scope).toBe('read');
+    const unknown = JSON.stringify(await (await rpc(token, 'resources/read', { uri: 'https://example.invalid/secret' })).json<any>());
+    expect(unknown).not.toContain(userId);
+    expect(unknown).not.toContain('identity-mcp@example.com');
+    expect(unknown).not.toContain(token);
+    const names = (await (await rpc(token, 'tools/list')).json<any>()).result.tools.map((item: { name: string }) => item.name);
+    expect(names).toContain('browse_cards');
+    expect(names).toContain('list_decks');
+    expect(names).not.toContain('create_card');
+    expect(names).not.toContain('confirm_action');
+    expect((await invoke(token, 'create_card', { deckId: 'nope' })).isError).toBe(true);
+    expect((await invoke(token, 'confirm_action', { actionId: '00000000-0000-7000-8000-000000000000', decision: 'apply', confirmed: true })).isError).toBe(true);
+    expect((await callApp(app, 'POST', '/mcp', {
+      headers: { authorization: `Bearer ${token}`, origin: 'https://evil.example', accept: 'application/json, text/event-stream' },
+      body: { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} },
     })).status).toBe(403);
   });
 });
@@ -123,7 +162,7 @@ test('a confirmed MCP hierarchy mutation and a versioned UI move serialize witho
   const a = await create('A'), b = await create('B'), c = await create('C');
   const snapshot = await (await callApp(app, 'GET', '/ui-actions/v1/deck-hierarchy', { cookie })).json<any>();
   const preview = data(await invoke(token, 'update_deck', { id: b.id, parentId: a.id }));
-  const { newUuidV7 } = await import('@neuronexus/shared');
+  const { newUuidV7 } = await import('@reomi/shared');
   const [ui, agent] = await Promise.all([
     callApp(app, 'POST', `/ui-actions/v1/decks/${c.id}/move`, { cookie,
       body: { requestId: newUuidV7(), sessionId: newUuidV7(), expectedRevision: snapshot.revision, targetId: a.id, placement: 'before' } }),
@@ -175,7 +214,7 @@ describe('MCP confirmed management', () => {
   });
 
   test('supports rejection, expiration and revocation after preview', async () => {
-    const { db, mcpActions, personalAccessTokens } = await import('@neuronexus/db');
+    const { db, mcpActions, personalAccessTokens } = await import('@reomi/db');
     const { eq } = await import('drizzle-orm');
     const { cookie, token, item } = await fixture();
     const p = data(await invoke(token, 'create_notebook', { title: 'Rejected' }));
@@ -200,7 +239,7 @@ describe('MCP confirmed management', () => {
   });
 
   test('card creation, editing, scheduling and deletion reuse confirmed domain semantics', async () => {
-    const { ensureBuiltins, db } = await import('@neuronexus/db');
+    const { ensureBuiltins, db } = await import('@reomi/db');
     await ensureBuiltins(db);
     const { cookie, token } = await fixture();
     const deck = data(await apply(token, data(await invoke(token, 'create_deck', { name: 'Cards' })).actionId)).result;
@@ -233,7 +272,7 @@ describe('MCP confirmed management', () => {
   });
 
   test('note edits reject changed review state and apply a fresh preview atomically', async () => {
-    const { ensureBuiltins, db, cards, mcpActions } = await import('@neuronexus/db');
+    const { ensureBuiltins, db, cards, mcpActions } = await import('@reomi/db');
     const { eq } = await import('drizzle-orm');
     await ensureBuiltins(db);
     const { token } = await fixture();
@@ -261,7 +300,7 @@ describe('MCP confirmed management', () => {
   });
 
   test('card-control writes participate in the caller transaction and roll back on failure', async () => {
-    const { db, cards, ensureBuiltins } = await import('@neuronexus/db');
+    const { db, cards, ensureBuiltins } = await import('@reomi/db');
     const { eq } = await import('drizzle-orm');
     const { buildToolRegistry } = await import('../src/ai/tools.ts');
     const { rootLogger } = await import('../src/logger.ts');
@@ -279,7 +318,7 @@ describe('MCP confirmed management', () => {
   });
 
   test('notebooks, notes, source imports and attachments are managed without AI keys', async () => {
-    const { db, sources } = await import('@neuronexus/db');
+    const { db, sources } = await import('@reomi/db');
     const { eq } = await import('drizzle-orm');
     const { token, userId } = await fixture();
     const nb = data(await apply(token, data(await invoke(token, 'create_notebook', { title: 'Research' })).actionId)).result;
@@ -315,7 +354,7 @@ describe('MCP catalog and isolation', () => {
   });
 
   test('private GET bridge preserves source/notebook/card isolation and UUID validation', async () => {
-    const { db, sources, notebooks } = await import('@neuronexus/db');
+    const { db, sources, notebooks } = await import('@reomi/db');
     const { token } = await fixture();
     const { userId } = await signUpAndCookie(app, 'owner-mcp@example.com');
     const [source] = await db.insert(sources).values({ userId, title: 'Private source', kind: 'text', status: 'ready' }).returning();

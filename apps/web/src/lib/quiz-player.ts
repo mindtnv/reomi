@@ -12,7 +12,7 @@ import type {
   QuizAttemptAnswerInput,
   QuizContent,
   QuizQuestion,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 
 /**
  * One local response the player holds while a quiz is in progress. `value`'s

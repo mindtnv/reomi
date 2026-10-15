@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { NOTE_CONTENT_MAX } from '@neuronexus/shared';
+import { NOTE_CONTENT_MAX } from '@reomi/shared';
 import { isStudyNoteDraft, isStudyNoteSave } from './study-note-draft';
 
 test('an over-limit written buffer remains recoverable without pretending it is a valid save', () => {

@@ -8,9 +8,9 @@
 // consistent header style, empty state with icon + hint.
 
 import React, { useCallback } from 'react';
-import type { SourceMarkColor } from '@neuronexus/shared';
+import type { SourceMarkColor } from '@reomi/shared';
 import { MARK_COLOR_CSS } from './mark-colors';
-import { SOURCE_MARK_COLORS } from '@neuronexus/shared';
+import { SOURCE_MARK_COLORS } from '@reomi/shared';
 import type { SourceMark } from '@/lib/types';
 import { NNIcon } from '@/components/ui';
 

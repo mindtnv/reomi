@@ -1,5 +1,5 @@
 // Transport bridge for clients that only launch local stdio servers. Domain
-// authorization and confirmation remain on the remote NeuroNexus HTTP server.
+// authorization and confirmation remain on the remote Reomi HTTP server.
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { mcpClientConfig } from './mcp-client-config.ts';
@@ -16,11 +16,11 @@ async function close() {
 remote.onmessage = message => { void local.send(message).catch(() => close()); };
 local.onmessage = message => {
   void remote.send(message).catch(async () => {
-    if ('id' in message && 'method' in message) await local.send({ jsonrpc: '2.0', id: message.id, error: { code: -32000, message: 'NeuroNexus connection failed; check endpoint and token.' } });
+    if ('id' in message && 'method' in message) await local.send({ jsonrpc: '2.0', id: message.id, error: { code: -32000, message: 'Reomi connection failed; check endpoint and token.' } });
   });
 };
 local.onclose = () => { void close(); };
-local.onerror = remote.onerror = () => { console.error('NeuroNexus MCP transport error.'); };
+local.onerror = remote.onerror = () => { console.error('Reomi MCP transport error.'); };
 process.on('SIGTERM', () => { void close(); });
 process.on('SIGINT', () => { void close(); });
 await remote.start();

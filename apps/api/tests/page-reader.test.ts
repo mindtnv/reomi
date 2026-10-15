@@ -220,6 +220,16 @@ describe('DirectPageReader — SSRF guards', () => {
     expect(page.text).toBe('line one\n\nline two');
     expect(page.links).toEqual([]);
   });
+
+  test('identifies the direct reader as Reomi', async () => {
+    __setDnsLookupForTests(async () => PUBLIC_IP);
+    const { fn, calls } = fakeFetch(() => new Response('hello', { status: 200, headers: { 'content-type': 'text/plain' } }));
+    __setPageFetchForTests(fn);
+    await new DirectPageReader().read('https://docs.example.com/agent');
+    const headers = new Headers(calls[0]!.init?.headers);
+    expect(headers.get('user-agent')).toBe('ReomiAgent/1.0 (study assistant; +https://github.com)');
+    expect(headers.get('user-agent')).not.toContain('NeuroNexus');
+  });
 });
 
 // ── ExaPageReader ─────────────────────────────────────────────────────────────

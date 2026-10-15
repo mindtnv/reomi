@@ -14,14 +14,14 @@ import {
   sourceChunks,
   sources,
   type Db,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import {
   parseCardQuery,
   CardQueryError,
   fsrsResetColumns,
   todayISO,
   type CardQueryNode,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import { authPlugin } from '../auth-plugin.ts';
 import { cardEvidenceFingerprint } from '../ai/card-evidence';
 import { internalReadDeckScope } from '../mcp/internal-read.ts';

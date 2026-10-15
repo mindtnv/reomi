@@ -1,6 +1,6 @@
-import { cards, db, decks, deckOptionsPreset, profile } from '@neuronexus/db';
+import { cards, db, decks, deckOptionsPreset, profile } from '@reomi/db';
 import { eq, sql } from 'drizzle-orm';
-import { todayISO, type StudyCounts, type StudySummary, type StudyOverview } from '@neuronexus/shared';
+import { todayISO, type StudyCounts, type StudySummary, type StudyOverview } from '@reomi/shared';
 import { resolveDeckConfig } from './deck-config';
 
 /** One aggregate per deck; never fetches card contents or embeds vectors. */

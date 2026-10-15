@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import type {AssistantObjectSnapshot} from '@neuronexus/shared';
+import type {AssistantObjectSnapshot} from '@reomi/shared';
 import {assistantApi,ok} from '@/lib/api';
 import {useNN} from '@/lib/store';
 import {useAssistantOverlayFocus} from '@/lib/assistant-overlay-focus';

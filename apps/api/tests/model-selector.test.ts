@@ -16,7 +16,7 @@ import {
   type AgentStreamChunk,
 } from '../src/ai/openai-client.ts';
 import { __setChatModelsForTests } from '../src/modules/ai.ts';
-import { db, ensureBuiltins } from '@neuronexus/db';
+import { db, ensureBuiltins } from '@reomi/db';
 import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers.ts';
 
 const app = buildApp();

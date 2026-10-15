@@ -25,7 +25,7 @@ import {
   notebooks,
   sourceChunks,
   sources as sourcesTable,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import {
   __resetAiClientForTests,
   __setAiClientForTests,

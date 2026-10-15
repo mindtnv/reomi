@@ -30,14 +30,14 @@ import {
   notebooks as notebooksTable,
   sourceMarks as sourceMarksTable,
   sources as sourcesTable,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import {
   MARK_NOTE_MAX,
   MARK_QUOTE_MAX,
   MARK_RECTS_MAX,
   SOURCE_MARK_COLORS,
   type MarkRect,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import { and, eq } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers.ts';

@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.24.0
 # ── API Dockerfile (Bun + Elysia) ──────────────────────────────────────────
 # Multi-stage: install workspace deps → bundle → slim runtime image.
-# Build from the repo root so bun workspaces resolve `@neuronexus/*` symlinks.
+# Build from the repo root so bun workspaces resolve `@reomi/*` symlinks.
 #
 #   docker build -f apps/api/Dockerfile -t neuronexus-api:latest .
 #
@@ -30,7 +30,7 @@ COPY tsconfig.base.json ./
 COPY packages/ packages/
 COPY apps/api/ apps/api/
 # apps/web isn't needed at runtime, but the api workspace's type-only imports
-# from `@neuronexus/api` (eden) don't touch web — safe to skip it.
+# from `@reomi/api` (eden) don't touch web — safe to skip it.
 RUN cd apps/api && bun build src/index.ts --target bun --outdir ./dist --minify
 # Bundle the programmatic migrator too — the runtime CMD applies committed
 # migrations before starting the server (idempotent: drizzle records applied

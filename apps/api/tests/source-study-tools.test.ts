@@ -1,5 +1,5 @@
 import { beforeEach, expect, test } from 'bun:test';
-import { db, sources, notebookNotes, notebooks } from '@neuronexus/db';
+import { db, sources, notebookNotes, notebooks } from '@reomi/db';
 import { eq } from 'drizzle-orm';
 import { buildApp } from '../src/app';
 import { buildToolRegistry, type ToolContext } from '../src/ai/tools';
@@ -65,7 +65,7 @@ test('a long source note can be read in bounded pages without losing text',async
 });
 
 test('source artifacts are readable in source scope and retained artifacts require their explicit reference',async()=>{
-  const {notebookArtifacts}=await import('@neuronexus/db');
+  const {notebookArtifacts}=await import('@reomi/db');
   const {userId}=await signUpAndCookie(buildApp(),uniqueEmail());
   const [a,b]=await db.insert(sources).values([{userId,kind:'text',title:'A'},{userId,kind:'text',title:'B'}]).returning();
   const [artifact,other]=await db.insert(notebookArtifacts).values([

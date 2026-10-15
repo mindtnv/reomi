@@ -22,7 +22,7 @@ import {
   ensureBuiltins,
   messages as messagesTable,
   notes as notesTable,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import { eq } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import {

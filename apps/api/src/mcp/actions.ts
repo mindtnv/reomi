@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { and, count, eq, gt, isNull, lt } from 'drizzle-orm';
-import { db, mcpActions, personalAccessTokens, user } from '@neuronexus/db';
+import { db, mcpActions, personalAccessTokens, user } from '@reomi/db';
 import type { Logger } from 'pino';
 import type { McpPrincipal } from './tokens.ts';
 import { McpToolError, type KnowledgeTool, type McpArgs } from './types.ts';

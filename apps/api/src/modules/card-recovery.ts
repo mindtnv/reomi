@@ -1,7 +1,7 @@
 import { Elysia, ElysiaCustomStatusResponse, t } from 'elysia';
-import { noteTypes } from '@neuronexus/db';
+import { noteTypes } from '@reomi/db';
 import { eq } from 'drizzle-orm';
-import type { UiActionEnvelope } from '@neuronexus/shared';
+import type { UiActionEnvelope } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin';
 import { requestLogFromContext } from '../logger';
 import { createNoteForRequest, editNote, enqueueCardsForIndex, noteCreateBody, noteEditOptions } from './notes';

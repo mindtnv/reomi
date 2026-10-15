@@ -1,4 +1,4 @@
-import { NOTE_CONTENT_MAX, NOTE_TITLE_MAX } from '@neuronexus/shared';
+import { NOTE_CONTENT_MAX, NOTE_TITLE_MAX } from '@reomi/shared';
 import type { PendingSave } from './recoverable-save';
 import { MAX_DRAFT_BYTES } from './editor-drafts';
 

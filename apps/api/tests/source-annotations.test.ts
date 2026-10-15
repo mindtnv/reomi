@@ -32,14 +32,14 @@ import {
   notebooks as notebooksTable,
   sourceAnnotations as sourceAnnotationsTable,
   sources as sourcesTable,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import {
   ANNOTATION_MAX_POINTS,
   ANNOTATION_MAX_STROKES,
   MARKED_TEXT_MAX,
   type InkStroke,
   type PageAnnotations,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import { and, eq } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import { env } from '../src/env.ts';

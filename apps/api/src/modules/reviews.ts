@@ -10,7 +10,7 @@ import {
   reviews,
   reviewOperations,
   type UndoSnapshot,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import {
   applyGradeRollup,
   gradeFsrs,
@@ -22,7 +22,7 @@ import {
   todayISO,
   xpForRating,
   type FsrsCard,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import { authPlugin } from '../auth-plugin.ts';
 import { resolveDeckConfig } from './deck-config.ts';
 

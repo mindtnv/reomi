@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { NavigationJournal, NAVIGATION_LIMITS, NAVIGATION_RELOAD_KEY, readNavigationReloadMarker, navigationStorageKey, safeNavigationHref } from './navigation-context';
+import { currentStorageKey } from './storage-migration';
 
 function storage() {
   const values = new Map<string, string>();
@@ -119,7 +120,7 @@ describe('tab navigation context', () => {
     const { journal, visit, disk } = setup();
     for (let i = 0; i < 100; i++) { visit(`/library/b${i}`); journal.field(`source:b${i}`, 'page', i + 1); }
     journal.flush();
-    const raw = disk.getItem(navigationStorageKey('alice'))!;
+    const raw = disk.getItem(currentStorageKey(navigationStorageKey('alice')))!;
     expect(new TextEncoder().encode(raw).byteLength).toBeLessThanOrEqual(NAVIGATION_LIMITS.bytes);
     expect(JSON.parse(raw).entries.length).toBeLessThanOrEqual(NAVIGATION_LIMITS.entries);
     expect(journal.view('source:b99').fields.page).toBe(100);
@@ -132,7 +133,7 @@ describe('tab navigation context', () => {
     journal.flush();
     expect(journal.view('decks').fields.collapsed).toEqual(['one']);
     expect(journal.degraded).toBe(true); expect(disk.getItem('draft')).toBe('keep');
-    expect(new TextEncoder().encode(disk.getItem(navigationStorageKey('alice'))!).byteLength).toBeLessThan(NAVIGATION_LIMITS.bytes);
+    expect(new TextEncoder().encode(disk.getItem(currentStorageKey(navigationStorageKey('alice')))!).byteLength).toBeLessThan(NAVIGATION_LIMITS.bytes);
   });
 
   test('cyclic origins terminate safely and suspended owners reject delayed updates', () => {

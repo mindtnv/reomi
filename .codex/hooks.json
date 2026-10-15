@@ -1,5 +1,5 @@
 {
-  "description": "Project-scoped Hindsight memory for NeuroNexus.",
+  "description": "Project-scoped Hindsight memory for Reomi.",
   "hooks": {
     "SessionStart": [
       {
@@ -8,7 +8,7 @@
             "type": "command",
             "command": "node \"$HOME/.hindsight/coding-agents/dist/codex-sessionstart-hook.js\"",
             "timeout": 30,
-            "statusMessage": "Loading NeuroNexus memory",
+            "statusMessage": "Loading Reomi memory",
             "additionalContextLimit": 2500
           }
         ]
@@ -21,7 +21,7 @@
             "type": "command",
             "command": "node \"$HOME/.hindsight/coding-agents/dist/codex-hook.js\"",
             "timeout": 30,
-            "statusMessage": "Recalling NeuroNexus memory",
+            "statusMessage": "Recalling Reomi memory",
             "additionalContextLimit": 2500
           }
         ]
@@ -34,7 +34,7 @@
             "type": "command",
             "command": "node \"$HOME/.hindsight/coding-agents/dist/codex-stop-hook.js\"",
             "timeout": 60,
-            "statusMessage": "Retaining NeuroNexus session"
+            "statusMessage": "Retaining Reomi session"
           }
         ]
       }

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { db, sources, notebooks, notebookArtifacts, sourceChunks } from '@neuronexus/db';
+import { db, sources, notebooks, notebookArtifacts, sourceChunks } from '@reomi/db';
 import { eq, sql } from 'drizzle-orm';
-import { newUuidV7 } from '@neuronexus/shared';
+import { newUuidV7 } from '@reomi/shared';
 import { buildApp } from '../src/app';
 import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers';
 import { ingestSource, stashInlineText } from '../src/ai/source-ingest';

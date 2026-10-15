@@ -12,6 +12,7 @@ import React, { useMemo, useState, useLayoutEffect, useCallback, useEffect } fro
 import { ThreadContextMenu } from './thread-context-menu';
 import { ResizeHandle } from '@/components/design-system/resize-handle';
 import { CHAT_RAIL, boundedPanelWidth, readChatRailWidth } from '@/lib/panel-width';
+import { writeBrowserValue } from '@/lib/storage-migration';
 import { TextInput } from '@/components/design-system/primitives';
 import { NNBtn, NNIcon, NNSkeleton } from '@/components/ui';
 import {
@@ -75,7 +76,7 @@ export const ThreadRail = ({
   const [localWidth, setRailWidth] = useState<number>(CHAT_RAIL.default);
   const railWidth = panelWidth ?? localWidth;
   useLayoutEffect(() => { setRailWidth(readChatRailWidth()); }, []);
-  const resize = (value: number) => { const next = boundedPanelWidth(value, CHAT_RAIL.min, CHAT_RAIL.max, CHAT_RAIL.default); setRailWidth(next); onWidthChange?.(next); try { localStorage.setItem(CHAT_RAIL.key, String(next)); } catch {} };
+  const resize = (value: number) => { const next = boundedPanelWidth(value, CHAT_RAIL.min, CHAT_RAIL.max, CHAT_RAIL.default); setRailWidth(next); onWidthChange?.(next); try { writeBrowserValue(localStorage, CHAT_RAIL.key, String(next)); } catch {} };
   const [localSearch, setLocalSearch] = useState('');
   const search = searchValue ?? localSearch;
   const setSearch = (value: string) => { setLocalSearch(value); onSearchChange?.(value); };

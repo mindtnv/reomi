@@ -23,12 +23,13 @@ export function normalizeCardColumns(value: unknown, mobile: boolean): string[] 
   return CARD_COLUMNS.filter(c => ids.has(c.id)).map(c => c.id);
 }
 export const cardTableMinWidth = (columns: readonly CardColumn[]): number => 36 + columns.reduce((sum, column) => sum + column.minWidth, 0) + columns.length * 8 + 28;
-type StorageAccess = Pick<Storage, 'getItem' | 'setItem'>;
+import { readBrowserValue, writeBrowserValue, type MigratingStorage } from './storage-migration';
+type StorageAccess = MigratingStorage;
 const key = (mobile: boolean) => `nn:cards:columns:${mobile ? 'mobile' : 'desktop'}`;
 export function readCardColumns(mobile: boolean, storage?: StorageAccess): string[] {
-  try { return normalizeCardColumns(JSON.parse((storage ?? localStorage).getItem(key(mobile)) ?? 'null'), mobile); }
+  try { return normalizeCardColumns(JSON.parse(readBrowserValue(storage ?? localStorage, key(mobile)) ?? 'null'), mobile); }
   catch { return defaultCardColumns(mobile); }
 }
 export function saveCardColumns(ids: string[], mobile: boolean, storage?: StorageAccess): void {
-  try { (storage ?? localStorage).setItem(key(mobile), JSON.stringify({ version: 1, ids })); } catch { /* In-memory preference still works. */ }
+  try { writeBrowserValue(storage ?? localStorage, key(mobile), JSON.stringify({ version: 1, ids })); } catch { /* In-memory preference still works. */ }
 }

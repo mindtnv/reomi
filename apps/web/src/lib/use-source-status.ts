@@ -14,7 +14,7 @@
 // and tears down its interval on unmount / when nothing is pending.
 
 import { useEffect, useMemo, useRef } from 'react';
-import { SOURCE_NONTERMINAL_STATUSES, type SourceStatus } from '@neuronexus/shared';
+import { SOURCE_NONTERMINAL_STATUSES, type SourceStatus } from '@reomi/shared';
 import { followOperationRefresh } from './operation-observer';
 import { useOperations } from '@/components/operations-provider';
 

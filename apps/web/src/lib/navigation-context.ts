@@ -1,3 +1,4 @@
+import { readBrowserValue, removeBrowserValue, writeBrowserValue } from './storage-migration';
 /** Tab-local navigation metadata. Domain records and mutable work have other owners. */
 export const NAVIGATION_LIMITS = { entries: 64, entryBytes: 64 * 1024, bytes: 512 * 1024, depth: 16, pages: 20, rows: 10_000, restoreMs: 5000 } as const;
 export const NAVIGATION_HISTORY_KEY = 'nnNavigation';
@@ -61,7 +62,7 @@ export function readNavigationMarker(value: unknown): NavigationMarker | null {
  * new tab (whose sessionStorage may have been copied from its opener). */
 export function readNavigationReloadMarker(owner:string,navigationType:string|undefined,storage?:StoragePort):NavigationMarker|null {
   if(navigationType!=='reload'||!storage)return null;
-  try { const raw=storage.getItem(NAVIGATION_RELOAD_KEY);if(!raw||raw.length>1000)return null;
+  try { const raw=readBrowserValue(storage,NAVIGATION_RELOAD_KEY);if(!raw||raw.length>1000)return null;
     const marker=readNavigationMarker(JSON.parse(raw));return marker?.owner===owner?marker:null;
   } catch{return null;}
 }
@@ -97,7 +98,7 @@ function readEntry(raw: unknown): NavigationEntry | null {
 export function navigationResumeHref(owner:string,marker:NavigationMarker|null,storage?:StoragePort):string|null {
   if(!storage||marker?.owner!==owner)return null;
   try {
-    const raw=storage.getItem(navigationStorageKey(owner));if(!raw||new TextEncoder().encode(raw).byteLength>NAVIGATION_LIMITS.bytes)return null;
+    const raw=readBrowserValue(storage,navigationStorageKey(owner));if(!raw||new TextEncoder().encode(raw).byteLength>NAVIGATION_LIMITS.bytes)return null;
     const data:unknown=JSON.parse(raw);
     if(!record(data)||data.version!==1||data.owner!==owner||!Array.isArray(data.entries)||data.entries.length>NAVIGATION_LIMITS.entries)return null;
     const entry=data.entries.map(readEntry).find(entry=>entry?.id===marker.id&&entry.position===marker.position);
@@ -145,7 +146,7 @@ export class NavigationJournal {
     let restored: NavigationEntry | undefined;
     if (marker?.owner === owner && storage) {
       try {
-        const raw = storage.getItem(navigationStorageKey(owner));
+        const raw = readBrowserValue(storage, navigationStorageKey(owner));
         if (raw && new TextEncoder().encode(raw).byteLength <= NAVIGATION_LIMITS.bytes) {
           const data: unknown = JSON.parse(raw);
           if (record(data) && data.version === 1 && data.owner === owner && Array.isArray(data.entries) && data.entries.length <= NAVIGATION_LIMITS.entries) {
@@ -283,13 +284,13 @@ export class NavigationJournal {
       if (!victim) { this.degraded = true; return; }
       this.entries.delete(victim); this.branch = this.branch.filter(id => id !== victim); raw = encode();
     }
-    try { this.storage?.setItem(navigationStorageKey(this.owner), raw); } catch { this.degraded = true; }
+    try { if (this.storage) writeBrowserValue(this.storage, navigationStorageKey(this.owner), raw); } catch { this.degraded = true; }
   }
   clear() {
     if (this.timer !== undefined) clearTimeout(this.timer); this.timer = undefined;
     this.alive = false; this.generation++; this.entries.clear(); this.sections.clear(); this.branch = [];
     this.current = { id: this.newId(), href: '/', position: 0, views: {} };
-    try { this.storage?.removeItem(navigationStorageKey(this.owner)); } catch { /* Memory boundary still applies. */ }
+    try { if (this.storage) removeBrowserValue(this.storage, navigationStorageKey(this.owner)); } catch { /* Memory boundary still applies. */ }
   }
   suspend() { if (this.alive) { this.flush(); this.alive = false; this.generation++; } }
   activate() { this.alive = true; }

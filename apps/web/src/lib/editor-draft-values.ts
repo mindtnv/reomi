@@ -1,7 +1,7 @@
 import { isRecoveryAction, type RecoveryAction } from './recovery-action';
 import type { PendingSave } from './recoverable-save';
 import type { NoteType } from './types';
-import type { FieldValues } from '@neuronexus/shared';
+import type { FieldValues } from '@reomi/shared';
 
 export type NoteDraftValue = { fieldValues: FieldValues; deckId: string; noteTypeId: string; tagsText: string; acceptedAnswersText: string;
   pendingSave?: PendingSave<RecoveryAction> | null; savedNoteId?: string; baseVersion?: string; baseDeckId?: string; cardId?: string; label?: string; noteType?: NoteType; clozeRetainHistoryFor?: Record<string, number> };

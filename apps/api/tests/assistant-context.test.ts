@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { eq } from 'drizzle-orm';
-import { db, user, sources, sourceChunks, decks, cards, notes, noteTypes, notebooks, notebookNotes, notebookArtifacts, conversations } from '@neuronexus/db';
-import { BASIC_NOTE_TYPE, newUuidV7, type AssistantObjectRef } from '@neuronexus/shared';
+import { db, user, sources, sourceChunks, decks, cards, notes, noteTypes, notebooks, notebookNotes, notebookArtifacts, conversations } from '@reomi/db';
+import { BASIC_NOTE_TYPE, newUuidV7, type AssistantObjectRef } from '@reomi/shared';
 import { resolveAssistantRefs } from '../src/ai/assistant-context';
 import { resetTestDb } from './helpers';
 

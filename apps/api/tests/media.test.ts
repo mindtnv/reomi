@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { db, media } from '@neuronexus/db';
-import { newUuidV7 } from '@neuronexus/shared';
+import { db, media } from '@reomi/db';
+import { newUuidV7 } from '@reomi/shared';
 import { buildApp } from '../src/app.ts';
 import { env } from '../src/env.ts';
 import {

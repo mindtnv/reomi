@@ -1,5 +1,5 @@
 import { beforeEach, expect, test } from 'bun:test';
-import { newUuidV7 } from '@neuronexus/shared';
+import { newUuidV7 } from '@reomi/shared';
 import { buildApp } from '../src/app';
 import { callApp, resetTestDb, seedBasicCard, signUpAndCookie, uniqueEmail } from './helpers';
 

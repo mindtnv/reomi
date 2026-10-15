@@ -28,7 +28,7 @@ import {
   notebookSources,
   sourceChunks,
   sources,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import {
   newUuidV7,
   QUIZ_QUESTIONS_DEFAULT,
@@ -37,7 +37,7 @@ import {
   type NotebookArtifactType,
   type QuizContent,
   type QuizQuestion,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import { env } from '../env.ts';
 import {
   logCorrelation,

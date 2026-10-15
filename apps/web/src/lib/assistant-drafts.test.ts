@@ -30,7 +30,7 @@ test('invalid or over-budget storage never erases the last good value',()=>{
   disk.setItem(assistantDraftStorageKey('alice'),'{broken');
   expect(readAssistantDrafts(disk,'alice').ok).toBe(false);
   expect(disk.getItem(assistantDraftStorageKey('alice'))).toBe('{broken');
-  expect(writeAssistantDrafts({setItem(){throw new Error('disabled');}},'alice',records).ok).toBe(false);
+  expect(writeAssistantDrafts({getItem(){return null;},setItem(){throw new Error('disabled');}},'alice',records).ok).toBe(false);
   expect(controller.getSnapshot().sessions[key]!.draft).toBe('Good draft');
   controller.dispose();
 });

@@ -12,7 +12,7 @@
 //     bytes can't be loaded (vision off / S3 failure / over the replay cap).
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { db, media as mediaTable, messages as messagesTable } from '@neuronexus/db';
+import { db, media as mediaTable, messages as messagesTable } from '@reomi/db';
 import { asc, eq } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import {

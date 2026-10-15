@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "neuronexus",
+      "name": "reomi",
       "devDependencies": {
         "@fission-ai/openspec": "1.13.1",
         "@types/node": "^26.6.2",
@@ -11,7 +11,7 @@
       },
     },
     "apps/api": {
-      "name": "@neuronexus/api",
+      "name": "@reomi/api",
       "version": "0.1.0",
       "dependencies": {
         "@aws-sdk/client-s3": "^3.1136.0",
@@ -19,9 +19,9 @@
         "@elysiajs/cors": "^1.4.2",
         "@elysiajs/swagger": "^1.3.1",
         "@modelcontextprotocol/sdk": "^1.30.0",
-        "@neuronexus/auth": "workspace:*",
-        "@neuronexus/db": "workspace:*",
-        "@neuronexus/shared": "workspace:*",
+        "@reomi/auth": "workspace:*",
+        "@reomi/db": "workspace:*",
+        "@reomi/shared": "workspace:*",
         "drizzle-orm": "^0.45.2",
         "elysia": "^1.4.30",
         "fflate": "^0.8.3",
@@ -39,12 +39,12 @@
       },
     },
     "apps/web": {
-      "name": "@neuronexus/web",
+      "name": "@reomi/web",
       "version": "0.1.0",
       "dependencies": {
         "@elysiajs/eden": "^1.4.9",
-        "@neuronexus/auth": "workspace:*",
-        "@neuronexus/shared": "workspace:*",
+        "@reomi/auth": "workspace:*",
+        "@reomi/shared": "workspace:*",
         "@types/markdown-it": "^14.2.0",
         "d3-drag": "^3.0.0",
         "d3-force": "^3.0.0",
@@ -66,7 +66,7 @@
       },
       "devDependencies": {
         "@happy-dom/global-registrator": "^20.14.5",
-        "@neuronexus/api": "workspace:*",
+        "@reomi/api": "workspace:*",
         "@serwist/next": "9.5.12",
         "@types/d3-drag": "^3.0.7",
         "@types/d3-force": "^3.0.10",
@@ -81,11 +81,11 @@
       },
     },
     "packages/auth": {
-      "name": "@neuronexus/auth",
+      "name": "@reomi/auth",
       "version": "0.1.0",
       "dependencies": {
-        "@neuronexus/db": "workspace:*",
-        "@neuronexus/shared": "workspace:*",
+        "@reomi/db": "workspace:*",
+        "@reomi/shared": "workspace:*",
         "better-auth": "~1.6.33",
       },
       "devDependencies": {
@@ -94,22 +94,22 @@
       },
     },
     "packages/db": {
-      "name": "@neuronexus/db",
+      "name": "@reomi/db",
       "version": "0.1.0",
       "dependencies": {
-        "@neuronexus/shared": "workspace:*",
+        "@reomi/shared": "workspace:*",
         "drizzle-orm": "^0.45.2",
         "postgres": "^3.4.9",
       },
       "devDependencies": {
-        "@neuronexus/auth": "workspace:*",
+        "@reomi/auth": "workspace:*",
         "@types/bun": "^1.4.2",
         "drizzle-kit": "^0.31.10",
         "typescript": "^7.0.2",
       },
     },
     "packages/shared": {
-      "name": "@neuronexus/shared",
+      "name": "@reomi/shared",
       "version": "0.1.0",
       "dependencies": {
         "markdown-it": "^15.0.0",
@@ -387,15 +387,15 @@
 
     "@napi-rs/canvas-win32-x64-msvc": ["@napi-rs/canvas-win32-x64-msvc@1.0.5", "", { "os": "win32", "cpu": "x64" }, "sha512-KQQwG9/sBmcGxqaLFIQf+k2OefREGoyEaIBmRuTM8bUuFKOEE9Xk5pel90hE6pmBwk/vo4RB0OdX+FxobJGMFw=="],
 
-    "@neuronexus/api": ["@neuronexus/api@workspace:apps/api"],
+    "@reomi/api": ["@reomi/api@workspace:apps/api"],
 
-    "@neuronexus/auth": ["@neuronexus/auth@workspace:packages/auth"],
+    "@reomi/auth": ["@reomi/auth@workspace:packages/auth"],
 
-    "@neuronexus/db": ["@neuronexus/db@workspace:packages/db"],
+    "@reomi/db": ["@reomi/db@workspace:packages/db"],
 
-    "@neuronexus/shared": ["@neuronexus/shared@workspace:packages/shared"],
+    "@reomi/shared": ["@reomi/shared@workspace:packages/shared"],
 
-    "@neuronexus/web": ["@neuronexus/web@workspace:apps/web"],
+    "@reomi/web": ["@reomi/web@workspace:apps/web"],
 
     "@next/env": ["@next/env@16.3.5", "", {}, "sha512-NWEXVDMqoEo0ktmU6u0sE2Vg0LOcsD7NnOTJNo3/fEaTfsg+F1bMIxuDmQbda4e3yTIQwVdUREF2yIuMOusKtg=="],
 

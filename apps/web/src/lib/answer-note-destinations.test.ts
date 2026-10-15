@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { answerNoteDestinations } from './answer-note-destinations';
-import type { AssistantContextSnapshot } from '@neuronexus/shared';
+import type { AssistantContextSnapshot } from '@reomi/shared';
 const context: AssistantContextSnapshot = { version: 1, revision: 0, policy: 'focus', sourceIds: [], deckIds: [], refs: [
   { ref: { kind: 'source', id: 'book' }, label: 'Book', available: true },
   { ref: { kind: 'source_passage', id: 'book', locator: { quote: 'Excerpt' } }, label: 'Book', available: true },

@@ -7,7 +7,7 @@ import { buildKnowledgeTools } from './knowledge-tools.ts';
 import { buildToolRegistry, toOpenAiTools, type Tool } from './tools.ts';
 import { __setWebSearchProviderForTests, __resetWebSearchProviderForTests } from './web-search.ts';
 import { __setPageReaderForTests, __resetPageReaderForTests } from './page-reader.ts';
-import { buildAgentSystemPrompt } from '@neuronexus/shared';
+import { buildAgentSystemPrompt } from '@reomi/shared';
 
 // The write/SRS tools always present in Phase B (no extra env gate).
 const KNOWLEDGE_TOOLS = ['search_source', 'read_source', 'list_marked_passages', 'read_context_object', ...buildKnowledgeTools().map(tool => tool.name)];

@@ -5,7 +5,7 @@
 // Tests: silent by default, with pure helpers exported for contract tests.
 
 import pino, { type Logger, type LoggerOptions } from 'pino';
-import { newUuidV7 } from '@neuronexus/shared';
+import { newUuidV7 } from '@reomi/shared';
 
 const DEFAULT_TEXT_LIMIT = 300;
 const UPSTREAM_READ_LIMIT = 4096;

@@ -23,6 +23,7 @@ import {
 } from '@/lib/navigation-progress';
 
 import { NavigationJournal, NAVIGATION_HISTORY_KEY, NAVIGATION_AUTH_RETURN_KEY, NAVIGATION_RELOAD_KEY, navigationStorageKey, navigationResumeHref, readNavigationMarker, readNavigationReloadMarker, safeNavigationHref, type NavigationEntry, type NavigationIntent } from '@/lib/navigation-context';
+import { readBrowserValue, removeBrowserValue, writeBrowserValue } from '@/lib/storage-migration';
 import { useNN } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 import { installNavigationHistoryBridge } from '@/lib/navigation-history';
@@ -143,13 +144,13 @@ export function AppNavigationProvider({ children, sessionOwner }: { children: Re
     let storage: Storage | undefined;
     try { storage = window.sessionStorage; } catch { /* Optional persistence. */ }
     let authMarker=authenticationMarker.current;
-    try {const stored=storage?.getItem(NAVIGATION_AUTH_RETURN_KEY);if(!authMarker&&stored&&stored.length<1000)authMarker=readNavigationMarker(JSON.parse(stored));}catch{/* Optional session storage. */}
+    try {const stored=storage?readBrowserValue(storage,NAVIGATION_AUTH_RETURN_KEY):null;if(!authMarker&&stored&&stored.length<1000)authMarker=readNavigationMarker(JSON.parse(stored));}catch{/* Optional session storage. */}
     const marker = authMarker ?? readNavigationMarker(window.history.state?.[NAVIGATION_HISTORY_KEY]) ?? readNavigationMarker(window.__nnNavigationInitialMarker)
       ?? readNavigationReloadMarker(owner,(performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming|undefined)?.type,storage);
     delete window.__nnNavigationInitialMarker;
     const resumeHref=authMarker?navigationResumeHref(owner,authMarker,storage):null;
     const canResume=resumeHref&&(pathname.startsWith('/auth/')||new URL(resumeHref,'https://navigation.invalid').pathname===pathname);
-    if(marker&&marker.owner!==owner){try{storage?.removeItem(navigationStorageKey(marker.owner));storage?.removeItem(NAVIGATION_AUTH_RETURN_KEY);}catch{/* Memory isolation remains. */}}
+    if(marker&&marker.owner!==owner&&storage){try{removeBrowserValue(storage,navigationStorageKey(marker.owner));removeBrowserValue(storage,NAVIGATION_AUTH_RETURN_KEY);}catch{/* Memory isolation remains. */}}
     journalRef.current = new NavigationJournal(owner, canResume?resumeHref:renderedHref, marker, storage);
     restoredRef.current = marker?.id === journalRef.current.current.id;
     authenticationReturn.current=canResume?journalRef.current.current.id:null;
@@ -189,15 +190,15 @@ export function AppNavigationProvider({ children, sessionOwner }: { children: Re
     if (entry !== journal.current) journal.commit(entry);
     if (pendingRef.current?.id === entry.id) pendingRef.current = null;
     stamp();
-    if(resumingAuthentication){authenticationReturn.current=null;authenticationMarker.current=null;try{sessionStorage.removeItem(NAVIGATION_AUTH_RETURN_KEY);}catch{}}
+    if(resumingAuthentication){authenticationReturn.current=null;authenticationMarker.current=null;try{removeBrowserValue(sessionStorage,NAVIGATION_AUTH_RETURN_KEY);}catch{}}
   }, [journal, entry, renderedHref, stamp, resumingAuthentication, router]);
   useEffect(() => {
     const hide = () => {
       flush();
       const current=journalRef.current;
-      if(current&&ownerRef.current===current.owner){try{sessionStorage.setItem(NAVIGATION_RELOAD_KEY,JSON.stringify(current.marker()));}catch{/* Journal already reports degraded persistence. */}}
+      if(current&&ownerRef.current===current.owner){try{writeBrowserValue(sessionStorage,NAVIGATION_RELOAD_KEY,JSON.stringify(current.marker()));}catch{/* Journal already reports degraded persistence. */}}
     };
-    const clear = () => { authenticationReturn.current=null;authenticationMarker.current=null;try{sessionStorage.removeItem(NAVIGATION_AUTH_RETURN_KEY);sessionStorage.removeItem(NAVIGATION_RELOAD_KEY);}catch{} journalRef.current?.clear(); journalRef.current = null; pendingRef.current = null; captures.current.clear(); setRevision(n => n + 1); };
+    const clear = () => { authenticationReturn.current=null;authenticationMarker.current=null;try{removeBrowserValue(sessionStorage,NAVIGATION_AUTH_RETURN_KEY);removeBrowserValue(sessionStorage,NAVIGATION_RELOAD_KEY);}catch{} journalRef.current?.clear(); journalRef.current = null; pendingRef.current = null; captures.current.clear(); setRevision(n => n + 1); };
     window.addEventListener('pagehide', hide);
     document.addEventListener('visibilitychange', hide);
     window.addEventListener('nn:navigation-clear', clear);
@@ -289,7 +290,7 @@ export function AppNavigationProvider({ children, sessionOwner }: { children: Re
         const marker=current?.marker()??readNavigationMarker(window.__nnNavigationInitialMarker)??readNavigationMarker(window.history.state?.[NAVIGATION_HISTORY_KEY]);
         authenticationMarker.current=marker;
         if(current)authenticationReturn.current=current.current.id;
-        try{if(marker)sessionStorage.setItem(NAVIGATION_AUTH_RETURN_KEY,JSON.stringify(marker));}catch{}
+        try{if(marker)writeBrowserValue(sessionStorage,NAVIGATION_AUTH_RETURN_KEY,JSON.stringify(marker));}catch{}
       }
       if (current && ownerRef.current === current.owner && safe) {
         const actual=window.location.pathname+window.location.search+window.location.hash;

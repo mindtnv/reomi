@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { db } from '@neuronexus/db';
+import { db } from '@reomi/db';
 import { buildApp } from '../src/app';
 import { applyNoteUpdate, insertNoteAndCards, resolveNoteCreate, resolveNoteUpdate } from '../src/modules/notes';
 import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers';

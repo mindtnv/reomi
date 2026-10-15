@@ -19,7 +19,7 @@
 // extractor / EPUB reader so tests drive the dispatcher without real binary
 // fixtures. The URL path is already injectable via `__setPageReaderForTests`.
 
-import type { IngestErrorCode, SourceKind, SourceUnit } from '@neuronexus/shared';
+import type { IngestErrorCode, SourceKind, SourceUnit } from '@reomi/shared';
 import { env } from '../env.ts';
 import { collapseText, htmlToPage, readPageCached } from './page-reader.ts';
 import { extractEpubCover, type CoverImage } from './source-cover.ts';

@@ -1,7 +1,7 @@
 // AST → drizzle SQL WHERE: the SERVER back-end of the one-AST-two-consumers
-// design (the client predicate in @neuronexus/shared/card-query-predicate.ts is
+// design (the client predicate in @reomi/shared/card-query-predicate.ts is
 // the other). This module imports only AST *types* + the shared wildcard helper
-// from @neuronexus/shared — it never re-parses, and never re-implements wildcard
+// from @reomi/shared — it never re-parses, and never re-implements wildcard
 // translation (Architect should-fix #7, plan Principle 1).
 //
 // SAFETY (PRE-MORTEM #2): every user-supplied literal is passed as a bound
@@ -31,14 +31,14 @@ import {
   type SQL,
   sql,
 } from 'drizzle-orm';
-import { cards, noteTypes, notes } from '@neuronexus/db';
+import { cards, noteTypes, notes } from '@reomi/db';
 import {
   wildcardToSqlLike,
   type CardQueryNode,
   type CompareOp,
   type PropField,
   type TermNode,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 
 const MS_PER_DAY = 86_400_000;
 
