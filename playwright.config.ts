@@ -15,6 +15,7 @@ export default defineConfig({
     baseURL: prod ? 'https://app.reomi.ru' : 'http://localhost:3001',
     locale: 'en-US',
     viewport: { width: 1280, height: 800 },
+    actionTimeout: 30_000,
     navigationTimeout: 90_000,
     trace: prod ? 'off' : 'retain-on-failure',
     video: prod ? 'off' : 'off',

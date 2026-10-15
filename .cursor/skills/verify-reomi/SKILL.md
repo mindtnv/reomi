@@ -49,7 +49,7 @@ Auth copy stays Russian. Everything else stays English under `en-US`.
 Local walk:
 
 1. Open `/auth/sign-up`. Fill `Имя`, `Email`, and `Пароль`. Choose `Зарегистрироваться`. Expect the heading `A quiet garden.`
-2. Open `Account: <name>` and choose `Sign out`. Expect `/auth/sign-in`.
+2. Open the account control labelled `Account: <name>` and choose `Sign out`. Expect `/auth/sign-in`.
 3. Sign in with `Войти`.
 4. If the garden heading is visible, choose `Build a deck`. Otherwise choose the `Decks` link.
 5. Choose `New deck`, fill `Name` in the `New deck` dialog, and choose `Create`. Expect a treeitem named with the deck.

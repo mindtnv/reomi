@@ -15,7 +15,7 @@ async function signIn(page: Page, email: string, password: string) {
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Пароль').fill(password);
   await page.getByRole('button', { name: 'Войти', exact: true }).click();
-  await expect(page.getByRole('button', { name: /^Account:/ })).toBeVisible();
+  await expect(page.getByLabel(/^Account:/)).toBeVisible();
 }
 
 async function openDecks(page: Page) {
@@ -61,7 +61,7 @@ test('sign in, create a deck, review a card, and open statistics', async ({ page
         await shot(page, '01-garden');
       });
       await test.step('sign out', async () => {
-        await page.getByRole('button', { name: `Account: ${target.name}` }).click();
+        await page.getByLabel(`Account: ${target.name}`, { exact: true }).click();
         await page.getByRole('button', { name: 'Sign out', exact: true }).click();
         await expect(page).toHaveURL(/\/auth\/sign-in/);
       });
