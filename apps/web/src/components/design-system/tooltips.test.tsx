@@ -1,12 +1,14 @@
 import { ensureTestDom } from '@/lib/test-dom-setup';
-import { afterEach, beforeAll, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, expect, test } from 'bun:test';
 import React, { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
-import { Tooltips } from './tooltips';
+import type { Root } from 'react-dom/client';
+
+ensureTestDom();
+const { createRoot } = await import('react-dom/client');
+const { Tooltips } = await import('./tooltips');
 
 let host: HTMLDivElement;
 let root: Root;
-beforeAll(() => { ensureTestDom(); });
 beforeEach(() => {
   ensureTestDom();
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

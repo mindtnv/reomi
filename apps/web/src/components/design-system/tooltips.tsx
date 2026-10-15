@@ -10,6 +10,8 @@ export function Tooltips() {
     let target: HTMLElement | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let previousDescription: string | null = null;
+    let activated: HTMLElement | null = null;
+    let activatedAt = 0;
     const hide = () => {
       clearTimeout(timer);
       if (target) {
@@ -22,6 +24,7 @@ export function Tooltips() {
     const show = (event: Event) => {
       if (event instanceof PointerEvent && event.pointerType === 'touch') return;
       const next = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-tooltip]') : null;
+      if (event.type === 'focusin' && next && next === activated && Date.now() - activatedAt < 500) return;
       if (next === target) return;
       hide();
       const text = next?.dataset.tooltip?.trim();
@@ -47,7 +50,12 @@ export function Tooltips() {
     document.addEventListener('focusin', show);
     document.addEventListener('pointerout', leave);
     document.addEventListener('focusout', leave);
-    document.addEventListener('pointerdown', hide);
+    const pointerDown = (event: Event) => {
+      activated = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-tooltip]') : null;
+      activatedAt = Date.now();
+      hide();
+    };
+    document.addEventListener('pointerdown', pointerDown);
     document.addEventListener('keydown', key);
     window.addEventListener('scroll', hide, true);
     window.addEventListener('resize', hide);
@@ -57,7 +65,7 @@ export function Tooltips() {
       document.removeEventListener('focusin', show);
       document.removeEventListener('pointerout', leave);
       document.removeEventListener('focusout', leave);
-      document.removeEventListener('pointerdown', hide);
+      document.removeEventListener('pointerdown', pointerDown);
       document.removeEventListener('keydown', key);
       window.removeEventListener('scroll', hide, true);
       window.removeEventListener('resize', hide);

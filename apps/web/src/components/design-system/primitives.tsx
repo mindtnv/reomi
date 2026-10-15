@@ -151,6 +151,19 @@ export function SegmentedControl<T extends string>({
   </div>;
 }
 
+type CheckboxProps = Omit<ComponentProps<'input'>, 'type' | 'onChange' | 'checked' | 'className'> & {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  className?: string;
+};
+export function Checkbox({ checked, onChange, disabled, children, className, title, ...props }: CheckboxProps) {
+  return <label className={['reomi-check', className].filter(Boolean).join(' ')} data-disabled={disabled ? 'true' : undefined} title={title}>
+    <input {...props} type="checkbox" className="reomi-check-input" checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)} />
+    <span className="reomi-check-box" data-checked={checked ? 'true' : undefined} aria-hidden="true" />
+    {children}
+  </label>;
+}
+
 export function ReadingText({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div {...props} className={['reomi-reading', className].filter(Boolean).join(' ')} />;
 }

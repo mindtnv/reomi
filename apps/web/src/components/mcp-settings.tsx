@@ -1,8 +1,9 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { SegmentedControl, TextInput } from '@/components/design-system/primitives';
-import { NNBtn, NNSkeleton } from './ui';
+import { Field, SegmentedControl, TextInput } from '@/components/design-system/primitives';
+import { NNBtn, NNIcon, NNSkeleton } from './ui';
 import { useT } from '@/lib/i18n';
 import { apiErrorFromResponse } from '@/lib/api';
 import { copyCodeText } from './chat/code-copy';
@@ -15,7 +16,6 @@ async function request<T>(path = '', options: RequestInit = {}): Promise<T> {
   if (!response.ok) throw await apiErrorFromResponse(response);
   return response.json() as Promise<T>;
 }
-/** Parent keys this component by session user so secrets never cross accounts. */
 export function McpSettings() {
   const t = useT();
   const { confirm } = useDialog();
@@ -26,6 +26,7 @@ export function McpSettings() {
   const [name, setName] = useState('');
   const [scope, setScope] = useState<'read' | 'write'>('read');
   const [days, setDays] = useState(90);
+  const [connectOpen, setConnectOpen] = useState(false);
   const [created, setCreated] = useState<{ token: string; item: TokenItem } | null>(null);
   const [copied, setCopied] = useState('');
   const [revision, setRevision] = useState(0);
@@ -68,10 +69,19 @@ export function McpSettings() {
     <p style={{ margin: 0, fontSize: 13, color: 'var(--text-dim)' }}>{t('settings.mcp.hint')}</p>
     {error && <div role="alert" style={{ color: 'var(--rose-400)', fontSize: 13 }}>{t('settings.mcp.error')} <NNBtn size="sm" onClick={refresh}>{t('settings.mcp.retry')}</NNBtn></div>}
     <form className="reomi-mcp-create" onSubmit={create} style={{ display: 'grid', gap: 10 }}>
-      <label style={{ fontSize: 12 }}>{t('settings.mcp.name')}<TextInput value={name} onChange={e => setName(e.target.value)} maxLength={80} required placeholder="Codex / Claude" aria-label={t('settings.mcp.name')} style={{ marginTop: 5 }} /></label>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 200px' }}><SegmentedControl label={t('settings.mcp.permissions')} value={scope} onChange={setScope} options={[{ value: 'read', label: t('settings.mcp.read') }, { value: 'write', label: t('settings.mcp.write') }]} /></div>
-        <div style={{ flex: '1 1 220px' }}><SegmentedControl label={t('settings.mcp.expires')} value={String(days)} onChange={value => setDays(Number(value))} options={[7, 30, 90, 365].map(n => ({ value: String(n), label: t('settings.mcp.days', { n }) }))} /></div>
+      <Field label={t('settings.mcp.name')}>
+        <TextInput value={name} onChange={e => setName(e.target.value)} maxLength={80} required placeholder="Codex / Claude" />
+      </Field>
+      <div className="reomi-mcp-choice">
+        <span>{t('settings.mcp.permissions')}</span>
+        <SegmentedControl label={t('settings.mcp.permissions')} value={scope} onChange={setScope} options={[
+          { value: 'read', label: t('settings.mcp.read') },
+          { value: 'write', label: t('settings.mcp.write') },
+        ]} />
+      </div>
+      <div className="reomi-mcp-choice">
+        <span>{t('settings.mcp.expires')}</span>
+        <SegmentedControl label={t('settings.mcp.expires')} value={String(days)} onChange={value => setDays(Number(value))} options={[7, 30, 90, 365].map(n => ({ value: String(n), label: t('settings.mcp.days', { n }) }))} />
       </div>
       <div><NNBtn type="submit" size="sm" disabled={busy || Boolean(created) || !name.trim()}>{busy ? t('settings.mcp.working') : t('settings.mcp.create')}</NNBtn></div>
     </form>
@@ -91,7 +101,12 @@ export function McpSettings() {
         </div>;
       })}
     </div>
-    <details><summary style={{ cursor: 'pointer', fontSize: 13 }}>{t('settings.mcp.connect')}</summary><div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+    <div className="reomi-mcp-connect">
+      <button type="button" aria-expanded={connectOpen} onClick={() => setConnectOpen(open => !open)}>
+        <span>{t('settings.mcp.connect')}</span>
+        <NNIcon name="chevd" size={16} />
+      </button>
+      {connectOpen && <div>
       <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>{t('settings.mcp.environment')}</p>
       <code style={{ overflowWrap: 'anywhere', fontSize: 12 }}>{endpoint}</code>
       <div><NNBtn size="sm" onClick={() => void copy(endpoint, 'url')}>{t(copied === 'url' ? 'settings.mcp.copied' : 'settings.mcp.copyUrl')}</NNBtn></div>
@@ -99,6 +114,6 @@ export function McpSettings() {
       <pre style={{ margin: 0, padding: 12, fontSize: 11, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', background: 'var(--surface-2)', borderRadius: 8 }}>{command}</pre>
       <NNBtn size="sm" onClick={() => void copy(command, 'command')}>{t(copied === 'command' ? 'settings.mcp.copied' : 'settings.mcp.copyCommand')}</NNBtn>
       <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>{t('settings.mcp.otherClients')}</p>
-    </div></details>
+    </div>}</div>
   </section>;
 }

@@ -1,21 +1,23 @@
 import { ensureTestDom } from '@/lib/test-dom-setup';
-import { afterEach, beforeAll, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, expect, test } from 'bun:test';
 import React, { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import { I18nProvider } from '@/lib/i18n';
 import { DialogProvider } from './dialog';
-import { McpSettings } from './mcp-settings';
+
+ensureTestDom();
+const { createRoot } = await import('react-dom/client');
+const { McpSettings } = await import('./mcp-settings');
 
 let host: HTMLDivElement;
 let root: Root;
 let originalFetch: typeof fetch;
-beforeAll(() => { ensureTestDom(); });
 beforeEach(() => {
   ensureTestDom();
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   localStorage.setItem('nn:locale', 'en');
   originalFetch = globalThis.fetch;
-  globalThis.fetch = (async () => Response.json([])) as typeof fetch;
+  globalThis.fetch = (async () => Response.json([])) as unknown as typeof fetch;
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);

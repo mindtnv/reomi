@@ -1,12 +1,14 @@
 import { ensureTestDom } from '@/lib/test-dom-setup';
-import { afterEach, beforeAll, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, expect, test } from 'bun:test';
 import React, { act, useState } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
-import { Button, Field, SegmentedControl, Surface, TextInput } from './primitives';
+import type { Root } from 'react-dom/client';
+
+ensureTestDom();
+const { createRoot } = await import('react-dom/client');
+const { Button, Field, SegmentedControl, Surface, TextInput } = await import('./primitives');
 
 let host: HTMLDivElement;
 let root: Root;
-beforeAll(() => { ensureTestDom(); });
 beforeEach(() => { (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true; host = document.createElement('div'); document.body.append(host); root = createRoot(host); });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT; });
 

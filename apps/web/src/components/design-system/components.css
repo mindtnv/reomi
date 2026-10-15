@@ -78,8 +78,16 @@
   .reomi-input[type='checkbox'],
   .reomi-input[type='radio'] { width: 20px; min-width: 20px; height: 20px; min-height: 20px; font-size: inherit; }
 }
+.reomi-check { position: relative; display: inline-flex; align-items: center; gap: 8px; min-width: 0; cursor: pointer; }
+.reomi-check[data-disabled='true'] { cursor: default; }
+.reomi-check-input { position: absolute; opacity: 0; width: 16px; height: 16px; margin: 0; cursor: inherit; }
+.reomi-check-box { width: 16px; height: 16px; flex-shrink: 0; box-sizing: border-box; border: 1.5px solid var(--border-2); border-radius: 5px; background: transparent; transition: background-color var(--control-motion), border-color var(--control-motion); }
+.reomi-check-box[data-checked='true'] { border-color: var(--accent-500); background: var(--accent-500); }
+.reomi-check-box[data-checked='true']::after { content: ''; display: block; width: 4px; height: 8px; margin: 1px auto 0; border: solid var(--text-on-accent); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.reomi-check[data-disabled='true'] .reomi-check-box { opacity: .45; }
+.reomi-check-input:focus-visible + .reomi-check-box { outline: 2px solid var(--accent-500); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
-  .reomi-button,.reomi-input,.reomi-segments > button,.reomi-surface { transition: none; }
+  .reomi-button,.reomi-input,.reomi-segments > button,.reomi-surface,.reomi-check-box { transition: none; }
   .reomi-button:not(:disabled):active { transform: none; }
   .reomi-button-spinner { animation: none; border-style: dotted; }
 }
@@ -805,7 +813,7 @@ body:has(.reomi-resize-handle[data-dragging='true']) { user-select: none; cursor
 .reomi-column-picker header > span { color: var(--text-muted); font-size: 11px; }
 .reomi-column-picker label { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 9px; cursor: pointer; font-size: 13px; }
 .reomi-column-picker label:hover { background: var(--surface-2); }
-.reomi-column-picker input { width: 15px; height: 15px; margin: 0; accent-color: var(--accent-500); }
+.reomi-column-picker .reomi-check { width: 100%; }
 .reomi-column-picker small { margin-left: auto; color: var(--text-dim); font-size: 10px; }
 .reomi-column-picker footer { border-top: 1px solid var(--panel-edge); padding: 9px 5px 3px; margin-top: 5px; }
 @media(pointer:coarse) { .reomi-column-picker label { min-height: 44px; } }
@@ -1342,7 +1350,7 @@ body:has(.reomi-organized-deck-row[data-dragging]) { user-select: none; cursor: 
   .reomi-settings-tabs { flex-direction: row; gap: 4px; width: max-content; }
   .reomi-settings-tabs > button { padding: 0 12px; min-height: 40px; }
   .reomi-settings-tabs > button svg { display: none; }
-  .reomi-settings-content { padding: 24px 14px 32px; }
+  .reomi-settings-content { padding: 24px 14px calc(48px + 8px + 24px + env(safe-area-inset-bottom, 0px)); }
   .reomi-settings-page-heading h1 { font-size: 24px; }
   .reomi-settings-section { padding: 18px; border-radius: 14px; }
   .reomi-settings-form-grid { grid-template-columns: minmax(0,1fr); }
@@ -1353,9 +1361,18 @@ body:has(.reomi-organized-deck-row[data-dragging]) { user-select: none; cursor: 
 }
 
 .reomi-mcp-create { padding: 18px; border: 1px solid var(--panel-edge); border-radius: 12px; background: var(--surface-2); }
-.reomi-mcp-create input, .reomi-mcp-create select { box-sizing: border-box; min-height: 40px; }
+.reomi-mcp-choice { display: grid; gap: 7px; min-width: 0; }
+.reomi-mcp-choice > span { font: 500 13px/1.4 var(--font-sans); }
+.reomi-mcp-settings .reomi-segments { width: 100%; }
+.reomi-mcp-settings .reomi-segments > button { white-space: normal; }
 .reomi-mcp-token { padding: 14px 0 !important; }
-.reomi-mcp-settings details { padding-top: 16px; border-top: 1px solid var(--panel-edge); }
+.reomi-mcp-connect { padding-top: 16px; border-top: 1px solid var(--panel-edge); }
+.reomi-mcp-connect > button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; padding: 0; border: 0; background: transparent; color: var(--text); font: 500 13px/1.4 var(--font-sans); cursor: pointer; }
+.reomi-mcp-connect > button svg { transition: transform var(--control-motion); }
+.reomi-mcp-connect > button[aria-expanded='true'] svg { transform: rotate(180deg); }
+.reomi-mcp-connect > button:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 3px; border-radius: 6px; }
+@media (prefers-reduced-motion: reduce) { .reomi-mcp-connect > button svg { transition: none; } }
+.reomi-mcp-connect > div { display: grid; gap: 10px; margin-top: 12px; }
 
 .reomi-settings-defaults > summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; font-weight: 500; cursor: pointer; }
 .reomi-settings-defaults > p { color: var(--text-muted); font-size: 12px; line-height: 1.6; }
@@ -1416,8 +1433,7 @@ body:has(.reomi-organized-deck-row[data-dragging]) { user-select: none; cursor: 
 .reomi-assistant-composer-scope { padding:8px 2px; border-top:1px solid var(--panel-edge); }
 .reomi-assistant-composer-actions>span[style] { min-width:0; }
 .reomi-assistant-composer-context:not(:empty) { padding-bottom:8px; }
-.reomi-assistant-policy { display:flex; align-items:center; gap:8px; color:var(--text-muted); font-size:12px; cursor:pointer; }
-.reomi-assistant-policy input { accent-color:var(--accent-500); width:14px; height:14px; margin:0; }
+.reomi-assistant-policy { color:var(--text-muted); font-size:12px; }
 .reomi-assistant-attachments { display:flex; flex-wrap:wrap; gap:5px; }
 .reomi-assistant-attachments>span { display:flex; align-items:center; gap:5px; font-size:11px; max-width:100%; overflow:hidden; }
 .reomi-assistant-attachments img { width:38px; height:38px; object-fit:cover; border-radius:5px; }
