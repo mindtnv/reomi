@@ -120,7 +120,8 @@ test('sign in, create a deck, review a card, and open statistics', async ({ page
         .filter({ has: page.getByText(target.deckName, { exact: true }) })
         .filter({ has: page.getByText('1 own', { exact: true }) })
         .last();
-      await expect(row).toBeVisible();
+      await row.scrollIntoViewIfNeeded();
+      await expect(row).toBeInViewport();
       await shot(page, '06-stats');
     });
     walked = true;

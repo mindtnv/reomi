@@ -56,7 +56,7 @@ Local walk:
 6. Open `Deck menu: <deck>`, choose `Add card`, fill the `Question` and `Answer` textboxes, and choose `Create`. Expect `/editor?card=` and the text `Card saved`.
 7. Return to `Decks`, open the same deck menu, and choose `Study`. Expect the question, then `Show answer`, then the answer. Choose the button whose name contains `3` and `Good`.
 8. Expect the heading `Your next review is coming up` and the text `Your answers have already been saved.`
-9. Open `Stats`. Expect `Due forecast`, `Retention by interval`, `Per-deck performance`, and a row that contains the deck name and the exact text `1 own`.
+9. Open `Stats`. Expect `Due forecast`, `Retention by interval`, and `Per-deck performance`. Scroll the row that contains the deck name and the exact text `1 own` into the viewport.
 
 Production uses the same steps from sign-in onward. It does not sign up and does not require the garden. Deck, question, and answer all start with `e2e-<time>-<entropy>`.
 
