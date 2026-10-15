@@ -456,7 +456,9 @@ function shiftUtcDay(day: string, delta: number): string {
 }
 
 function calendarWindow(days: number): SQL {
-  return sql`(reviewed_at AT TIME ZONE 'UTC')::date BETWEEN ((now() AT TIME ZONE 'UTC')::date - ${days - 1}) AND (now() AT TIME ZONE 'UTC')::date`;
+  // `::integer` keeps the bound offset a date subtraction. An uncast parameter
+  // is planned as `date >= integer` inside BETWEEN.
+  return sql`(reviewed_at AT TIME ZONE 'UTC')::date BETWEEN (((now() AT TIME ZONE 'UTC')::date - ${days - 1}::integer)) AND (now() AT TIME ZONE 'UTC')::date`;
 }
 
 function averageGrade(sum: number, count: number): number | null {

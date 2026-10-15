@@ -7,7 +7,8 @@ export interface RetentionPoint {
 /** Chart y for a 0..1 ratio. 90% with the stats viewBox lands at 32. */
 export function retentionY(ratio: number, top = 20, height = 120): number {
   const clamped = Math.min(1, Math.max(0, Number.isFinite(ratio) ? ratio : 0));
-  return top + (1 - clamped) * height;
+  // One decimal matches the stroke's toFixed(1), so 0.9 lands on 32 rather than 31.999….
+  return Math.round((top + (1 - clamped) * height) * 10) / 10;
 }
 
 /** A missing day lifts the pen. The stroke does not cross the gap. */
