@@ -293,12 +293,11 @@ export function ReminderSettings({
         />
       </div>
 
+      {vapidPublicKey ? null : <p className="reomi-settings-note">{t('settings.notifications.pushUnavailable')}</p>}
       <div className="reomi-settings-actions">
         {vapidPublicKey ? (
           <NNBtn variant="soft" onClick={() => { void allowPush(); }}>{t('settings.notifications.pushEnable')}</NNBtn>
-        ) : (
-          <p className="reomi-settings-note">{t('settings.notifications.pushUnavailable')}</p>
-        )}
+        ) : null}
         <NNBtn variant="primary" loading={saving} onClick={onSave}>{t('settings.notifications.save')}</NNBtn>
       </div>
       {status ? <p className="reomi-settings-note" role="status">{status}</p> : null}

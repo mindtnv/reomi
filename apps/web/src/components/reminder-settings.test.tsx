@@ -6,6 +6,13 @@ import { I18nProvider } from '../lib/i18n';
 import { writeBrowserValue } from '../lib/storage-migration';
 
 ensureTestDom();
+if (typeof Notification === 'undefined') {
+  Object.defineProperty(globalThis, 'Notification', {
+    configurable: true,
+    writable: true,
+    value: class Notification {},
+  });
+}
 const { createRoot } = await import('react-dom/client');
 const { ReminderSettings } = await import('./reminder-settings');
 
@@ -15,6 +22,7 @@ let container: HTMLDivElement;
 afterEach(() => { root?.unmount(); container?.remove(); });
 
 async function render(locale: 'en' | 'ru', props: React.ComponentProps<typeof ReminderSettings>) {
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   localStorage.clear();
   localStorage.setItem('nn:locale', locale);
   container = document.createElement('div');
