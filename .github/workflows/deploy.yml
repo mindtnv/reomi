@@ -165,8 +165,6 @@ jobs:
           push: true
           provenance: false
           tags: |
-            ghcr.io/${{ github.repository_owner }}/neuronexus-api:${{ github.sha }}
-            ghcr.io/${{ github.repository_owner }}/neuronexus-api:latest
             ghcr.io/${{ github.repository_owner }}/reomi-api:${{ github.sha }}
             ghcr.io/${{ github.repository_owner }}/reomi-api:latest
           labels: |
@@ -198,8 +196,6 @@ jobs:
             NEXT_PUBLIC_API_URL=https://api.reomi.ru
             NEXT_PUBLIC_MEDIA_BASE_URL=https://s3.1dedic.ru/neuronexus
           tags: |
-            ghcr.io/${{ github.repository_owner }}/neuronexus-web:${{ github.sha }}
-            ghcr.io/${{ github.repository_owner }}/neuronexus-web:latest
             ghcr.io/${{ github.repository_owner }}/reomi-web:${{ github.sha }}
             ghcr.io/${{ github.repository_owner }}/reomi-web:latest
           labels: |

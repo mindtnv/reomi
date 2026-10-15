@@ -6,8 +6,8 @@ The apex `reomi.ru` and `www` are outside this migration; no landing page is dep
 ## Infrastructure and rollback baseline
 
 - Coolify team: `8`; server: `ru-anvgrp-1`, `82.202.165.26`.
-- API: `u6kweu7gzzw9kidpuq7i0n7y`. Current publish window tags both `ghcr.io/<owner>/neuronexus-api` and `ghcr.io/<owner>/reomi-api` with the same commit SHA. Coolify still selects the image repository; switching it to `reomi-api` is an operator step and is not done by this repository change.
-- Web: `tmc5k98iayyj0g28qr7inbaj`. The same window publishes `ghcr.io/<owner>/neuronexus-web` and `ghcr.io/<owner>/reomi-web`. Application UUIDs stay unchanged.
+- API: `u6kweu7gzzw9kidpuq7i0n7y`. Coolify runs `ghcr.io/mindtnv/reomi-api`. The main workflow publishes that repository with the commit SHA and `latest`.
+- Web: `tmc5k98iayyj0g28qr7inbaj`. Coolify runs `ghcr.io/mindtnv/reomi-web`. The main workflow publishes that repository with the commit SHA and `latest`.
 - Both verified baseline image tags on 2026-09-21: `40c5833c66ae990e34fd2b2683f9266bab4aa77f`.
 - Old web: `https://neuronexus.mihailantonov.pro`.
 - Old API host `https://api.neuronexus.mihailantonov.pro` is a removable alias. It is not a supported endpoint. Do not document it as a compatibility promise. The old web host still redirects to `https://app.reomi.ru`.
