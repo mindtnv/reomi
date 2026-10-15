@@ -315,8 +315,12 @@ export const cards = pgTable(
 
 // Pre-grade snapshot stored on the review row that created the grade. Holds the
 // card columns from the FSRS step and the study-ledger columns from the
-// rollup. Undo restores those. plantStage and profile.updatedAt restore only
-// while the grade is still the last writer. Date columns are ISO strings.
+// rollup. Undo restores those. plantStage restores from the snapshot unless a
+// later edit left a stage that is not the streak formula. profile.updatedAt
+// restores only while the grade is still the last writer. name,
+// dailyGoalMinutes, desiredRetention, plantSpecies and agentInstructions are
+// optional identity so a same-millisecond profile edit is visible. Older
+// snapshots omit them. Date columns are ISO strings.
 export interface UndoSnapshot {
   card: {
     due: string; // ISO
@@ -348,6 +352,11 @@ export interface UndoSnapshot {
     reviewsDoneToday: number;
     dailyCountsDate: string | null;
     updatedAt: string; // ISO
+    name?: string;
+    dailyGoalMinutes?: number;
+    desiredRetention?: number | null;
+    plantSpecies?: (typeof plantSpeciesEnum)[number];
+    agentInstructions?: string | null;
   } | null;
 }
 

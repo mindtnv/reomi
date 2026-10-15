@@ -118,6 +118,11 @@ async function gradeReview(user:{id:string;name?:string|null}, body:GradeInput, 
             xp: existingProfile.xp,
             level: existingProfile.level,
             plantStage: existingProfile.plantStage,
+            name: existingProfile.name,
+            dailyGoalMinutes: existingProfile.dailyGoalMinutes,
+            desiredRetention: existingProfile.desiredRetention,
+            plantSpecies: existingProfile.plantSpecies,
+            agentInstructions: existingProfile.agentInstructions,
             newIntroducedToday: existingProfile.newIntroducedToday,
             reviewsDoneToday: existingProfile.reviewsDoneToday,
             dailyCountsDate: existingProfile.dailyCountsDate,
@@ -305,6 +310,32 @@ const DEFAULT_REVIEWS_PAGE = 100;
 const MAX_REVIEWS_PAGE = 500;
 const REVIEW_CURSOR_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function profileEditOwnsUpdatedAt(
+  locked: {
+    updatedAt: Date;
+    plantStage: number;
+    streakDays: number;
+    name: string;
+    dailyGoalMinutes: number;
+    desiredRetention: number | null;
+    plantSpecies: string;
+    agentInstructions: string | null;
+  },
+  snap: NonNullable<UndoSnapshot['profile']>,
+  reviewedAt: Date,
+): boolean {
+  if (locked.updatedAt.getTime() !== reviewedAt.getTime()) return true;
+  if (locked.plantStage !== plantStageFromStreak(locked.streakDays)) return true;
+  if (snap.name === undefined) return false;
+  return (
+    locked.name !== snap.name ||
+    locked.dailyGoalMinutes !== snap.dailyGoalMinutes ||
+    locked.desiredRetention !== (snap.desiredRetention ?? null) ||
+    locked.plantSpecies !== snap.plantSpecies ||
+    locked.agentInstructions !== (snap.agentInstructions ?? null)
+  );
+}
+
 function parseReviewCursor(raw: string): { at: Date; id: string } | null {
   const split = raw.lastIndexOf('_');
   if (split <= 0) return null;
@@ -424,6 +455,11 @@ export const reviewsModule = new Elysia({ prefix: '/reviews' })
             plantStage: profile.plantStage,
             streakDays: profile.streakDays,
             updatedAt: profile.updatedAt,
+            name: profile.name,
+            dailyGoalMinutes: profile.dailyGoalMinutes,
+            desiredRetention: profile.desiredRetention,
+            plantSpecies: profile.plantSpecies,
+            agentInstructions: profile.agentInstructions,
           })
           .from(profile)
           .where(eq(profile.userId, user.id))
@@ -483,9 +519,10 @@ export const reviewsModule = new Elysia({ prefix: '/reviews' })
           .where(eq(cards.id, review.cardId))
           .returning();
 
-        // Restore the study ledger. The grade also writes plantStage from the
-        // streak and stamps updatedAt with reviewedAt. A later profile edit
-        // owns whichever of those two it changed.
+        // Restore the study ledger. plantStage comes back from the snapshot
+        // unless a later edit left a stage that is not the current streak
+        // formula. updatedAt comes back from the snapshot only while the grade
+        // is still the last writer, including when an edit shares reviewedAt.
         let restoredProfile = null;
         if (snapshot.profile) {
           const plantStage =
@@ -494,7 +531,7 @@ export const reviewsModule = new Elysia({ prefix: '/reviews' })
               ? lockedProfile.plantStage
               : snapshot.profile.plantStage;
           const updatedAt =
-            lockedProfile && lockedProfile.updatedAt.getTime() !== review.reviewedAt.getTime()
+            lockedProfile && profileEditOwnsUpdatedAt(lockedProfile, snapshot.profile, review.reviewedAt)
               ? lockedProfile.updatedAt
               : new Date(snapshot.profile.updatedAt);
           const [saved] = await tx
