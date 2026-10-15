@@ -57,13 +57,33 @@ class ResendEmailProvider implements EmailProvider {
       }),
     });
     if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw new Error(`Resend API ${res.status}: ${body}`);
+      const raw = await res.text().catch(() => '');
+      throw new Error(`Resend API ${res.status}${resendDetail(raw)}`);
     }
   }
 }
 
+function resendDetail(raw: string): string {
+  let detail = raw;
+  try {
+    const parsed = JSON.parse(raw) as { message?: unknown };
+    if (typeof parsed.message === 'string') detail = parsed.message;
+  } catch {
+    detail = raw;
+  }
+  detail = detail.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]').trim().slice(0, 160);
+  return detail ? `: ${detail}` : '';
+}
+
 let cached: EmailProvider | null = null;
+let testSink: ((input: SendEmailInput) => void) | null = null;
+
+export function __setEmailSinkForTests(sink: ((input: SendEmailInput) => void) | null): void {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('email test sink is only available under NODE_ENV=test');
+  }
+  testSink = sink;
+}
 
 export function getEmailProvider(): EmailProvider {
   if (cached) return cached;
@@ -77,5 +97,6 @@ export function getEmailProvider(): EmailProvider {
 }
 
 export async function sendEmail(input: SendEmailInput): Promise<void> {
+  testSink?.(input);
   await getEmailProvider().send(input);
 }

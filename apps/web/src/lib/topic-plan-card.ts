@@ -4,13 +4,15 @@ export interface TopicPlanCardRow {
   urls: string[];
 }
 
-/** Rows for a propose_topic_plan result. Plain tool text stays null. */
-export function topicPlanCardRows(toolResult: string): TopicPlanCardRow[] | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(toolResult);
-  } catch {
-    return null;
+/** Rows for a proposal result or the confirm tool's argument object. Plain tool text stays null. */
+export function topicPlanCardRows(toolResult: unknown): TopicPlanCardRow[] | null {
+  let parsed: unknown = toolResult;
+  if (typeof toolResult === 'string') {
+    try {
+      parsed = JSON.parse(toolResult);
+    } catch {
+      return null;
+    }
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
   const modules = (parsed as { modules?: unknown }).modules;

@@ -3,6 +3,7 @@
 import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { apiErrorFromResponse } from '@/lib/api';
+import { authFailureText, authFieldError } from '@/lib/auth-recovery';
 const API_BASE =
   typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL
     ? process.env.NEXT_PUBLIC_API_URL
@@ -32,8 +33,9 @@ function ResetPasswordForm() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (password !== confirm) {
-      setError('Пароли не совпадают');
+    const fieldError = authFieldError({ mode: 'reset', password, confirm });
+    if (fieldError) {
+      setError(fieldError);
       return;
     }
     if (!token) {
@@ -49,7 +51,14 @@ function ResetPasswordForm() {
         body: JSON.stringify({ newPassword: password, token }),
       });
       if (!res.ok) {
-        throw await apiErrorFromResponse(res, 'Ссылка устарела или неверна.');
+        const upstream = await apiErrorFromResponse(res, 'Ссылка устарела или неверна. Запроси сброс ещё раз.');
+        const mapped = authFailureText({
+          status: res.status,
+          message: upstream.safeMessage,
+          fallback: '',
+        });
+        if (res.status >= 500 && !mapped) throw upstream;
+        throw new Error(mapped || 'Ссылка устарела или неверна. Запроси сброс ещё раз.');
       }
       setDone(true);
       setTimeout(() => router.replace('/auth/sign-in'), 1500);
@@ -62,6 +71,7 @@ function ResetPasswordForm() {
 
   return (
     <form
+      noValidate
       onSubmit={submit}
       style={{
         width: 'min(420px, 100%)',
@@ -96,8 +106,6 @@ function ResetPasswordForm() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
               autoComplete="new-password"
               style={inputStyle}
             />
@@ -110,8 +118,6 @@ function ResetPasswordForm() {
               type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              required
-              minLength={8}
               autoComplete="new-password"
               style={inputStyle}
             />

@@ -84,3 +84,17 @@ export const AUTH_RATE_RULES = {
   signUp: { bucket: 'auth:sign-up', limit: 5, windowMs: 60 * 60_000 } as RateLimitRule,
   forgot: { bucket: 'auth:forgot', limit: 3, windowMs: 60 * 60_000 } as RateLimitRule,
 };
+
+export function authRateRuleFor(method: string, pathname: string): RateLimitRule | null {
+  if (method !== 'POST') return null;
+  if (pathname === '/api/auth/sign-in/email') return AUTH_RATE_RULES.signIn;
+  if (pathname === '/api/auth/sign-up/email') return AUTH_RATE_RULES.signUp;
+  if (
+    pathname === '/api/auth/request-password-reset' ||
+    pathname === '/api/auth/forget-password' ||
+    pathname === '/api/auth/forgot-password'
+  ) {
+    return AUTH_RATE_RULES.forgot;
+  }
+  return null;
+}

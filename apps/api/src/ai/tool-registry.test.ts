@@ -12,6 +12,7 @@ import { buildAgentSystemPrompt } from '@reomi/shared';
 // The write/SRS tools always present in Phase B (no extra env gate).
 const KNOWLEDGE_TOOLS = ['search_source', 'read_source', 'list_marked_passages', 'read_context_object', ...buildKnowledgeTools().map(tool => tool.name)];
 const WRITE_SRS_TOOLS = ['create_card', 'edit_card', 'suspend', 'set_due', 'forget'];
+const PLAN_CONFIRM = 'create_topic_plan';
 // Read tools always present (semantic card search + the two progress read-tools,
 // S4 — plus the deterministic browse tools list_decks/browse_cards/get_card).
 const READ_TOOLS = [
@@ -30,7 +31,7 @@ describe('buildToolRegistry — web_search gating', () => {
 
   test('excludes web_search when disabled (write/SRS still present)', () => {
     const names = buildToolRegistry({ webSearchEnabled: false }).map((t) => t.name);
-    expect(names).toEqual([...READ_TOOLS, ...WRITE_SRS_TOOLS, ...KNOWLEDGE_TOOLS]);
+    expect(names).toEqual([...READ_TOOLS, PLAN_CONFIRM, ...WRITE_SRS_TOOLS, ...KNOWLEDGE_TOOLS]);
   });
 
   test('includes web_search when enabled', () => {
@@ -45,7 +46,7 @@ describe('buildToolRegistry — web_search gating', () => {
     expect(names).toContain('web_search');
     __setWebSearchProviderForTests(null);
     const off = buildToolRegistry().map((t) => t.name);
-    expect(off).toEqual([...READ_TOOLS, ...WRITE_SRS_TOOLS, ...KNOWLEDGE_TOOLS]);
+    expect(off).toEqual([...READ_TOOLS, PLAN_CONFIRM, ...WRITE_SRS_TOOLS, ...KNOWLEDGE_TOOLS]);
   });
 });
 
@@ -56,7 +57,7 @@ describe('buildToolRegistry — fetch_page gating (deep research)', () => {
     const names = buildToolRegistry({ webSearchEnabled: true, fetchPageEnabled: true }).map(
       (t) => t.name,
     );
-    expect(names).toEqual([...READ_TOOLS, 'web_search', 'fetch_page', ...WRITE_SRS_TOOLS, ...KNOWLEDGE_TOOLS]);
+    expect(names).toEqual([...READ_TOOLS, PLAN_CONFIRM, 'web_search', 'fetch_page', ...WRITE_SRS_TOOLS, ...KNOWLEDGE_TOOLS]);
   });
 
   test('absent by default under test env; an injected reader flips it on', () => {
@@ -166,6 +167,7 @@ describe('toOpenAiTools — gateway schema shape', () => {
       'browse_cards',
       'get_card',
       'propose_topic_plan',
+      'create_topic_plan',
       'web_search',
       ...WRITE_SRS_TOOLS,
       ...KNOWLEDGE_TOOLS,

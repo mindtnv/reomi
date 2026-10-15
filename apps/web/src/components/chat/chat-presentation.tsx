@@ -1857,6 +1857,7 @@ const ConfirmControls = ({ toolCall, onConfirm, t }: ConfirmControlsProps) => {
   // the draft parsed, the capped preview rows otherwise.
   const diffRows = draft ? [] : confirmDiffRows(toolCall.name, impact);
   const willCreate = draft ? includedCount : (impact?.willCreateCards ?? 0);
+  const planRows = toolCall.name === 'create_topic_plan' ? topicPlanCardRows(toolCall.args) : null;
 
   const setField = (cardIdx: number, field: string, value: string) =>
     setCards((prev) =>
@@ -1924,6 +1925,8 @@ const ConfirmControls = ({ toolCall, onConfirm, t }: ConfirmControlsProps) => {
       >
         {t('chat.confirm.pendingTitle')}
       </span>
+
+      {planRows && <PlanModuleList rows={planRows} t={t} confirm />}
 
       {/* What exactly changes / will be written — degrades silently when the
           payload is absent (old persisted rows, reload mid-pause). */}
@@ -2385,14 +2388,22 @@ const WebSearchResultText = ({ text }: { text: string }) => {
   );
 };
 
-function CompactToolResult({ text, toolName, t }: { text: string; toolName: string; t: (key: string, params?: Record<string, string | number>) => string }) {
-  const [expanded, setExpanded] = useState(false);
-  const router = useAppNavigation();
-  const planRows = toolName === 'propose_topic_plan' ? topicPlanCardRows(text) : null;
-  if (planRows) {
-    return <div className="reomi-tool-result-list">
-      <div className="reomi-tool-result-count">{t('chat.plan.modules', { count: planRows.length })}</div>
-      {planRows.map((row, index) => <div className="reomi-tool-result-row" key={`${row.title}-${index}`}>
+function PlanModuleList({
+  rows,
+  t,
+  confirm = false,
+}: {
+  rows: NonNullable<ReturnType<typeof topicPlanCardRows>>;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  confirm?: boolean;
+}) {
+  const pageCount = rows.reduce((count, row) => count + row.urls.length, 0);
+  return (
+    <div className="reomi-tool-result-list">
+      {confirm && <div className="reomi-tool-result-count">{t('chat.plan.confirm')}</div>}
+      <div className="reomi-tool-result-count">{t('chat.plan.modules', { count: rows.length })}</div>
+      {confirm && pageCount > 0 && <div className="reomi-tool-result-count">{t('chat.plan.pages', { count: pageCount })}</div>}
+      {rows.map((row, index) => <div className="reomi-tool-result-row" key={`${row.title}-${index}`}>
         <span>{row.title}</span>
         <small>{row.outcome}</small>
         {row.urls.map((url) => {
@@ -2401,8 +2412,15 @@ function CompactToolResult({ text, toolName, t }: { text: string; toolName: stri
           return <a key={href} href={href} target="_blank" rel="noopener noreferrer nofollow">{href}</a>;
         })}
       </div>)}
-    </div>;
-  }
+    </div>
+  );
+}
+
+function CompactToolResult({ text, toolName, t }: { text: string; toolName: string; t: (key: string, params?: Record<string, string | number>) => string }) {
+  const [expanded, setExpanded] = useState(false);
+  const router = useAppNavigation();
+  const planRows = toolName === 'propose_topic_plan' ? topicPlanCardRows(text) : null;
+  if (planRows) return <PlanModuleList rows={planRows} t={t} />;
   const deckRows = Array.from(text.matchAll(/^\s*-\s+(.+?)\s+\[deck:([^\]]+)\]\s*[—–-]\s*(\d+) card\(s\), (\d+) due/gm), match => ({ title: match[1], id: match[2], total: match[3], due: match[4] }));
   let parsed: any = null;
   try { parsed = JSON.parse(text); } catch { /* Existing plain-text tools. */ }
