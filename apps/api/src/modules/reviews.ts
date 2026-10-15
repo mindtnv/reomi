@@ -230,16 +230,12 @@ async function gradeReview(user:{id:string;name?:string|null}, body:GradeInput, 
       })
       .returning();
 
-    // ── gamification rollup ────────────────────────────────────────
-    // Streak / freeze / today-minutes / daily-goal / XP / level / plant
-    // stage fold into a new profile snapshot. (Achievements were removed.)
     let updatedProfile = existingProfile ?? null;
     let freezeUsed = false;
     let dailyGoalJustMet = false;
 
     if (existingProfile) {
-      // The review row is already inserted, so this sum includes it. Floor once.
-      const [epochTime] = await tx.select({
+      const [epochDuration] = await tx.select({
         durationMs: sql<number>`coalesce(sum(${reviews.durationMs}), 0)`.mapWith(Number),
       }).from(reviews).where(and(
         eq(reviews.userId, user.id),
@@ -251,7 +247,7 @@ async function gradeReview(user:{id:string;name?:string|null}, body:GradeInput, 
         policy,
         ledger,
         resolved,
-        epochDurationMs: epochTime?.durationMs ?? durationMs,
+        epochDurationMs: epochDuration?.durationMs ?? durationMs,
         introducedNew: wasNew,
         reviewedMature: card.state === 'review',
         countTowardBudget: body.source !== 'filtered',

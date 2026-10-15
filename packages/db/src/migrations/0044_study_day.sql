@@ -16,7 +16,6 @@ ALTER TABLE "study_day_policy" ADD CONSTRAINT "study_day_policy_user_id_user_id_
 CREATE INDEX "reviews_user_study_day_idx" ON "reviews" USING btree ("user_id","study_day");--> statement-breakpoint
 ALTER TABLE "profile" ADD CONSTRAINT "profile_study_epoch_bounds_chk" CHECK (("profile"."study_epoch_start" is null and "profile"."study_epoch_end" is null) or "profile"."study_epoch_start" < "profile"."study_epoch_end");
 --> statement-breakpoint
--- These rows were written as UTC dates. The zone-aware clock does not rebucket them.
 UPDATE "reviews"
 SET
   "study_day" = to_char(("reviewed_at" AT TIME ZONE 'UTC'), 'YYYY-MM-DD'),

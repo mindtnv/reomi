@@ -144,7 +144,6 @@ function ledgerFromSql(row: Record<string, unknown> | undefined): StudyLedger {
   });
 }
 
-/** Reads present a clean unopened day when a backfill left counters and no epoch. The stored row stays. */
 export function ledgerForRead(ledger: StudyLedger): StudyLedger {
   if (
     ledger.budget.phase === 'unopened' &&

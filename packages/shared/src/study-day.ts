@@ -5,13 +5,11 @@ declare const ianaZoneBrand: unique symbol;
 declare const rolloverMinuteBrand: unique symbol;
 declare const studyDayLabelBrand: unique symbol;
 
-/** Canonical IANA name. Parsed at the route. SQL receives this brand, never the body. */
 export type IanaZone = string & { readonly [ianaZoneBrand]: 'IanaZone' };
 
 /** 0..1439. Local minute-of-day at which the next study day begins. */
 export type RolloverMinute = number & { readonly [rolloverMinuteBrand]: 'RolloverMinute' };
 
-/** Civil `yyyy-mm-dd` frozen when an epoch opens. A chart name, not a budget key. */
 export type StudyDayLabel = string & { readonly [studyDayLabelBrand]: 'StudyDayLabel' };
 
 export type StudyDayPolicy =
@@ -412,8 +410,11 @@ export function resolveStudyEpoch(now: Date, policy: StudyDayPolicy, ledger: Stu
     };
   }
 
-  // The stored end is the next epoch's start. A saved zone can place a boundary earlier, and that boundary is not this budget.
-  let start = new Date(ledger.budget.epoch.end.getTime());
+  return epochAfterFrozenEnd(now, policy, ledger.budget.epoch.end);
+}
+
+function epochAfterFrozenEnd(now: Date, policy: StudyDayPolicy, frozenEnd: Date): ResolvedEpoch {
+  let start = new Date(frozenEnd.getTime());
   let crossed = 0;
   for (;;) {
     const end = nextBoundaryAfter(start, policy);

@@ -1,18 +1,3 @@
-// Progress aggregation helpers for the agent's READ progress-tools (S4 / AC1.1,
-// AC1.2, AC1.5). User-scoped — every query carries `user_id` as the MANDATORY
-// FIRST conjunct (Principle 4), the only cross-user boundary on these reads.
-//
-// `studyStats` groups reviews by the stored study-day label, plus (for the global
-// scope) a `profile` read for streak/level/xp. Time filters are timestamptz ranges on
-// `reviewed_at` so `(user_id, reviewed_at)` can serve them. `cardProgress` reads the
-// card's flat FSRS columns + its last-N review history (scoped by BOTH cardId AND
-// userId — defense-in-depth even though the card is loaded user-scoped, M4).
-//
-// Neither helper throws for an empty history: an account with no reviews returns
-// `reviewCount:0` + `retentionPct:null` (the "no reviews yet" render case), and a
-// foreign/missing card returns `null`. The tool wrappers in ai/tools.ts turn
-// these into graceful `ToolResult`s (never an error into the loop, Principle 5).
-
 import { and, desc, eq, sql, type SQL } from 'drizzle-orm';
 import { cards, db, reviews } from '@reomi/db';
 import { percentOf, studySpans } from '@reomi/shared';
@@ -136,8 +121,6 @@ export async function studyStats(args: StudyStatsArgs, executor: StatsExecutor =
     reviewCount += cnt;
     remembered += Number(r.remembered);
     durationMs += Number(r.duration ?? 0);
-    // `day` comes back as a Date (timestamptz cast) or an ISO string depending on
-    // the driver — normalize to a yyyy-mm-dd string.
     const day = r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day).slice(0, 10);
     heatmap.push({ day, count: cnt });
   }
@@ -343,11 +326,8 @@ interface RetentionRow {
 
 /**
  * True retention by the elapsed gap since the previous counted review of the
- * same card. Only the first review of each card on each UTC day is counted, so
- * a same-day Again followed by Good does not create a short-interval success.
- * The first counted review of a card (gap IS NULL) is excluded. Ranking reads
- * the UTC days touched by the window; the predecessor is a separate lookup, so
- * a review older than the window still sets the gap.
+ * same card. Only the first review of each card in each study epoch is counted.
+ * A missing stamp uses UTC midnight. The first counted review of a card is excluded.
  */
 export async function retentionCurve(
   args: RetentionCurveArgs,
@@ -531,6 +511,18 @@ function reviewedRange(start: SQL, end: SQL): SQL {
   return sql`reviewed_at >= ${start} AND reviewed_at < ${end}`;
 }
 
+const STUDY_STAMP_SLACK_MS = 3 * 24 * 60 * 60 * 1000;
+
+function spanStampWhere(spans: { start: Date; end: Date; label: string }[]): SQL {
+  const start = new Date(spans[0]!.start.getTime() - STUDY_STAMP_SLACK_MS);
+  const end = spans[spans.length - 1]!.end;
+  const labels = sql.join(spans.map((span) => sql`${span.label}`), sql`, `);
+  return sql`${reviewedRange(sql`${start.toISOString()}::timestamptz`, sql`${end.toISOString()}::timestamptz`)} AND (
+    study_day IN (${labels})
+    OR (study_day IS NULL AND to_char((reviewed_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') IN (${labels}))
+  )`;
+}
+
 function averageGrade(sum: number, count: number): number | null {
   if (count <= 0) return null;
   return Math.round((sum / count) * 100) / 100;
@@ -610,10 +602,6 @@ export interface StudyOverviewArgs {
   days?: number;
 }
 
-/**
- * Bounded overview for the stats screen and home. Day bars use the study-day
- * spans from the shared clock, not a second calendar.
- */
 export async function studyOverview(
   args: StudyOverviewArgs,
   executor: StatsExecutor = db,
@@ -624,7 +612,7 @@ export async function studyOverview(
   const calendar = await studyCalendar(userId, days - 1, 0, executor);
   const spans = [...calendar.past, calendar.today];
   const hourZone = calendar.legacy ? 'UTC' : calendar.zone;
-  const where = sql`${scopeWhere(userId, deckScoped, args.deckIds)} AND ${reviewedRange(sql`${spans[0]!.start.toISOString()}::timestamptz`, sql`${spans[spans.length - 1]!.end.toISOString()}::timestamptz`)}`;
+  const where = sql`${scopeWhere(userId, deckScoped, args.deckIds)} AND ${spanStampWhere(spans)}`;
   const answerRows = (await executor.execute(sql`
     SELECT coalesce(study_day, to_char((reviewed_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD')) AS day,
            count(*) AS cnt,
@@ -756,8 +744,6 @@ export async function deckBreakdown(
   const windowDays = clampDays(days);
   const calendar = await studyCalendar(userId, windowDays - 1, 0, executor);
   const spans = [...calendar.past, calendar.today];
-  const windowStart = spans[0]!.start;
-  const windowEnd = spans[spans.length - 1]!.end;
   const deckRows = (await executor.execute(sql`
     SELECT id, parent_id AS "parentId", preset_id AS "presetId", name, color
     FROM decks WHERE user_id = ${userId}
@@ -776,7 +762,7 @@ export async function deckBreakdown(
     FROM reviews
     WHERE user_id = ${userId}
       AND deck_id IS NOT NULL
-      AND ${reviewedRange(sql`${windowStart.toISOString()}::timestamptz`, sql`${windowEnd.toISOString()}::timestamptz`)}
+      AND ${spanStampWhere(spans)}
     GROUP BY deck_id
   `)) as unknown as { deckId: string; cnt: number | string; remembered: number | string; duration: number | string | null }[];
   const presetRows = (await executor.execute(sql`

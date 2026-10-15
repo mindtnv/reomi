@@ -24,11 +24,33 @@ async function ownedProfile(userId: string) {
   return row!;
 }
 
+function nextNewYorkFallFold(afterMs: number) {
+  for (let year = new Date(afterMs).getUTCFullYear(); year < 2100; year += 1) {
+    const first = new Date(Date.UTC(year, 10, 1));
+    const sunday = 1 + ((7 - first.getUTCDay()) % 7);
+    const earlyMs = Date.UTC(year, 10, sunday, 5, 29, 0);
+    if (earlyMs <= afterMs) continue;
+    const pad = (value: number) => String(value).padStart(2, '0');
+    const day = `${year}-11-${pad(sunday)}`;
+    const prev = new Date(Date.UTC(year, 10, sunday) - 86_400_000).toISOString().slice(0, 10);
+    const next = new Date(Date.UTC(year, 10, sunday) + 86_400_000).toISOString().slice(0, 10);
+    return {
+      early: new Date(earlyMs).toISOString(),
+      between: new Date(Date.UTC(year, 10, sunday, 6, 0, 0)).toISOString(),
+      later: new Date(Date.UTC(year, 10, sunday, 6, 30, 0)).toISOString(),
+      day,
+      prev,
+      next,
+    };
+  }
+  throw new Error('no New York fall fold ahead of the clock');
+}
+
 describe('study day', () => {
   beforeEach(resetTestDb);
 
   test('the New York fall fold keeps one budget across the repeated hour', async () => {
-    expect(Date.now()).toBeLessThan(Date.parse('2026-11-01T05:29:00.000Z'));
+    const fold = nextNewYorkFallFold(Date.now());
     const { cookie, userId, deckId } = await setup();
     const saved = await callApp(app, 'PATCH', '/profile/study-day', {
       cookie,
@@ -46,59 +68,59 @@ describe('study day', () => {
     });
 
     const first = await seedBasicCard(app, cookie, { deckId, front: 'Before' });
-    await pin(userId, first.id, '2026-11-01T05:29:00.000Z');
+    await pin(userId, first.id, fold.early);
     const early = await callApp(app, 'POST', '/reviews', {
       cookie,
       body: { cardId: first.id, rating: 3, durationMs: 120_000 },
     });
     expect(early.status).toBe(200);
     const earlyProfile = await ownedProfile(userId);
-    expect(earlyProfile.studyEpochStart!.toISOString()).toBe('2026-10-31T05:30:00.000Z');
-    expect(earlyProfile.studyEpochEnd!.toISOString()).toBe('2026-11-01T05:30:00.000Z');
-    expect(earlyProfile.dailyCountsDate).toBe('2026-10-31');
+    expect(earlyProfile.studyEpochStart!.toISOString()).toBe(`${fold.prev}T05:30:00.000Z`);
+    expect(earlyProfile.studyEpochEnd!.toISOString()).toBe(`${fold.day}T05:30:00.000Z`);
+    expect(earlyProfile.dailyCountsDate).toBe(fold.prev);
     expect(earlyProfile.newIntroducedToday).toBe(1);
     expect(earlyProfile.reviewsDoneToday).toBe(0);
     expect(earlyProfile.todayMinutes).toBe(2);
     expect(earlyProfile.streakDays).toBe(1);
 
     const second = await seedBasicCard(app, cookie, { deckId, front: 'After' });
-    await pin(userId, second.id, '2026-11-01T06:00:00.000Z');
+    await pin(userId, second.id, fold.between);
     const rolled = await callApp(app, 'POST', '/reviews', {
       cookie,
       body: { cardId: second.id, rating: 3, durationMs: 60_000 },
     });
     expect(rolled.status).toBe(200);
     const rolledProfile = await ownedProfile(userId);
-    expect(rolledProfile.studyEpochStart!.toISOString()).toBe('2026-11-01T05:30:00.000Z');
-    expect(rolledProfile.studyEpochEnd!.toISOString()).toBe('2026-11-02T06:30:00.000Z');
-    expect(rolledProfile.dailyCountsDate).toBe('2026-11-01');
+    expect(rolledProfile.studyEpochStart!.toISOString()).toBe(`${fold.day}T05:30:00.000Z`);
+    expect(rolledProfile.studyEpochEnd!.toISOString()).toBe(`${fold.next}T06:30:00.000Z`);
+    expect(rolledProfile.dailyCountsDate).toBe(fold.day);
     expect(rolledProfile.newIntroducedToday).toBe(1);
     expect(rolledProfile.reviewsDoneToday).toBe(0);
     expect(rolledProfile.todayMinutes).toBe(1);
     expect(rolledProfile.streakDays).toBe(2);
 
     const third = await seedBasicCard(app, cookie, { deckId, front: 'Later fold' });
-    await pin(userId, third.id, '2026-11-01T06:30:00.000Z');
+    await pin(userId, third.id, fold.later);
     const same = await callApp(app, 'POST', '/reviews', {
       cookie,
       body: { cardId: third.id, rating: 3, durationMs: 60_000 },
     });
     expect(same.status).toBe(200);
     const sameProfile = await ownedProfile(userId);
-    expect(sameProfile.studyEpochStart!.toISOString()).toBe('2026-11-01T05:30:00.000Z');
-    expect(sameProfile.studyEpochEnd!.toISOString()).toBe('2026-11-02T06:30:00.000Z');
+    expect(sameProfile.studyEpochStart!.toISOString()).toBe(`${fold.day}T05:30:00.000Z`);
+    expect(sameProfile.studyEpochEnd!.toISOString()).toBe(`${fold.next}T06:30:00.000Z`);
     expect(sameProfile.newIntroducedToday).toBe(2);
     expect(sameProfile.todayMinutes).toBe(2);
     expect(sameProfile.streakDays).toBe(2);
 
     const rows = await db.select().from(reviews).where(eq(reviews.userId, userId));
     const byCard = new Map(rows.map((row) => [row.cardId, row]));
-    expect(byCard.get(first.id)!.studyDay).toBe('2026-10-31');
-    expect(byCard.get(first.id)!.studyEpochStart!.toISOString()).toBe('2026-10-31T05:30:00.000Z');
-    expect(byCard.get(second.id)!.studyDay).toBe('2026-11-01');
-    expect(byCard.get(second.id)!.studyEpochStart!.toISOString()).toBe('2026-11-01T05:30:00.000Z');
-    expect(byCard.get(third.id)!.studyDay).toBe('2026-11-01');
-    expect(byCard.get(third.id)!.studyEpochStart!.toISOString()).toBe('2026-11-01T05:30:00.000Z');
+    expect(byCard.get(first.id)!.studyDay).toBe(fold.prev);
+    expect(byCard.get(first.id)!.studyEpochStart!.toISOString()).toBe(`${fold.prev}T05:30:00.000Z`);
+    expect(byCard.get(second.id)!.studyDay).toBe(fold.day);
+    expect(byCard.get(second.id)!.studyEpochStart!.toISOString()).toBe(`${fold.day}T05:30:00.000Z`);
+    expect(byCard.get(third.id)!.studyDay).toBe(fold.day);
+    expect(byCard.get(third.id)!.studyEpochStart!.toISOString()).toBe(`${fold.day}T05:30:00.000Z`);
   });
 
   test('a zone save during an open epoch keeps the budget for the next grade', async () => {

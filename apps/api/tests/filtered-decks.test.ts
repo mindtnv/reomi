@@ -416,7 +416,6 @@ describe('filtered-decks (custom study / cram)', () => {
     expect(body.card.stability).toBeGreaterThan(0);
     expect(Number.isNaN(new Date(body.card.due).getTime())).toBe(false);
 
-    // Filtered grades add nothing to the budget. They still open the study day.
     const after = await (await callApp(app, 'GET', '/profile', { cookie })).json<{
       newIntroducedToday: number;
       reviewsDoneToday: number;

@@ -101,7 +101,6 @@ export const profile = pgTable('profile', {
   newIntroducedToday: integer('new_introduced_today').notNull().default(0),
   reviewsDoneToday: integer('reviews_done_today').notNull().default(0),
   dailyCountsDate: text('daily_counts_date'),
-  // Open budget. A missing pair is an account that has never graded under this clock.
   studyEpochStart: timestamp('study_epoch_start', { withTimezone: true }),
   studyEpochEnd: timestamp('study_epoch_end', { withTimezone: true }),
   lastReviewEpochEnd: timestamp('last_review_epoch_end', { withTimezone: true }),
@@ -126,7 +125,6 @@ export const profile = pgTable('profile', {
   ),
 ]);
 
-// A missing row is legacy UTC midnight. Saving a zone does not move the open profile epoch.
 export const studyDayPolicy = pgTable(
   'study_day_policy',
   {
@@ -379,8 +377,6 @@ export interface UndoSnapshot {
     reviewsDoneToday: number;
     dailyCountsDate: string | null;
     updatedAt: string; // ISO
-    // Absent on grades written before the epoch columns existed. Undo rebuilds
-    // those four from the restored date labels as UTC midnights.
     studyEpochStart?: string | null;
     studyEpochEnd?: string | null;
     lastReviewEpochEnd?: string | null;

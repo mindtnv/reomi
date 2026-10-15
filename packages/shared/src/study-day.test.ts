@@ -24,6 +24,10 @@ function at(iso: string): Date {
   return new Date(iso);
 }
 
+function shown(value: string | number): string | number {
+  return value;
+}
+
 function unopened(over: Partial<StudyLedger> = {}): StudyLedger {
   return {
     budget: { phase: 'unopened', newIntroduced: 0, reviewsDone: 0 },
@@ -71,7 +75,7 @@ describe('study day clock', () => {
     expect(openedEpoch.kind).toBe('first');
     expect(openedEpoch.epoch.start.toISOString()).toBe('2026-03-08T05:00:00.000Z');
     expect(openedEpoch.epoch.end.toISOString()).toBe('2026-03-09T04:00:00.000Z');
-    expect(openedEpoch.epoch.label).toBe('2026-03-08');
+    expect(shown(openedEpoch.epoch.label)).toBe('2026-03-08');
     expect(openedEpoch.epoch.end.getTime() - openedEpoch.epoch.start.getTime()).toBe(23 * 60 * 60 * 1000);
     expect(openedEpoch.newIntroduced).toBe(0);
     expect(openedEpoch.reviewsDone).toBe(0);
@@ -95,7 +99,7 @@ describe('study day clock', () => {
     expect(first.dailyGoalJustMet).toBe(true);
     expect(first.ledger.dailyGoalMetCount).toBe(1);
     expect(first.ledger.goalMetEpochStart?.toISOString()).toBe('2026-03-08T05:00:00.000Z');
-    expect(first.review.studyDay).toBe('2026-03-08');
+    expect(shown(first.review.studyDay)).toBe('2026-03-08');
     expect(first.review.studyEpochStart.toISOString()).toBe('2026-03-08T05:00:00.000Z');
     expect(first.xp).toBe(10);
     expect(first.level).toBe(1);
@@ -135,10 +139,14 @@ describe('study day clock', () => {
   });
 
   test('fall New York rollover inside the repeated hour uses the earlier instant and stays one 25-hour epoch', () => {
+    const atBoundary = resolveStudyEpoch(at('2026-11-01T05:30:00.000Z'), NEW_YORK_FOLD, unopened());
+    expect(atBoundary.epoch.start.toISOString()).toBe('2026-11-01T05:30:00.000Z');
+    expect(atBoundary.epoch.end.toISOString()).toBe('2026-11-02T06:30:00.000Z');
+
     const between = resolveStudyEpoch(at('2026-11-01T06:00:00.000Z'), NEW_YORK_FOLD, unopened());
     expect(between.epoch.start.toISOString()).toBe('2026-11-01T05:30:00.000Z');
     expect(between.epoch.end.toISOString()).toBe('2026-11-02T06:30:00.000Z');
-    expect(between.epoch.label).toBe('2026-11-01');
+    expect(shown(between.epoch.label)).toBe('2026-11-01');
     expect(between.epoch.end.getTime() - between.epoch.start.getTime()).toBe(25 * 60 * 60 * 1000);
 
     const laterClock = resolveStudyEpoch(at('2026-11-01T06:30:00.000Z'), NEW_YORK_FOLD, unopened());
@@ -210,18 +218,18 @@ describe('study day clock', () => {
     const read = readStudyDay(now, TOKYO, ledger);
     expect(read.startsAt.toISOString()).toBe('2026-10-15T00:00:00.000Z');
     expect(read.endsAt.toISOString()).toBe('2026-10-16T00:00:00.000Z');
-    expect(read.label).toBe('2026-10-15');
+    expect(shown(read.label)).toBe('2026-10-15');
     expect(read.usedNew).toBe(4);
     expect(read.usedReviews).toBe(7);
     expect(read.todayMinutes).toBe(40);
-    expect(read.zone).toBe('Asia/Tokyo');
+    expect(shown(read.zone)).toBe('Asia/Tokyo');
     expect(read.legacy).toBe(false);
 
     const same = resolveStudyEpoch(now, TOKYO, ledger);
     expect(same.kind).toBe('same');
     expect(same.newIntroduced).toBe(4);
     expect(same.reviewsDone).toBe(7);
-    expect(same.epoch.label).toBe('2026-10-15');
+    expect(shown(same.epoch.label)).toBe('2026-10-15');
 
     const charged = chargeStudyDay({
       now,
@@ -250,13 +258,13 @@ describe('study day clock', () => {
     const spans = studySpans({ now, policy: TOKYO, ledger, pastDays: 1, futureDays: 1 });
     expect(spans.today.start.toISOString()).toBe('2026-10-15T00:00:00.000Z');
     expect(spans.today.end.toISOString()).toBe('2026-10-16T00:00:00.000Z');
-    expect(spans.today.label).toBe('2026-10-15');
-    expect(spans.past[0]?.label).toBe('2026-10-14');
+    expect(shown(spans.today.label)).toBe('2026-10-15');
+    expect(shown(spans.past[0]?.label ?? '')).toBe('2026-10-14');
     expect(spans.past[0]?.start.toISOString()).toBe('2026-10-13T15:00:00.000Z');
     expect(spans.past[0]?.end.toISOString()).toBe('2026-10-14T15:00:00.000Z');
     expect(spans.future[0]?.start.toISOString()).toBe('2026-10-16T00:00:00.000Z');
     expect(spans.future[0]?.end.toISOString()).toBe('2026-10-16T15:00:00.000Z');
-    expect(spans.future[0]?.label).toBe('2026-10-16');
+    expect(shown(spans.future[0]?.label ?? '')).toBe('2026-10-16');
   });
 
   test('the grade at the stored end rolls from zero counters and this card adds one', () => {
@@ -279,7 +287,7 @@ describe('study day clock', () => {
     expect(resolved.reviewsDone).toBe(0);
     expect(resolved.epoch.start.toISOString()).toBe('2026-10-16T00:00:00.000Z');
     expect(resolved.epoch.end.toISOString()).toBe('2026-10-16T15:00:00.000Z');
-    expect(resolved.epoch.label).toBe('2026-10-16');
+    expect(shown(resolved.epoch.label)).toBe('2026-10-16');
 
     const read = readStudyDay(now, TOKYO, ledger);
     expect(read.usedNew).toBe(0);
@@ -395,12 +403,12 @@ describe('study day clock', () => {
     const evening = resolveStudyEpoch(at('2026-10-15T23:00:00.000Z'), LEGACY, unopened());
     expect(evening.epoch.start.toISOString()).toBe('2026-10-15T00:00:00.000Z');
     expect(evening.epoch.end.toISOString()).toBe('2026-10-16T00:00:00.000Z');
-    expect(evening.epoch.label).toBe('2026-10-15');
+    expect(shown(evening.epoch.label)).toBe('2026-10-15');
 
     const read = readStudyDay(at('2026-10-15T23:00:00.000Z'), LEGACY, unopened());
     expect(read.legacy).toBe(true);
-    expect(read.zone).toBe('UTC');
-    expect(read.rolloverMinute).toBe(0);
+    expect(shown(read.zone)).toBe('UTC');
+    expect(shown(read.rolloverMinute)).toBe(0);
     expect(read.startsAt.toISOString()).toBe('2026-10-15T00:00:00.000Z');
     expect(read.endsAt.toISOString()).toBe('2026-10-16T00:00:00.000Z');
 
@@ -409,7 +417,7 @@ describe('study day clock', () => {
     expect(midnight.epoch.end.toISOString()).toBe('2026-10-17T00:00:00.000Z');
 
     const explicit = parseStudyDayPolicy({ timeZone: 'UTC', rolloverMinute: 0 });
-    expect(explicit).toEqual({ kind: 'explicit', zone: 'UTC', rolloverMinute: 0 });
+    expect(explicit).toEqual({ kind: 'explicit', zone: 'UTC', rolloverMinute: 0 } as StudyDayPolicy);
     const sameInstant = resolveStudyEpoch(at('2026-10-15T23:00:00.000Z'), explicit, unopened());
     expect(sameInstant.epoch.start.toISOString()).toBe('2026-10-15T00:00:00.000Z');
     expect(sameInstant.epoch.end.toISOString()).toBe('2026-10-16T00:00:00.000Z');
@@ -473,7 +481,7 @@ describe('study day clock', () => {
     const resolved = resolveStudyEpoch(at('2026-03-08T12:00:00.000Z'), gap, unopened());
     expect(resolved.epoch.start.toISOString()).toBe('2026-03-08T07:00:00.000Z');
     expect(resolved.epoch.end.toISOString()).toBe('2026-03-09T06:30:00.000Z');
-    expect(resolved.epoch.label).toBe('2026-03-08');
+    expect(shown(resolved.epoch.label)).toBe('2026-03-08');
   });
 
   test('policy parsing accepts a saved zone and rejects a half-cleared body', () => {
@@ -482,7 +490,7 @@ describe('study day clock', () => {
       kind: 'explicit',
       zone: 'America/New_York',
       rolloverMinute: 90,
-    });
+    } as StudyDayPolicy);
     expect(() => parseStudyDayPolicy({ timeZone: 'US/Eastern', rolloverMinute: 0 })).toThrow(StudyDayError);
     expect(() => parseStudyDayPolicy({ timeZone: null, rolloverMinute: 0 })).toThrow(StudyDayError);
     expect(() => parseStudyDayPolicy({ timeZone: 'UTC', rolloverMinute: 1440 })).toThrow(StudyDayError);
@@ -492,7 +500,7 @@ describe('study day clock', () => {
       start: at('2026-10-15T00:00:00.000Z'),
       end: at('2026-10-16T00:00:00.000Z'),
       label: '2026-10-15',
-    });
+    } as StudyEpoch);
     expect(legacyOpenEpoch(null, null)).toBeNull();
     expect(legacyReviewEpochEnd('2026-10-15')?.toISOString()).toBe('2026-10-16T00:00:00.000Z');
     expect(legacyReviewEpochEnd(null)).toBeNull();

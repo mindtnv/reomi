@@ -200,7 +200,6 @@ export const NNStats = () => {
     const counts = hourBuckets.counts;
     if (!counts.some((value) => value > 0)) return null;
     const index = counts.indexOf(Math.max(...counts));
-    // The percentage is this one hour, so the label is that hour too.
     return { label: `${((index + 11) % 12) + 1}${index < 12 ? 'am' : 'pm'}`, index };
   }, [hourBuckets]);
 

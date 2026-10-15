@@ -1,6 +1,3 @@
-// Plant catalog and the freeze cap. Streak, minutes, and the daily budget
-// live on the study-day clock.
-
 export const PLANT_SPECIES = [
   'fern',
   'cactus',
