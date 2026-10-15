@@ -10,9 +10,9 @@ const source = readFileSync(
 describe('cards search lifecycle contract', () => {
   test('ignores stale search and pagination responses', () => {
     expect(source).toContain('const generation = ++searchGeneration.current;');
-    expect(source).toContain('if (generation !== searchGeneration.current) return;');
+    expect(source).toContain('if (generation !== searchGeneration.current || account !== mirrorAccountGeneration()) return;');
     expect(source).toContain('const generation = ++loadMoreGeneration.current;');
-    expect(source).toContain('if (generation !== loadMoreGeneration.current) return;');
+    expect(source).toContain('if (generation !== loadMoreGeneration.current || account !== mirrorAccountGeneration()) return;');
   });
 
   test('retains previous rows while a new authoritative query resolves', () => {
