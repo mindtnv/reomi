@@ -17,6 +17,9 @@
     "test:s3:ci": "NODE_ENV=test S3_INTEGRATION_REQUIRED=true bun --env-file=./.env test apps/api/tests/media.test.ts apps/api/tests/source-dedup.test.ts",
     "test:unit": "NODE_ENV=test bun --env-file=./.env test packages/shared",
     "test:api": "NODE_ENV=test bun --env-file=./.env test apps/api",
+    "e2e": "bash scripts/verify-reomi.sh",
+    "e2e:prod": "E2E_TARGET=prod bash scripts/verify-reomi.sh",
+    "e2e:doctor": "bash scripts/verify-reomi-doctor.sh",
     "pretest": "bun run db:migrate:apply:test",
     "spec:validate": "openspec validate --all --strict --no-interactive",
     "db:push": "bun run --filter @reomi/db db:push",
@@ -34,6 +37,7 @@
   },
   "devDependencies": {
     "@fission-ai/openspec": "1.13.1",
+    "@playwright/test": "^1.64.1",
     "@types/node": "^26.6.2",
     "typescript": "^7.0.2"
   },

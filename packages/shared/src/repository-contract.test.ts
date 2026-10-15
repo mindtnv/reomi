@@ -160,6 +160,54 @@ describe('repository contracts', () => {
     expect(webUuidLoop).toBeGreaterThan(apiStop);
   });
 
+  test('browser smoke follows a pull request locally and a finished deploy in production', () => {
+    const packageJson = JSON.parse(readRepoFile('package.json')) as {
+      scripts: Record<string, string>;
+    };
+    expect(packageJson.scripts.e2e).toBe('bash scripts/verify-reomi.sh');
+    expect(packageJson.scripts['e2e:prod']).toBe('E2E_TARGET=prod bash scripts/verify-reomi.sh');
+
+    const ci = readRepoFile('.github/workflows/ci.yml');
+    expect(ci).toMatch(/^ {8}run: bun run e2e$/m);
+    expect(ci).toContain('path: e2e/artifacts/*.png');
+    expect(ci).not.toContain('test-results');
+    expect(ci).not.toContain('playwright-report');
+
+    const playwright = readRepoFile('playwright.config.ts');
+    expect(playwright).toContain("trace: 'off'");
+    expect(playwright).toContain('PLAYWRIGHT_NO_COPY_PROMPT');
+    expect(readRepoFile('scripts/verify-reomi.sh')).toContain('bun e2e/secret-scan-cli.ts');
+    expect(readRepoFile('e2e/smoke.e2e.ts')).toContain('clearPasswordFields');
+
+    const deploy = readRepoFile('.github/workflows/deploy.yml');
+    expect(deploy).toMatch(/^name: deploy$/m);
+    expect(deploy).toContain('group: deploy-main');
+    expect(deploy).toContain('cancel-in-progress: false');
+    expect(deploy).not.toContain('e2e-prod');
+    expect(deploy).not.toContain('bun run e2e:prod');
+
+    const smoke = readRepoFile('.github/workflows/e2e-prod.yml');
+    expect(smoke).toContain('workflows: [deploy]');
+    expect(smoke).toContain('types: [completed]');
+    expect(smoke).toContain('branches: [main]');
+    expect(smoke).toContain("github.event.workflow_run.conclusion == 'success'");
+    expect(smoke).toContain('group: e2e-prod');
+    expect(smoke).toContain('cancel-in-progress: true');
+    expect(smoke).toContain('ref: ${{ github.event.workflow_run.head_sha }}');
+    expect(smoke).toMatch(/^ {8}run: bun run e2e:prod$/m);
+    expect(smoke).toContain('::add-mask::');
+    expect(smoke).not.toContain('upload-artifact');
+    expect(smoke).not.toContain('deploy-main');
+    expect(smoke).not.toContain('COOLIFY');
+    expect(smoke).not.toContain('docker_registry_image_tag');
+
+    for (const guide of ['CLAUDE.md', 'AGENTS.md']) {
+      const text = readRepoFile(guide);
+      expect(text, guide).toContain('.cursor/skills/verify-reomi/SKILL.md');
+      expect(text, guide).toContain('bun run e2e');
+    }
+  });
+
   test('workspace packages are named reomi', () => {
     const root = JSON.parse(readRepoFile('package.json')) as { name: string };
     expect(root.name).toBe('reomi');
