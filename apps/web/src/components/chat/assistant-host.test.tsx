@@ -145,6 +145,15 @@ test('saving a source answer keeps its original destination after composer conte
 });
 
 
+test('the page composer scope control is a painted checkbox', async () => {
+  await render(true);
+  expect(document.querySelectorAll('.reomi-assistant-policy').length).toBe(1);
+  const policy = document.querySelector('.reomi-assistant-policy')!;
+  expect(policy.querySelectorAll('input.reomi-check-input').length).toBe(1);
+  expect(policy.querySelectorAll('.reomi-check-box').length).toBe(1);
+  expect(policy.querySelectorAll('input:not(.reomi-check-input)').length).toBe(0);
+});
+
 test('an ambiguous policy request preserves its draft and can be resent with an explicit choice', async () => {
   await render();let key!:string,sending!:Promise<void>;
   await act(async()=>{key=controller.newConversation();controller.setPresentation('floating');controller.setDraft(key,'Only appropriate sources');sending=controller.send(key);await new Promise(resolve=>setTimeout(resolve,0));});
