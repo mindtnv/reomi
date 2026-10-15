@@ -53,6 +53,7 @@ const assistant = {
     context_unavailable: 'Один из прикреплённых объектов недоступен. Проверь контекст и попробуй снова.',
     context_selection_required: 'Выбери источники для этого старого диалога перед продолжением. История сохранена.',
     uploads_in_progress: 'Дождись завершения загрузки вложений.', turn_in_progress: 'В этом диалоге уже готовится ответ.',
+    ai_unavailable: 'ИИ-сервис временно недоступен.',
   },
 };
 export default assistant;

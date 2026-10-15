@@ -32,6 +32,7 @@ import type { Card } from '@/lib/types';
 import type { ConversationVM } from '@/lib/chat-threads';
 import { applyTrigger, detectComposerTrigger, filterSlashCommands, slashTemplate, type ComposerTrigger } from '@/lib/chat-mentions';
 import { formatDayLabel, needsDaySeparator, hasAnswerlessUserTail } from '@/lib/chat-activity';
+import { learnerChatCopyKey } from '@/lib/learner-chat-copy';
 
 export function AssistantThreads({ compact = false, onSelected }: { compact?: boolean; onSelected?: () => void }) {
   const a = useAssistant(), snapshot = useAssistantSnapshot(), t = useT(), router = useAppNavigation();
@@ -247,8 +248,7 @@ function AssistantConversationView({ sessionKey, locale }: { sessionKey: string;
     if (targets.length === 1) void saveAnswerTo(messageId, targets[0]!);
     else if (targets.length > 1) setSaveChoice({ messageId, targets });
   };
-  const errorKey = ['message_too_long','empty_message','queue_full','thread_loading','context_unsupported','too_many_active_turns','context_stale','context_unavailable','context_selection_required','context_policy_selection_required','uploads_in_progress','turn_in_progress'].includes(session.error?.code ?? '')
-    ? `assistant.errors.${session.error!.code}` : 'chat.errors.generic';
+  const errorKey = learnerChatCopyKey(session.error?.code ?? '');
   const contextSupported = snapshot.contextVersion >= 1;
   const disabled = !snapshot.ownerId || !contextSupported || !a.status?.chatEnabled || a.checking || a.pageOpening || contextBusy || session.resource === 'loading' || Boolean(session.uploading);
   const compact = snapshot.presentation === 'floating';
