@@ -36,6 +36,7 @@ const m = {
   graphSub: '{nodes} nodes · {links} links · {clusters} clusters',
   forecast: 'Forecast',
   forecastSub: '7 study days · UTC',
+  forecastSubZone: '7 study days · {zone}',
   aiSuggestions: 'AI suggestions',
   suggestionsBadge: '{n} new',
   suggestions: {
