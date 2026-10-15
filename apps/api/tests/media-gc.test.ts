@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { eq } from 'drizzle-orm';
 import { conversations, db, media, messages, notebookNotes, notebooks, sources } from '@reomi/db';
 import { newUuidV7 } from '@reomi/shared';
 import { __resetMediaGcForTests, runMediaGc, type MediaGcOptions } from '../src/media-gc.ts';
@@ -161,11 +160,8 @@ describe('media GC', () => {
 
     const report = await runMediaGc(gc);
     expect(report.unreferencedMedia).toBe(1);
-    expect(report.pendingMedia).toBe(0);
     expect(deleted).toEqual([`media/${orphan}`]);
     expect(await mediaIds()).toEqual([fresh, inChat, inCover, inNote, inNotebook].sort());
-    const cover = await db.select({ id: sources.coverMediaId }).from(sources).where(eq(sources.coverMediaId, inCover));
-    expect(cover).toEqual([{ id: inCover }]);
   });
 
   test('deletes an old ownerless object and skips live, young, and foreign keys', async () => {

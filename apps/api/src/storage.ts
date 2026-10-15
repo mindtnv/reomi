@@ -122,17 +122,14 @@ type ObjectLister = (query: ObjectListQuery) => Promise<ObjectListPage>;
 let objectDeleter: ObjectDeleter | null = null;
 let objectLister: ObjectLister | null = null;
 
-/** Test seam. Production sends DeleteObject. */
 export function __setObjectDeleterForTests(deleter: ObjectDeleter | null): void {
   objectDeleter = deleter;
 }
 
-/** Test seam. Production sends ListObjectsV2. */
 export function __setObjectListerForTests(lister: ObjectLister | null): void {
   objectLister = lister;
 }
 
-/** Delete an object (finalize mismatch, account deletion, and media GC). */
 export async function deleteObject(key: string): Promise<void> {
   if (objectDeleter) {
     await objectDeleter(key);
@@ -141,7 +138,6 @@ export async function deleteObject(key: string): Promise<void> {
   await s3.send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
 }
 
-/** One bounded page of object keys. The caller decides which keys are garbage. */
 export async function listObjectsPage(query: ObjectListQuery): Promise<ObjectListPage> {
   if (objectLister) return objectLister(query);
   const res = await s3.send(new ListObjectsV2Command({

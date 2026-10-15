@@ -143,11 +143,6 @@ export const profileModule = new Elysia({ prefix: '/profile' })
     },
     { auth: true },
   )
-  // Delete the account. Object keys live only on the media and source rows,
-  // so those objects go first. A storage failure leaves the account in place
-  // and the same request can be retried. ON DELETE CASCADE then removes the
-  // rows. BetterAuth's session and account rows go with the user row.
-  //
   // Requires the user to retype their current email as confirmation — cheap
   // protection against XSRF / accidental clicks.
   .delete(

@@ -1,23 +1,3 @@
-// Bounded, repeatable cleanup of abandoned uploads and objects with no row.
-//
-// Pending claims older than MEDIA_PENDING_MAX_AGE_MS (default 24h) lose the
-// row before the object. A finalize that already flipped `verified` then keeps
-// the image, because the delete matches only the still-pending row.
-//
-// Verified images with no server reference older than
-// MEDIA_UNREFERENCED_MAX_AGE_MS (default 7d) use the same order. A browser
-// draft is not a server reference. That window is how long an unsaved upload
-// survives.
-//
-// Objects with no row are walked one page at a time, `media/` then `source/`.
-// Only `media/<uuid>` and `source/<uuid>` keys older than the pending window
-// are removed. A key that still has a row is left alone. A key this pass
-// already deleted is left alone too, so the list page does not count it again.
-//
-// MEDIA_GC_ENABLED=false stops the hourly loop and leaves every object where
-// it is. Objects this loop already deleted are not restored. Account deletion
-// is a separate path and still removes that user's keys before the user row.
-
 import { and, asc, eq, inArray, lt, sql, type SQL } from 'drizzle-orm';
 import { db, media, sources } from '@reomi/db';
 import { deleteObject, listObjectsPage } from './storage.ts';
@@ -204,7 +184,6 @@ export async function runMediaGc(options?: MediaGcOptions): Promise<MediaGcRepor
   };
 }
 
-/** Delete this user's object keys before the user row disappears with them. */
 export async function deleteAccountStorage(userId: string): Promise<void> {
   const mediaRows = await db.select({ key: media.s3Key }).from(media).where(eq(media.userId, userId));
   const sourceRows = await db.select({ key: sources.storageKey }).from(sources).where(eq(sources.userId, userId));
