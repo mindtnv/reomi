@@ -52,7 +52,7 @@ An old web build that does not know the plan preview still has Apply and Reject 
 
 ### No new table
 
-The chat card is the tool arguments and the tool result. It is not a row. The four tables from `0042_bent_jean_grey` remain the plan, and the plan remains a child of one notebook. One notebook still holds at most one plan.
+The chat card is the tool arguments and the tool result. It is not a row. The four tables from `0043_topic_plan` remain the plan, and the plan remains a child of one notebook. One notebook still holds at most one plan.
 
 ### The notebook tab is a view
 
@@ -87,7 +87,7 @@ The draft bounds, the save bounds, prerequisite direction, URL normalization, li
 
 ## Migration Plan
 
-1. Keep `topic_plans`, `topic_modules`, `topic_module_prerequisites`, and `topic_module_sources` as added in `0042_bent_jean_grey`. Do not add a migration for the chat entry.
+1. Keep `topic_plans`, `topic_modules`, `topic_module_prerequisites`, and `topic_module_sources` as added in `0043_topic_plan`. Do not add a migration for the chat entry.
 2. Ship the API before the web. An old web build does not render the plan card and does not add a welcome action. If the user applies an unknown write tool, the existing confirm control still applies or rejects it.
 3. Rollback is web first, then the API. Drop `topic_module_sources`, `topic_module_prerequisites`, `topic_modules`, and `topic_plans` in that order if the tables must go. Leave notebooks and library sources created by a confirmation. Those are ordinary user data.
 4. Apply the chain with `db:migrate:apply`. Do not use `db:push` as a substitute.
