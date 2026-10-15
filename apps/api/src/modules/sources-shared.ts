@@ -22,6 +22,7 @@ import {
 } from '@reomi/db';
 import {
   newUuidV7,
+  parseYoutubeUrl,
   SOURCE_MIME_TO_KIND,
   type SourceMime,
 } from '@reomi/shared';
@@ -112,6 +113,18 @@ export type InlineSourceInput =
   | { kind: 'url'; title: string; url: string }
   | { kind: 'text'; title: string; text: string };
 
+/** A rejected inline source. The transaction has not inserted a row. */
+export class SourceInputError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: 'invalid_url' | 'duplicate_source',
+    readonly existingSourceId?: string,
+  ) {
+    super(code);
+    this.name = 'SourceInputError';
+  }
+}
+
 /**
  * Create an inline (url/text) library source + optionally attach it to a
  * notebook in ONE transaction, then enqueue ingest after commit. Returns the
@@ -134,19 +147,7 @@ export async function insertInlineSource(
 ): Promise<Source> {
   let created: Source;
   if (input.kind === 'url') {
-    const [r] = await tx
-      .insert(sources)
-      .values({
-        userId,
-        kind: 'url',
-        title: input.title,
-        url: input.url,
-        status: 'pending',
-        ...newOperationRun(),
-        verified: true,
-      })
-      .returning();
-    created = r!;
+    created = await insertUrlSource(tx, userId, input);
   } else {
     const text = input.text.slice(0, MAX_INLINE_TEXT);
     const [r] = await tx
@@ -167,6 +168,60 @@ export async function insertInlineSource(
     await attachSourceToNotebook(tx, { userId, notebookId, sourceId: created.id });
   }
   return created;
+}
+
+async function insertUrlSource(
+  tx: Tx,
+  userId: string,
+  input: { title: string; url: string },
+): Promise<Source> {
+  const parsed = parseYoutubeUrl(input.url);
+  if (!parsed.ok && parsed.reason === 'not_a_video') throw new SourceInputError(400, 'invalid_url');
+  if (!parsed.ok) {
+    const [row] = await tx.insert(sources).values({
+      userId,
+      kind: 'url',
+      title: input.title,
+      url: input.url,
+      status: 'pending',
+      ...newOperationRun(),
+      verified: true,
+    }).returning();
+    return row!;
+  }
+  const canonicalUrl = parsed.canonicalUrl;
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${userId}:${canonicalUrl}`}, 940))`);
+  const existing = await findActiveYoutube(tx, userId, canonicalUrl);
+  if (existing) throw new SourceInputError(409, 'duplicate_source', existing.id);
+  await tx.execute(sql`SAVEPOINT youtube_insert`);
+  try {
+    const [row] = await tx.insert(sources).values({
+      userId,
+      kind: 'youtube',
+      title: input.title,
+      url: canonicalUrl,
+      status: 'pending',
+      ...newOperationRun(),
+      verified: true,
+    }).returning();
+    await tx.execute(sql`RELEASE SAVEPOINT youtube_insert`);
+    return row!;
+  } catch (err) {
+    await tx.execute(sql`ROLLBACK TO SAVEPOINT youtube_insert`);
+    if (!isUniqueViolation(err)) throw err;
+    const dup = await findActiveYoutube(tx, userId, canonicalUrl);
+    throw new SourceInputError(409, 'duplicate_source', dup?.id);
+  }
+}
+
+async function findActiveYoutube(tx: Tx, userId: string, canonicalUrl: string) {
+  const [row] = await tx.select({ id: sources.id }).from(sources).where(and(
+    eq(sources.userId, userId),
+    eq(sources.kind, 'youtube'),
+    eq(sources.url, canonicalUrl),
+    sql`${sources.status} NOT IN ('error', 'deleting')`,
+  )).limit(1);
+  return row;
 }
 
 export function enqueueInlineSource(row: Source, input: InlineSourceInput, log: Logger = rootLogger): void {

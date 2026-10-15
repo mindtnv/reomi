@@ -61,7 +61,7 @@ export async function writeCardProvenance(
       id: sourceChunks.id,
       sourceId: sourceChunks.sourceId,
       sourceTitle: sources.title, text: sourceChunks.text, sourceHash: sourceChunks.sourceHash,
-      position: sourceChunks.position, page: sourceChunks.page,
+      position: sourceChunks.position, page: sourceChunks.page, startSeconds: sourceChunks.startSeconds,
     })
     .from(sourceChunks)
     .innerJoin(sources, and(eq(sources.id, sourceChunks.sourceId), eq(sources.userId, userId)))

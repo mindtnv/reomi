@@ -105,6 +105,9 @@ export const env = {
     // Per-fetch_page hard timeout (ms; also Exa's livecrawlTimeout) + byte cap
     // for the direct fetcher's response body.
     FETCH_PAGE_TIMEOUT_MS: Number(process.env.FETCH_PAGE_TIMEOUT_MS ?? 10000),
+    // Per YouTube watch-page or timedtext request. A slow or blocked host must
+    // release the ingest slot instead of holding the queue.
+    YOUTUBE_FETCH_TIMEOUT_MS: Number(process.env.YOUTUBE_FETCH_TIMEOUT_MS ?? 20000),
     FETCH_PAGE_MAX_BYTES: Number(process.env.FETCH_PAGE_MAX_BYTES ?? 2_000_000),
     // Per-turn tool-result char budget = TOOL_RESULT_MAX_CHARS × this factor.
     // Default 8 (was a hardcoded ×4) so a deep-research turn can read several

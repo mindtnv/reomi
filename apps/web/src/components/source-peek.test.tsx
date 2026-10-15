@@ -15,6 +15,13 @@ test('a stale location never uses its former position as an exact source link',(
   expect(cardSourceHref({...item,locationAvailable:false})).toBe('/library/book');
   expect(cardSourceHref({...item,sourceId:null})).toBeNull();
   expect(cardSourceHref(item)).toBe('/library/book?chunk=original&pos=0&page=3');
+  expect(cardSourceHref({
+    ...item,
+    sourceKind: 'youtube',
+    sourceUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    startSeconds: 12,
+    locationAvailable: false,
+  })).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=12');
 });
 test('the reviewer keeps its quote when a different chunk occupies the old position',async()=>{
   useNN.setState({getSourceChunks:async()=>({items:[{id:'replacement',position:0,text:'Unrelated replacement'}],total:1,nextFrom:null}) as any});

@@ -53,7 +53,7 @@ describe('repository contracts', () => {
       readRepoFile('packages/db/src/migrations/meta/_journal.json'),
     ) as { entries: Array<{ tag: string }> };
     const head = journal.entries.at(-1)?.tag;
-    expect(head).toBe('0041_study_reminders');
+    expect(head).toBe('0042_youtube_source');
 
     const backfill = readRepoFile('packages/db/src/migrations/0020_known_klaw.sql');
     const insertAt = backfill.indexOf('INSERT INTO "notebook_sources"');

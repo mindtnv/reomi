@@ -20,9 +20,11 @@
 // fixtures. The URL path is already injectable via `__setPageReaderForTests`.
 
 import type { IngestErrorCode, SourceKind, SourceUnit } from '@reomi/shared';
+import { parseYoutubeUrl } from '@reomi/shared';
 import { env } from '../env.ts';
 import { collapseText, htmlToPage, readPageCached } from './page-reader.ts';
 import { extractEpubCover, type CoverImage } from './source-cover.ts';
+import { fetchYoutubeTranscript, YoutubeFetchError } from './youtube-transcript.ts';
 
 /** A parse failure carrying the machine error code the worker stamps on the row. */
 export class SourceParseError extends Error {
@@ -51,6 +53,10 @@ export interface ParseSourceResult {
   cover?: CoverImage;
   /** URL: an og:image candidate URL the worker downloads as a cover (L3). */
   imageUrl?: string;
+  /** YouTube: title from the player response, applied only when the stored title is still a URL. */
+  fetchedTitle?: string;
+  /** YouTube: language of the chosen caption track. */
+  language?: string;
 }
 
 // ── Test seams ────────────────────────────────────────────────────────────────
@@ -75,36 +81,31 @@ export function __setEpubReaderForTests(fn: EpubReader | null): void {
 // ── Dispatcher ──────────────────────────────────────────────────────────────
 
 export async function parseSource(input: ParseSourceInput): Promise<ParseSourceResult> {
-  let units: SourceUnit[];
-  let cover: CoverImage | undefined;
-  let imageUrl: string | undefined;
+  let result: ParseSourceResult;
   switch (input.kind) {
     case 'pdf':
-      units = await parsePdf(requireBytes(input.bytes));
+      result = { units: await parsePdf(requireBytes(input.bytes)) };
       break;
-    case 'epub': {
-      const res = await parseEpub(requireBytes(input.bytes));
-      units = res.units;
-      cover = res.cover;
+    case 'epub':
+      result = await parseEpub(requireBytes(input.bytes));
       break;
-    }
-    case 'url': {
-      const res = await parseUrl(input.url ?? '');
-      units = res.units;
-      imageUrl = res.imageUrl;
+    case 'url':
+      result = await parseUrl(input.url ?? '');
       break;
-    }
     case 'text':
-      units = parseText(input.text ?? '');
+      result = { units: parseText(input.text ?? '') };
+      break;
+    case 'youtube':
+      result = await parseYoutube(input.url ?? '');
       break;
     default:
       throw new SourceParseError('unsupported_mime', `unknown source kind "${input.kind}"`);
   }
 
   // Drop empty units; an all-empty parse is `empty_source` (not a crash).
-  units = units.filter((u) => u.text.trim().length > 0);
+  const units = result.units.filter((u) => u.text.trim().length > 0);
   if (units.length === 0) throw new SourceParseError('empty_source');
-  return { units, cover, imageUrl };
+  return { ...result, units };
 }
 
 function requireBytes(bytes: Uint8Array | undefined): Uint8Array {
@@ -247,6 +248,23 @@ function normalizeZipPath(path: string): string {
 }
 
 // ── URL (reuse page-reader) + text — single SourceUnit ────────────────────────
+
+async function parseYoutube(url: string): Promise<ParseSourceResult> {
+  const parsed = parseYoutubeUrl(url);
+  if (!parsed.ok) throw new SourceParseError('fetch_failed', 'youtube url is not a video');
+  try {
+    const transcript = await fetchYoutubeTranscript(parsed.videoId);
+    return {
+      units: transcript.units,
+      ...(transcript.title ? { fetchedTitle: transcript.title } : {}),
+      ...(transcript.language ? { language: transcript.language } : {}),
+    };
+  } catch (err) {
+    if (err instanceof YoutubeFetchError) throw new SourceParseError(err.code);
+    if (err instanceof SourceParseError) throw err;
+    throw new SourceParseError('fetch_failed', `youtube fetch failed: ${String(err)}`);
+  }
+}
 
 async function parseUrl(url: string): Promise<{ units: SourceUnit[]; imageUrl?: string }> {
   if (!url) throw new SourceParseError('fetch_failed', 'no url');
