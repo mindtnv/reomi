@@ -17,6 +17,7 @@ import { cardFromApi, profileFromApi, reviewFromApi, mergeReviewedCard } from '@
 import { RichCard } from '@/components/rich-card';
 import { SimilarCardsList, useSimilarCards } from '@/components/similar-cards';
 import { SourcePeekChip, SourcePeekPanel, useFirstCardSource } from '@/components/source-peek';
+import { followCardSourceHref } from '@/lib/card-source-link';
 import { Modal } from '@/components/design-system/modal';
 import { ReviewSessionDone } from '@/components/review-session-done';
 import { raiseToast } from '@/components/toasts';
@@ -942,7 +943,7 @@ export const NNReviewClassic = () => {
             flexShrink: 0,
           }}
         >
-          <SourcePeekChip item={firstSource} onOpen={(href) => router.push(href)} />
+          <SourcePeekChip item={firstSource} onOpen={(href) => followCardSourceHref(href, (path) => router.push(path))} />
         </div>
       )}
 
@@ -1014,7 +1015,7 @@ export const NNReviewClassic = () => {
           >
             <SourcePeekPanel
               item={pendingPeek}
-              onOpenLibrary={(href) => router.push(href)}
+              onOpenLibrary={(href) => followCardSourceHref(href, (path) => router.push(path))}
               onDismiss={advanceQueue}
             />
             {canUndo && <NNBtn size="sm" variant="ghost" icon="sync" disabled={busy} onClick={handleUndo}>{t('editor.review.undo.button')}</NNBtn>}

@@ -18,6 +18,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { CardSourceLink } from '@/lib/types';
+import { formatCueTime } from '@reomi/shared';
 import { NNBadge, NNBtn, NNIcon } from '@/components/ui';
 import { useNN } from '@/lib/store';
 import { useT } from '@/lib/i18n';
@@ -55,6 +56,7 @@ async function openFresh(item: CardSourceLink, onOpen: (href:string)=>void, isCu
 function originLabel(item: CardSourceLink, t: Tr): string {
   const title = item.sourceTitle?.trim();
   if (!title) return t('review.peek.fromUntitled');
+  if (item.startSeconds != null) return t('review.peek.fromTime', { title, time: formatCueTime(item.startSeconds) });
   return item.page != null
     ? t('review.peek.fromPage', { title, n: item.page })
     : t('review.peek.from', { title });
@@ -82,7 +84,7 @@ export const SourcePeekChip = ({
       type="button"
       disabled={!href}
       onClick={() => { const current=navigation.current;if(href)void openFresh(item,onOpen,()=>navigation.current===current); }}
-      title={href ? t('review.peek.openInLibrary') : undefined}
+      title={href ? t(item.sourceKind === 'youtube' ? 'review.peek.openVideo' : 'review.peek.openInLibrary') : undefined}
       style={{
         display: 'inline-flex',
         alignItems: 'center',

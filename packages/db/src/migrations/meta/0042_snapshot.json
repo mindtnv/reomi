@@ -1,5 +1,5 @@
 {
-  "id": "fb4dd2cf-40d2-4016-acf4-994f36af3388",
+  "id": "db94aff0-bcba-4ce6-a812-769f23424728",
   "prevId": "34f73b53-3079-45af-a5e4-ddfe02e26d60",
   "version": "7",
   "dialect": "postgresql",
@@ -4551,6 +4551,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "start_seconds": {
+          "name": "start_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "token_count": {
           "name": "token_count",
           "type": "integer",
@@ -5403,6 +5409,28 @@
           "concurrently": false,
           "method": "gin",
           "with": {}
+        },
+        "sources_youtube_url_uq": {
+          "name": "sources_youtube_url_uq",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "url",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"sources\".\"kind\" = 'youtube' AND \"sources\".\"status\" NOT IN ('error', 'deleting')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -5437,435 +5465,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.topic_module_prerequisites": {
-      "name": "topic_module_prerequisites",
-      "schema": "",
-      "columns": {
-        "module_id": {
-          "name": "module_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "prerequisite_module_id": {
-          "name": "prerequisite_module_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "topic_module_prerequisites_module_id_topic_modules_id_fk": {
-          "name": "topic_module_prerequisites_module_id_topic_modules_id_fk",
-          "tableFrom": "topic_module_prerequisites",
-          "tableTo": "topic_modules",
-          "columnsFrom": [
-            "module_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "topic_module_prerequisites_prerequisite_module_id_topic_modules_id_fk": {
-          "name": "topic_module_prerequisites_prerequisite_module_id_topic_modules_id_fk",
-          "tableFrom": "topic_module_prerequisites",
-          "tableTo": "topic_modules",
-          "columnsFrom": [
-            "prerequisite_module_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "topic_module_prerequisites_module_id_prerequisite_module_id_pk": {
-          "name": "topic_module_prerequisites_module_id_prerequisite_module_id_pk",
-          "columns": [
-            "module_id",
-            "prerequisite_module_id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "topic_module_prereq_not_self": {
-          "name": "topic_module_prereq_not_self",
-          "value": "\"topic_module_prerequisites\".\"module_id\" <> \"topic_module_prerequisites\".\"prerequisite_module_id\""
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.topic_module_sources": {
-      "name": "topic_module_sources",
-      "schema": "",
-      "columns": {
-        "module_id": {
-          "name": "module_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source_id": {
-          "name": "source_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "topic_module_sources_source_idx": {
-          "name": "topic_module_sources_source_idx",
-          "columns": [
-            {
-              "expression": "source_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "topic_module_sources_user_idx": {
-          "name": "topic_module_sources_user_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "topic_module_sources_module_id_topic_modules_id_fk": {
-          "name": "topic_module_sources_module_id_topic_modules_id_fk",
-          "tableFrom": "topic_module_sources",
-          "tableTo": "topic_modules",
-          "columnsFrom": [
-            "module_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "topic_module_sources_source_id_sources_id_fk": {
-          "name": "topic_module_sources_source_id_sources_id_fk",
-          "tableFrom": "topic_module_sources",
-          "tableTo": "sources",
-          "columnsFrom": [
-            "source_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "topic_module_sources_user_id_user_id_fk": {
-          "name": "topic_module_sources_user_id_user_id_fk",
-          "tableFrom": "topic_module_sources",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "topic_module_sources_module_id_source_id_pk": {
-          "name": "topic_module_sources_module_id_source_id_pk",
-          "columns": [
-            "module_id",
-            "source_id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.topic_modules": {
-      "name": "topic_modules",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "uuidv7()"
-        },
-        "plan_id": {
-          "name": "plan_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "position": {
-          "name": "position",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "outcome": {
-          "name": "outcome",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "topic_modules_user_idx": {
-          "name": "topic_modules_user_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "topic_modules_plan_id_topic_plans_id_fk": {
-          "name": "topic_modules_plan_id_topic_plans_id_fk",
-          "tableFrom": "topic_modules",
-          "tableTo": "topic_plans",
-          "columnsFrom": [
-            "plan_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "topic_modules_user_id_user_id_fk": {
-          "name": "topic_modules_user_id_user_id_fk",
-          "tableFrom": "topic_modules",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "topic_modules_plan_position_uq": {
-          "name": "topic_modules_plan_position_uq",
-          "nullsNotDistinct": false,
-          "columns": [
-            "plan_id",
-            "position"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "topic_modules_position_chk": {
-          "name": "topic_modules_position_chk",
-          "value": "\"topic_modules\".\"position\" >= 0"
-        },
-        "topic_modules_title_chk": {
-          "name": "topic_modules_title_chk",
-          "value": "char_length(\"topic_modules\".\"title\") between 1 and 120"
-        },
-        "topic_modules_outcome_chk": {
-          "name": "topic_modules_outcome_chk",
-          "value": "char_length(\"topic_modules\".\"outcome\") between 1 and 400"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.topic_plans": {
-      "name": "topic_plans",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "uuidv7()"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "notebook_id": {
-          "name": "notebook_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "goal": {
-          "name": "goal",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "level": {
-          "name": "level",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "topic_plans_user_idx": {
-          "name": "topic_plans_user_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "topic_plans_user_id_user_id_fk": {
-          "name": "topic_plans_user_id_user_id_fk",
-          "tableFrom": "topic_plans",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "topic_plans_notebook_id_notebooks_id_fk": {
-          "name": "topic_plans_notebook_id_notebooks_id_fk",
-          "tableFrom": "topic_plans",
-          "tableTo": "notebooks",
-          "columnsFrom": [
-            "notebook_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "topic_plans_notebook_uq": {
-          "name": "topic_plans_notebook_uq",
-          "nullsNotDistinct": false,
-          "columns": [
-            "notebook_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "topic_plans_goal_chk": {
-          "name": "topic_plans_goal_chk",
-          "value": "char_length(\"topic_plans\".\"goal\") between 1 and 200"
-        },
-        "topic_plans_level_chk": {
-          "name": "topic_plans_level_chk",
-          "value": "\"topic_plans\".\"level\" is null or char_length(\"topic_plans\".\"level\") between 1 and 80"
-        }
-      },
       "isRLSEnabled": false
     },
     "public.mcp_actions": {

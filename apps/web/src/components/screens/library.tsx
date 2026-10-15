@@ -65,9 +65,18 @@ type KindFilter = 'all' | SourceKind;
 type ReadingFilter = 'all' | ReadingStatus;
 
 const VIEW_KEY = 'nn:lib:view';
-const KIND_FILTERS: KindFilter[] = ['all', 'pdf', 'epub', 'url', 'text'];
+const KIND_FILTERS: KindFilter[] = ['all', 'pdf', 'epub', 'url', 'text', 'youtube'];
 const READING_FILTERS: ReadingFilter[] = ['all', 'unread', 'reading', 'finished'];
 const SORTS: SortMode[] = ['added', 'title', 'lastRead'];
+
+function kindFilterKey(kind: KindFilter): string {
+  if (kind === 'all') return 'All';
+  if (kind === 'pdf') return 'Pdf';
+  if (kind === 'epub') return 'Epub';
+  if (kind === 'url') return 'Url';
+  if (kind === 'youtube') return 'Youtube';
+  return 'Text';
+}
 
 /** A deterministic placeholder accent colour from an id (no covers in L1). */
 const COVER_COLORS = [
@@ -89,6 +98,7 @@ function initials(title: string): string {
   return (words[0]![0]! + words[1]![0]!).toUpperCase();
 }
 function kindIcon(kind: SourceKind): IconName {
+  if (kind === 'youtube') return 'play';
   if (kind === 'url') return 'link';
   if (kind === 'text') return 'edit';
   return 'book';
@@ -431,14 +441,17 @@ export const LibraryScreen = () => {
         setItems((prev) => [created, ...prev]);
         setAddDialog(null);
       } catch (err) {
-        if (err instanceof LibraryFullError) {
+        if (err instanceof DuplicateSourceError) {
+          await confirmDuplicate(title, err.existingSourceId);
+          setAddDialog(null);
+        } else if (err instanceof LibraryFullError) {
           raiseToast({ kind: 'error', title: t('library.toast.libraryFull') });
         } else {
           raiseToast({ kind: 'error', title: t('library.add.failed') });
         }
       }
     },
-    [addLibraryUrl, addLibraryText, t],
+    [addLibraryUrl, addLibraryText, confirmDuplicate, t],
   );
 
   // ── Details panel data ──────────────────────────────────────────────────────────
@@ -778,7 +791,7 @@ const LibraryHeader = ({
     {searchMode === 'title' && (
       <div className="reomi-library-filters">
         <label><span>{t('library.header.formatLabel')}</span><select value={kind} onChange={event => setKind(event.target.value as typeof kind)}>
-          {KIND_FILTERS.map(k => <option key={k} value={k}>{t(`library.header.kind${k === 'all' ? 'All' : k === 'pdf' ? 'Pdf' : k === 'epub' ? 'Epub' : k === 'url' ? 'Url' : 'Text'}`)}</option>)}
+          {KIND_FILTERS.map(k => <option key={k} value={k}>{t(`library.header.kind${kindFilterKey(k)}`)}</option>)}
         </select></label>
         <label><span>{t('library.header.readingLabel')}</span><select value={reading} onChange={event => setReading(event.target.value as typeof reading)}>
           {READING_FILTERS.map(r => <option key={r} value={r}>{t(`library.header.reading${r === 'all' ? 'All' : r === 'unread' ? 'Unread' : r === 'reading' ? 'Reading' : 'Finished'}`)}</option>)}
@@ -1394,7 +1407,7 @@ const DetailsPanel = ({
     const yes = await confirm({
       title: t('library.reingest.title'),
       message:
-        detail.kind === 'url'
+        detail.kind === 'url' || detail.kind === 'youtube'
           ? t('library.reingest.messageUrl')
           : t('library.reingest.message'),
       confirmLabel: t('library.reingest.confirm'),

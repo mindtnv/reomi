@@ -169,6 +169,18 @@ describe("chunkSource('document') — multi-unit windowing", () => {
     expect(chunkSource(docInput([]))).toEqual([]);
   });
 
+  test('a YouTube chunk keeps the first cue start and the next chunk does not inherit it', () => {
+    const chunks = chunkSource(docInput(
+      [
+        { text: '0:12 hello', startSeconds: 12 },
+        { text: '1:05 world', startSeconds: 65 },
+      ],
+      { tokensPerChunk: 3, overlap: 0 },
+    ));
+    expect(chunks[0]!.startSeconds).toBe(12);
+    expect(chunks[1]!.startSeconds).toBe(65);
+  });
+
   test('overlap is clamped to [0, 0.5] (does not explode chunk count)', () => {
     const units = [unitOfTokens(450), unitOfTokens(450)];
     // overlap 5 is nonsense — clamp to 0.5 → finite chunk count, still terminates.
