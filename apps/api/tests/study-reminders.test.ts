@@ -11,6 +11,7 @@ import {
 import { buildApp } from '../src/app.ts';
 import { markRuntimeRunning, markRuntimeShuttingDown } from '../src/runtime-state.ts';
 import { reminderSchedulerActive, startReminderScheduler } from '../src/reminders/scheduler.ts';
+import { isLocalHourDue, studyDayDueAt } from '../src/reminders/copy.ts';
 import { runReminderTick, type ReminderEmail } from '../src/reminders/tick.ts';
 import { __setDnsLookupForTests, deliverWebPush, generateVapidKeys } from '../src/reminders/web-push.ts';
 import { callApp, resetTestDb, seedBasicCard, signUpAndCookie, uniqueEmail } from './helpers.ts';
@@ -56,6 +57,81 @@ async function alignDue(userId: string, now: Date) {
 function captureEmail(): { email: ReminderEmail; sent: { to: string; subject: string; text: string }[] } {
   const sent: { to: string; subject: string; text: string }[] = [];
   return { sent, email: { send: async (input) => { sent.push(input); } } };
+}
+
+type Wall = { year: number; month: number; day: number; hour: number; minute: number; second: number };
+
+function wallAt(instant: number, timeZone: string): Wall {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(new Date(instant));
+  const num = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((part) => part.type === type)?.value);
+  let hour = num('hour');
+  if (hour === 24) hour = 0;
+  return { year: num('year'), month: num('month'), day: num('day'), hour, minute: num('minute'), second: num('second') };
+}
+
+function civilSeconds(clock: Wall): number {
+  return clock.hour * 3600 + clock.minute * 60 + clock.second;
+}
+
+function crossedLocalHour(prev: Wall, cur: Wall, hour: number): boolean {
+  const target = hour * 3600;
+  const prevSec = civilSeconds(prev);
+  const curSec = civilSeconds(cur);
+  const sameDay = prev.year === cur.year && prev.month === cur.month && prev.day === cur.day;
+  if (sameDay) return prevSec < target && curSec >= target;
+  if (prevSec < target) return true;
+  return hour === 0;
+}
+
+/** Minute walk, independent of the scheduler, for the first local hour:00 inside the UTC day. */
+function independentDueAt(studyDay: string, hour: number, timeZone: string): string {
+  const start = Date.parse(`${studyDay}T00:00:00.000Z`);
+  const end = start + 86_400_000;
+  const opening = wallAt(start, timeZone);
+  if (civilSeconds(opening) === hour * 3600) return new Date(start).toISOString();
+  let prev = opening;
+  for (let t = start + 60_000; t <= end; t += 60_000) {
+    const sample = Math.min(t, end - 1);
+    const cur = wallAt(sample, timeZone);
+    if (crossedLocalHour(prev, cur, hour)) {
+      const anchor = prev;
+      let lo = sample - 60_000;
+      let hi = sample;
+      while (hi - lo > 1) {
+        const mid = Math.floor((lo + hi) / 2);
+        if (crossedLocalHour(anchor, wallAt(mid, timeZone), hour)) hi = mid;
+        else lo = mid;
+      }
+      return new Date(hi).toISOString();
+    }
+    prev = cur;
+    if (sample === end - 1) break;
+  }
+  throw new Error(`${timeZone} ${studyDay} hour ${hour} does not occur in the UTC day`);
+}
+
+function firstWrappedStep(
+  start: number,
+  end: number,
+  step: number,
+  dueMs: number,
+  hour: number,
+  timeZone: string,
+): number | null {
+  for (let t = start; t < end; t += step) {
+    if (t < dueMs) continue;
+    if (wallAt(t, timeZone).hour < hour) return t;
+  }
+  return null;
 }
 
 describe('study reminder settings', () => {
@@ -229,6 +305,102 @@ describe('study reminder tick', () => {
     expect(sent).toHaveLength(1);
     const [row] = await db.select().from(notificationDeliveries);
     expect(row).toMatchObject({ kind: 'due_digest', status: 'sent', studyDay: '2026-03-08' });
+  });
+
+  test('digest and streak each send once at the local hour inside the UTC study day', async () => {
+    const step = 30 * 60 * 1000;
+    const cases = [
+      ['America/New_York', '2026-01-15', 9, '2026-01-15T14:00:00.000Z'],
+      ['America/New_York', '2026-01-15', 21, '2026-01-15T02:00:00.000Z'],
+      ['America/New_York', '2026-03-08', 9, '2026-03-08T13:00:00.000Z'],
+      ['America/New_York', '2026-03-08', 21, '2026-03-08T02:00:00.000Z'],
+      ['America/New_York', '2026-03-08', 2, '2026-03-08T07:00:00.000Z'],
+      ['America/New_York', '2026-11-01', 9, '2026-11-01T14:00:00.000Z'],
+      ['America/New_York', '2026-11-01', 21, '2026-11-01T01:00:00.000Z'],
+      ['America/New_York', '2026-11-01', 1, '2026-11-01T05:00:00.000Z'],
+      ['America/New_York', '2026-11-01', 2, '2026-11-01T07:00:00.000Z'],
+      ['Europe/Moscow', '2026-01-15', 9, '2026-01-15T06:00:00.000Z'],
+      ['Europe/Moscow', '2026-01-15', 21, '2026-01-15T18:00:00.000Z'],
+      ['Asia/Tokyo', '2026-01-15', 9, '2026-01-15T00:00:00.000Z'],
+      ['Asia/Tokyo', '2026-01-15', 21, '2026-01-15T12:00:00.000Z'],
+      ['Pacific/Auckland', '2026-01-15', 9, '2026-01-15T20:00:00.000Z'],
+      ['Pacific/Auckland', '2026-01-15', 21, '2026-01-15T08:00:00.000Z'],
+      ['UTC', '2026-01-15', 9, '2026-01-15T09:00:00.000Z'],
+      ['UTC', '2026-01-15', 21, '2026-01-15T21:00:00.000Z'],
+    ] as const;
+
+    for (const [timeZone, studyDay, hour, dueAt] of cases) {
+      expect(independentDueAt(studyDay, hour, timeZone), `${timeZone} ${studyDay} hour ${hour}`).toBe(dueAt);
+      const due = new Date(dueAt);
+      expect(studyDayDueAt(due, hour, timeZone)?.toISOString()).toBe(dueAt);
+      expect(isLocalHourDue(due, hour, timeZone)).toBe(true);
+      const justBefore = new Date(due.getTime() - 1);
+      if (justBefore.toISOString().slice(0, 10) === studyDay) {
+        expect(isLocalHourDue(justBefore, hour, timeZone)).toBe(false);
+      }
+    }
+
+    const owner = await account();
+    await seedBasicCard(app, owner.cookie, { deckId: owner.deckId, front: 'Q', back: 'A' });
+    await alignDue(owner.userId, new Date('2026-01-01T00:00:00.000Z'));
+    await db.update(profile).set({ streakDays: 4, streakFreezes: 1 }).where(eq(profile.userId, owner.userId));
+
+    for (const [timeZone, studyDay, hour, dueAt] of cases) {
+      const label = `${timeZone} ${studyDay} hour ${hour}`;
+      expect((await save(owner.cookie, {
+        ...choice,
+        timeZone,
+        digestHour: hour,
+        streakHour: hour,
+        digestEnabled: true,
+        streakWarningEnabled: true,
+      })).status, label).toBe(200);
+      await db.delete(notificationDeliveries).where(eq(notificationDeliveries.userId, owner.userId));
+      const { email, sent } = captureEmail();
+      const start = Date.parse(`${studyDay}T00:00:00.000Z`);
+      const end = start + 86_400_000;
+      const dueMs = Date.parse(dueAt);
+      const firstSlot = start + Math.ceil((dueMs - start) / step) * step;
+      let digestSends = 0;
+      let streakSends = 0;
+      for (let t = start; t < end; t += step) {
+        await runReminderTick({ now: new Date(t), email });
+        const nextDigest = sent.filter((message) => message.subject.endsWith(' due')).length;
+        const nextStreak = sent.filter((message) => message.subject.startsWith('Reomi: streak ')).length;
+        const when = new Date(t).toISOString();
+        if (t < firstSlot) {
+          expect(nextDigest, `${label} digest before ${when}`).toBe(digestSends);
+          expect(nextStreak, `${label} streak before ${when}`).toBe(streakSends);
+        } else if (t === firstSlot) {
+          expect(nextDigest, `${label} digest at ${when}`).toBe(digestSends + 1);
+          expect(nextStreak, `${label} streak at ${when}`).toBe(streakSends + 1);
+        } else {
+          expect(nextDigest, `${label} digest after ${when}`).toBe(digestSends);
+          expect(nextStreak, `${label} streak after ${when}`).toBe(streakSends);
+        }
+        digestSends = nextDigest;
+        streakSends = nextStreak;
+      }
+      expect(digestSends, label).toBe(1);
+      expect(streakSends, label).toBe(1);
+      const rows = await db.select().from(notificationDeliveries).where(eq(notificationDeliveries.userId, owner.userId));
+      expect(rows.filter((row) => row.kind === 'due_digest' && row.status === 'sent'), label).toHaveLength(1);
+      expect(rows.filter((row) => row.kind === 'streak_warning' && row.status === 'sent'), label).toHaveLength(1);
+
+      const wrapped = firstWrappedStep(start, end, step, dueMs, hour, timeZone);
+      if (wrapped !== null) {
+        await db.delete(notificationDeliveries).where(eq(notificationDeliveries.userId, owner.userId));
+        const late = captureEmail();
+        const early = firstSlot - step;
+        if (early >= start) {
+          await runReminderTick({ now: new Date(early), email: late.email });
+          expect(late.sent, `${label} still before the hour`).toHaveLength(0);
+        }
+        await runReminderTick({ now: new Date(wrapped), email: late.email });
+        expect(late.sent.filter((message) => message.subject.endsWith(' due')), `${label} digest catch-up`).toHaveLength(1);
+        expect(late.sent.filter((message) => message.subject.startsWith('Reomi: streak ')), `${label} streak catch-up`).toHaveLength(1);
+      }
+    }
   });
 
   test('a send that outlives its lease cannot overwrite the replica that reclaimed the slot', async () => {

@@ -14,7 +14,7 @@ import { env } from '../env.ts';
 import { rootLogger } from '../logger.ts';
 import { isRuntimeShuttingDown, reminderWorkerState } from '../runtime-state.ts';
 import { loadStudyOverview } from '../modules/study-summary.ts';
-import { digestCopy, localHour, streakCopy, type ReminderLocale } from './copy.ts';
+import { digestCopy, isLocalHourDue, streakCopy, type ReminderLocale } from './copy.ts';
 import {
   buildPushPayload,
   classifyPushService,
@@ -291,16 +291,18 @@ async function processUser(
   email: ReminderEmail | null,
   push: ReminderPush,
 ): Promise<void> {
-  let hour: number;
+  let digestDue = false;
+  let streakDue = false;
   try {
-    hour = localHour(now, settings.timeZone);
+    digestDue = isLocalHourDue(now, settings.digestHour, settings.timeZone);
+    streakDue = isLocalHourDue(now, settings.streakHour, settings.timeZone);
   } catch {
     reminderWorkerState.recordFailure('invalid_timezone');
     return;
   }
   const locale: ReminderLocale = settings.locale === 'ru' ? 'ru' : 'en';
   const link = reviewUrl();
-  if (settings.digestEnabled && hour >= settings.digestHour) {
+  if (settings.digestEnabled && digestDue) {
     const overview = await loadStudyOverview(settings.userId, now);
     if (overview.overall.totalAvailable > 0) {
       const copy = digestCopy(locale, overview.overall.totalAvailable, link);
@@ -308,7 +310,7 @@ async function processUser(
     }
   }
   if (isRuntimeShuttingDown()) return;
-  if (settings.streakWarningEnabled && hour >= settings.streakHour && streakDays > 0) {
+  if (settings.streakWarningEnabled && streakDue && streakDays > 0) {
     if (await reviewedToday(settings.userId, now)) return;
     const copy = streakCopy(locale, streakDays, streakFreezes, link);
     await sendKind(settings, emailAddress, 'streak_warning', copy, streakDays, now, email, push);
