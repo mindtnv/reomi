@@ -33,7 +33,7 @@ import { remindersModule } from './modules/reminders';
 import { ActionDomainError } from './modules/ui-action-receipts';
 import { personalTokensModule } from './modules/personal-tokens.ts';
 import { handleMcp } from './mcp/server.ts';
-import { AUTH_RATE_RULES, clientIpFromRequest, rateLimitCheck } from './rate-limit.ts';
+import { authRateRuleFor, clientIpFromRequest, rateLimitCheck } from './rate-limit.ts';
 import { pickRequestId, requestLogger, rootLogger, safeError } from './logger.ts';
 import type { Logger } from 'pino';
 import { embeddingDegraded } from './ai/index-queue.ts';
@@ -140,17 +140,7 @@ export function buildApp(options: BuildAppOptions = {}) {
     // in authPlugin, so any 429 short-circuits BetterAuth entirely.
     .onRequest(({ request, set }) => {
       const url = new URL(request.url);
-      const path = url.pathname;
-      const method = request.method;
-      if (method !== 'POST') return;
-      const rule =
-        path === '/api/auth/sign-in/email'
-          ? AUTH_RATE_RULES.signIn
-          : path === '/api/auth/sign-up/email'
-            ? AUTH_RATE_RULES.signUp
-            : path === '/api/auth/forget-password' || path === '/api/auth/forgot-password'
-              ? AUTH_RATE_RULES.forgot
-              : null;
+      const rule = authRateRuleFor(request.method, url.pathname);
       if (!rule) return;
       const ip = clientIpFromRequest(request);
       const check = rateLimitCheck(ip, rule);

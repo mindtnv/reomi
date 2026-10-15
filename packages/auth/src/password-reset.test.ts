@@ -54,4 +54,25 @@ describe('password reset identity', () => {
     const link = message.text.split('\n').find((line) => line.startsWith('Ссылка: '))!.slice('Ссылка: '.length);
     expect(link).toBe(`${origin}/auth/reset-password?token=abc%2Bdef`);
   });
+
+  test('an explicit token is the one in the web link', () => {
+    const origin = 'https://app.reomi.ru/';
+    const message = passwordResetMessage({
+      name: 'Ada',
+      url: 'https://api.reomi.ru/api/auth/reset-password/from-path',
+      token: 'from-arg',
+      webOrigin: origin,
+    });
+    const link = message.text.split('\n').find((line) => line.startsWith('Ссылка: '))!.slice('Ссылка: '.length);
+    expect(link).toBe('https://app.reomi.ru/auth/reset-password?token=from-arg');
+  });
+
+  test('a url without a token is not mailed', () => {
+    expect(() =>
+      passwordResetMessage({
+        url: 'https://api.reomi.ru/api/auth/reset-password?callbackURL=https%3A%2F%2Fapp.reomi.ru',
+        webOrigin: 'https://app.reomi.ru',
+      }),
+    ).toThrow(/missing a token/);
+  });
 });
