@@ -1300,6 +1300,30 @@ body:has(.reomi-organized-deck-row[data-dragging]) { user-select: none; cursor: 
 .reomi-settings-delete-details > summary { display: flex; align-items: center; gap: 10px; padding: 20px 24px; font-size: 13px; font-weight: 500; color: var(--rose-500); cursor: pointer; }
 .reomi-settings-delete-details > div { padding: 0 24px 24px; }
 .reomi-settings [role='switch']:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 3px; }
+.reomi-settings-stack { display: grid; gap: 18px; }
+.reomi-settings-note { margin: 0; font-size: 12px; line-height: 1.55; color: var(--text-muted); }
+.reomi-settings-alert { margin: 0; font-size: 12px; line-height: 1.55; color: var(--rose-500); }
+.reomi-settings-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.reomi-reminder-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.reomi-reminder-row + .reomi-reminder-row { padding-top: 14px; border-top: 1px solid var(--panel-edge); }
+.reomi-reminder-copy { min-width: 0; display: grid; gap: 4px; }
+.reomi-reminder-copy strong { font-size: 13px; font-weight: 600; color: var(--text); }
+.reomi-reminder-copy span { font-size: 12px; line-height: 1.55; color: var(--text-muted); }
+.reomi-reminder-alert { color: var(--rose-500); }
+.reomi-switch {
+  appearance: none; -webkit-appearance: none; position: relative; flex-shrink: 0;
+  width: 42px; height: 24px; margin-top: 1px; padding: 0; border: 1px solid var(--panel-edge);
+  border-radius: 999px; background: var(--surface-3); cursor: pointer;
+}
+.reomi-switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+  border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 18%, transparent);
+  transition: transform 140ms ease;
+}
+.reomi-switch[aria-checked='true'] { background: var(--accent-500); border-color: var(--accent-500); }
+.reomi-switch[aria-checked='true']::after { transform: translateX(18px); }
+.reomi-switch:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .reomi-switch::after { transition: none; } }
 @media(max-width:1100px) { .reomi-settings { grid-template-columns: 176px minmax(0,1fr); } .reomi-settings-content { padding: 28px 20px; } .reomi-settings-section { padding: 20px; } .reomi-settings-form-grid { grid-template-columns: minmax(0,1fr); gap: 18px; } .reomi-settings-palettes { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media(max-width:719px) {
   .reomi-settings { display: flex; flex-direction: column; }

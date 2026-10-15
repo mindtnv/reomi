@@ -76,6 +76,8 @@ test('save and reset send the study-day body, not a browser zone', async () => {
     typeInto(minute, '90');
   });
   const save = [...container.querySelectorAll('button')].find((button) => button.textContent === 'Save study day');
+  expect(save?.className).toContain('reomi-button');
+  expect(zone.classList.contains('reomi-input')).toBe(true);
   await act(async () => { save!.click(); });
   expect(saved[0]).toEqual({ timeZone: 'Asia/Tokyo', rolloverMinute: 90 });
   expect(container.querySelector<HTMLInputElement>('input[aria-label="Time zone"]')?.value).toBe('Asia/Tokyo');
