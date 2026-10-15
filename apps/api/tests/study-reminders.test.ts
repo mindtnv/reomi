@@ -12,6 +12,7 @@ import { buildApp } from '../src/app.ts';
 import { markRuntimeRunning, markRuntimeShuttingDown } from '../src/runtime-state.ts';
 import { reminderSchedulerActive, startReminderScheduler } from '../src/reminders/scheduler.ts';
 import { runReminderTick, type ReminderEmail } from '../src/reminders/tick.ts';
+import { __setDnsLookupForTests, deliverWebPush, generateVapidKeys } from '../src/reminders/web-push.ts';
 import { callApp, resetTestDb, seedBasicCard, signUpAndCookie, uniqueEmail } from './helpers.ts';
 
 const app = buildApp();
@@ -29,6 +30,7 @@ const choice = {
 
 beforeEach(async () => {
   markRuntimeRunning();
+  __setDnsLookupForTests(null);
   delete process.env.VAPID_PUBLIC_KEY;
   delete process.env.VAPID_PRIVATE_KEY;
   delete process.env.VAPID_SUBJECT;
@@ -185,6 +187,85 @@ describe('study reminder tick', () => {
     expect(sent).toHaveLength(2);
     const rows = await db.select().from(notificationDeliveries);
     expect(rows.filter((row) => row.status === 'sent')).toHaveLength(2);
+  });
+
+  test('cards that appear after the chosen hour still produce one digest, and a zero count does not burn the day', async () => {
+    const owner = await account();
+    expect((await save(owner.cookie)).status).toBe(200);
+    const atHour = new Date('2026-01-15T14:30:00.000Z');
+    const later = new Date('2026-01-15T16:30:00.000Z');
+    const { email, sent } = captureEmail();
+
+    await runReminderTick({ now: atHour, email });
+    expect(sent).toHaveLength(0);
+    expect(await db.select().from(notificationDeliveries)).toHaveLength(0);
+
+    await seedBasicCard(app, owner.cookie, { deckId: owner.deckId, front: 'LATER', back: 'CARD' });
+    await alignDue(owner.userId, later);
+    await runReminderTick({ now: later, email });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.text).toContain('1');
+    await runReminderTick({ now: later, email });
+    expect(sent).toHaveLength(1);
+    expect(await db.select().from(notificationDeliveries)).toHaveLength(1);
+  });
+
+  test('a digest hour skipped by the spring-forward jump is sent once that afternoon', async () => {
+    const owner = await account();
+    await seedBasicCard(app, owner.cookie, { deckId: owner.deckId, front: 'DST', back: 'CARD' });
+    expect((await save(owner.cookie, { ...choice, digestHour: 2 })).status).toBe(200);
+    const beforeJump = new Date('2026-03-08T06:30:00.000Z');
+    const afterJump = new Date('2026-03-08T07:30:00.000Z');
+    await alignDue(owner.userId, afterJump);
+    const { email, sent } = captureEmail();
+
+    await runReminderTick({ now: beforeJump, email });
+    expect(sent).toHaveLength(0);
+    expect(await db.select().from(notificationDeliveries)).toHaveLength(0);
+
+    await runReminderTick({ now: afterJump, email });
+    expect(sent).toHaveLength(1);
+    await runReminderTick({ now: afterJump, email });
+    expect(sent).toHaveLength(1);
+    const [row] = await db.select().from(notificationDeliveries);
+    expect(row).toMatchObject({ kind: 'due_digest', status: 'sent', studyDay: '2026-03-08' });
+  });
+
+  test('a send that outlives its lease cannot overwrite the replica that reclaimed the slot', async () => {
+    const owner = await account();
+    await seedBasicCard(app, owner.cookie, { deckId: owner.deckId, front: 'RACE', back: 'CARD' });
+    const now = new Date('2026-01-15T14:30:00.000Z');
+    await alignDue(owner.userId, now);
+    expect((await save(owner.cookie)).status).toBe(200);
+
+    let release!: () => void;
+    const hold = new Promise<void>((resolve) => { release = resolve; });
+    let entered!: () => void;
+    const inside = new Promise<void>((resolve) => { entered = resolve; });
+    const first = runReminderTick({
+      now,
+      email: {
+        send: async () => {
+          entered();
+          await hold;
+          throw new Error('late');
+        },
+      },
+    });
+    await inside;
+
+    const secondSends: string[] = [];
+    const later = new Date(now.getTime() + 3 * 60 * 1000);
+    await runReminderTick({
+      now: later,
+      email: { send: async () => { secondSends.push('second'); } },
+    });
+    expect(secondSends).toEqual(['second']);
+    release();
+    await first;
+
+    const [row] = await db.select().from(notificationDeliveries).where(eq(notificationDeliveries.userId, owner.userId));
+    expect(row).toMatchObject({ status: 'sent', errorCode: null });
   });
 
   test('parallel passes produce one send, a missing provider can be retried, and one failure does not stop the next user', async () => {
@@ -364,6 +445,83 @@ describe('web push subscriptions', () => {
     expect(JSON.stringify(receipt)).not.toContain('SECRETPATHTOKEN');
   });
 
+  test('registration rejects loopback written as IPv6 and hosts outside the push allowlist', async () => {
+    const owner = await account();
+    armVapid();
+    const blocked = [
+      'https://[::ffff:127.0.0.1]/push',
+      'https://[::ffff:7f00:1]/push',
+      'https://[::127.0.0.1]/push',
+      'https://[::7f00:1]/push',
+      'https://[64:ff9b::127.0.0.1]/push',
+      'https://[64:ff9b::7f00:1]/push',
+      'https://[64:ff9b:1::7f00:1]/push',
+      'https://[2002:7f00:1::]/push',
+      'https://[fd00::1]/push',
+      'https://[fe80::1]/push',
+      'https://10.0.0.1/push',
+      'https://example.com/push',
+      'https://fcm.googleapis.com.evil.com/push',
+      'https://user:pass@fcm.googleapis.com/push',
+    ];
+    for (const endpoint of blocked) {
+      const response = await subscribe(owner.cookie, endpoint);
+      expect(response.status, endpoint).toBe(400);
+    }
+    expect(await db.select().from(pushSubscriptions)).toHaveLength(0);
+    for (const endpoint of [
+      'https://fcm.googleapis.com/fcm/send/ok',
+      'https://updates.push.services.mozilla.com/wpush/1',
+      'https://web.push.apple.com/1',
+      'https://wns2-pn1.notify.windows.com/1',
+    ]) {
+      expect((await subscribe(owner.cookie, endpoint)).status, endpoint).toBe(200);
+    }
+  });
+
+  test('delivery resolves an allowlisted host and refuses a private answer', async () => {
+    const lookups: string[] = [];
+    const keys = generateVapidKeys();
+    process.env.VAPID_PUBLIC_KEY = keys.publicKey;
+    process.env.VAPID_PRIVATE_KEY = keys.privateKey;
+    process.env.VAPID_SUBJECT = 'https://app.reomi.ru';
+    const pair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+    const raw = new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey));
+    const auth = crypto.getRandomValues(new Uint8Array(16));
+    const subscription = {
+      endpoint: 'https://fcm.googleapis.com/fcm/send/dns-check',
+      p256dh: Buffer.from(raw).toString('base64url'),
+      auth: Buffer.from(auth).toString('base64url'),
+    };
+    const blocked = [
+      '127.0.0.1',
+      '10.1.2.3',
+      '::ffff:127.0.0.1',
+      '::ffff:7f00:1',
+      '::7f00:1',
+      '64:ff9b::7f00:1',
+      '64:ff9b:1::7f00:1',
+      '2002:7f00:1::',
+      '2001:0::ffff:ffff',
+      'fd00::1',
+      'fe80::1',
+    ];
+    try {
+      for (const address of blocked) {
+        lookups.length = 0;
+        __setDnsLookupForTests(async (host) => {
+          lookups.push(host);
+          return [{ address, family: address.includes(':') ? 6 : 4 }];
+        });
+        const result = await deliverWebPush(subscription, '{}');
+        expect(lookups, address).toEqual(['fcm.googleapis.com']);
+        expect(result, address).toEqual({ ok: false, code: 'push_failed' });
+      }
+    } finally {
+      __setDnsLookupForTests(null);
+    }
+  });
+
   test('missing VAPID returns push_disabled and deck reads stay up', async () => {
     const owner = await account();
     const denied = await subscribe(owner.cookie, 'https://fcm.googleapis.com/fcm/send/no-keys');
@@ -388,7 +546,7 @@ describe('web push subscriptions', () => {
       ['https://fcm.googleapis.com/fcm/send/FCMSECRETPATH', 'fcm'],
       ['https://updates.push.services.mozilla.com/wpush/v2/MOZSECRETPATH', 'mozilla'],
       ['https://web.push.apple.com/APPLESECRETPATH', 'apple'],
-      ['https://example.com/push/OTHERSECRETPATH', 'other'],
+      ['https://wns2-pn1.notify.windows.com/w/?token=OTHERSECRETPATH', 'other'],
     ] as const;
     armVapid();
     const now = new Date('2026-04-02T09:15:00.000Z');

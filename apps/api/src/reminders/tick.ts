@@ -62,13 +62,15 @@ function defaultPush(): ReminderPush {
   return { configured: pushConfigured, deliver: deliverWebPush };
 }
 
+type SlotClaim = { id: string; leaseUntil: Date };
+
 async function claimSlot(
   userId: string,
   kind: 'due_digest' | 'streak_warning',
   channel: 'web_push' | 'email',
   studyDay: string,
   now: Date,
-): Promise<string | null> {
+): Promise<SlotClaim | null> {
   if (isRuntimeShuttingDown()) return null;
   const leaseUntil = new Date(now.getTime() + RESERVE_MS);
   const inserted = await db.insert(notificationDeliveries).values({
@@ -81,7 +83,7 @@ async function claimSlot(
       notificationDeliveries.studyDay,
     ],
   }).returning({ id: notificationDeliveries.id });
-  if (inserted[0]) return inserted[0].id;
+  if (inserted[0]) return { id: inserted[0].id, leaseUntil };
 
   const [row] = await db.select().from(notificationDeliveries).where(and(
     eq(notificationDeliveries.userId, userId),
@@ -110,11 +112,25 @@ async function claimSlot(
       ? isNull(notificationDeliveries.errorCode)
       : eq(notificationDeliveries.errorCode, row.errorCode),
   )).returning({ id: notificationDeliveries.id });
-  return reclaimed[0]?.id ?? null;
+  return reclaimed[0] ? { id: reclaimed[0].id, leaseUntil } : null;
+}
+
+/** Confirm this claim still owns the slot and refresh its lease from the tick clock. */
+async function holdClaim(id: string, leaseToken: Date, now: Date): Promise<Date | null> {
+  const extended = new Date(now.getTime() + RESERVE_MS);
+  const held = await db.update(notificationDeliveries).set({
+    leaseUntil: extended,
+  }).where(and(
+    eq(notificationDeliveries.id, id),
+    eq(notificationDeliveries.leaseUntil, leaseToken),
+    eq(notificationDeliveries.status, 'reserved'),
+  )).returning({ id: notificationDeliveries.id });
+  return held[0] ? extended : null;
 }
 
 async function finishSlot(
   id: string,
+  leaseToken: Date,
   userId: string,
   kind: string,
   channel: string,
@@ -123,9 +139,13 @@ async function finishSlot(
   leaseUntil: Date | null,
   pushService: PushService | null,
 ): Promise<void> {
-  await db.update(notificationDeliveries).set({
+  const updated = await db.update(notificationDeliveries).set({
     status, errorCode, leaseUntil, pushService,
-  }).where(eq(notificationDeliveries.id, id));
+  }).where(and(
+    eq(notificationDeliveries.id, id),
+    eq(notificationDeliveries.leaseUntil, leaseToken),
+  )).returning({ id: notificationDeliveries.id });
+  if (!updated[0]) return;
   rootLogger.info({
     event: 'reminder.slot',
     userId,
@@ -151,6 +171,7 @@ async function reviewedToday(userId: string, now: Date): Promise<boolean> {
 
 async function deliverEmailSlot(
   id: string,
+  leaseToken: Date,
   userId: string,
   kind: 'due_digest' | 'streak_warning',
   to: string,
@@ -159,19 +180,20 @@ async function deliverEmailSlot(
   now: Date,
 ): Promise<void> {
   if (!email) {
-    await finishSlot(id, userId, kind, 'email', 'failed', 'email_unconfigured', new Date(now.getTime() + UNCONFIGURED_MS), null);
+    await finishSlot(id, leaseToken, userId, kind, 'email', 'failed', 'email_unconfigured', new Date(now.getTime() + UNCONFIGURED_MS), null);
     return;
   }
   try {
     await email.send({ to, subject: copy.subject, text: copy.text });
-    await finishSlot(id, userId, kind, 'email', 'sent', null, null, null);
+    await finishSlot(id, leaseToken, userId, kind, 'email', 'sent', null, null, null);
   } catch {
-    await finishSlot(id, userId, kind, 'email', 'failed', 'email_failed', null, null);
+    await finishSlot(id, leaseToken, userId, kind, 'email', 'failed', 'email_failed', null, null);
   }
 }
 
 async function deliverPushSlot(
   id: string,
+  leaseToken: Date,
   userId: string,
   kind: 'due_digest' | 'streak_warning',
   copy: { subject: string; text: string },
@@ -180,7 +202,7 @@ async function deliverPushSlot(
   now: Date,
 ): Promise<void> {
   if (!push.configured()) {
-    await finishSlot(id, userId, kind, 'web_push', 'failed', 'push_disabled', new Date(now.getTime() + UNCONFIGURED_MS), null);
+    await finishSlot(id, leaseToken, userId, kind, 'web_push', 'failed', 'push_disabled', new Date(now.getTime() + UNCONFIGURED_MS), null);
     return;
   }
   const subs = await db.select().from(pushSubscriptions).where(and(
@@ -188,7 +210,7 @@ async function deliverPushSlot(
     isNull(pushSubscriptions.disabledAt),
   ));
   if (subs.length === 0) {
-    await finishSlot(id, userId, kind, 'web_push', 'skipped', 'no_subscription', null, null);
+    await finishSlot(id, leaseToken, userId, kind, 'web_push', 'skipped', 'no_subscription', null, null);
     return;
   }
   const payload = buildPushPayload({ title: copy.subject, body: copy.text, badge, kind });
@@ -207,7 +229,7 @@ async function deliverPushSlot(
       continue;
     }
     if (result.code === 'push_disabled') {
-      await finishSlot(id, userId, kind, 'web_push', 'failed', 'push_disabled', new Date(now.getTime() + UNCONFIGURED_MS), null);
+      await finishSlot(id, leaseToken, userId, kind, 'web_push', 'failed', 'push_disabled', new Date(now.getTime() + UNCONFIGURED_MS), null);
       return;
     }
     if (result.code === 'gone') {
@@ -221,14 +243,14 @@ async function deliverPushSlot(
     failed += 1;
   }
   if (sent > 0) {
-    await finishSlot(id, userId, kind, 'web_push', 'sent', null, null, service);
+    await finishSlot(id, leaseToken, userId, kind, 'web_push', 'sent', null, null, service);
     return;
   }
   if (gone > 0 && failed === 0) {
-    await finishSlot(id, userId, kind, 'web_push', 'skipped', 'no_subscription', null, service);
+    await finishSlot(id, leaseToken, userId, kind, 'web_push', 'skipped', 'no_subscription', null, service);
     return;
   }
-  await finishSlot(id, userId, kind, 'web_push', 'failed', 'push_failed', null, service);
+  await finishSlot(id, leaseToken, userId, kind, 'web_push', 'failed', 'push_failed', null, service);
 }
 
 async function sendKind(
@@ -244,13 +266,19 @@ async function sendKind(
   const studyDay = todayISO(now);
   if (isRuntimeShuttingDown()) return;
   if (settings.emailEnabled) {
-    const id = await claimSlot(settings.userId, kind, 'email', studyDay, now);
-    if (id) await deliverEmailSlot(id, settings.userId, kind, emailAddress, copy, email, now);
+    const claim = await claimSlot(settings.userId, kind, 'email', studyDay, now);
+    const token = claim ? await holdClaim(claim.id, claim.leaseUntil, now) : null;
+    if (claim && token) {
+      await deliverEmailSlot(claim.id, token, settings.userId, kind, emailAddress, copy, email, now);
+    }
   }
   if (isRuntimeShuttingDown()) return;
   if (settings.pushEnabled) {
-    const id = await claimSlot(settings.userId, kind, 'web_push', studyDay, now);
-    if (id) await deliverPushSlot(id, settings.userId, kind, copy, badge, push, now);
+    const claim = await claimSlot(settings.userId, kind, 'web_push', studyDay, now);
+    const token = claim ? await holdClaim(claim.id, claim.leaseUntil, now) : null;
+    if (claim && token) {
+      await deliverPushSlot(claim.id, token, settings.userId, kind, copy, badge, push, now);
+    }
   }
 }
 
@@ -272,7 +300,7 @@ async function processUser(
   }
   const locale: ReminderLocale = settings.locale === 'ru' ? 'ru' : 'en';
   const link = reviewUrl();
-  if (settings.digestEnabled && hour === settings.digestHour) {
+  if (settings.digestEnabled && hour >= settings.digestHour) {
     const overview = await loadStudyOverview(settings.userId, now);
     if (overview.overall.totalAvailable > 0) {
       const copy = digestCopy(locale, overview.overall.totalAvailable, link);
@@ -280,7 +308,7 @@ async function processUser(
     }
   }
   if (isRuntimeShuttingDown()) return;
-  if (settings.streakWarningEnabled && hour === settings.streakHour && streakDays > 0) {
+  if (settings.streakWarningEnabled && hour >= settings.streakHour && streakDays > 0) {
     if (await reviewedToday(settings.userId, now)) return;
     const copy = streakCopy(locale, streakDays, streakFreezes, link);
     await sendKind(settings, emailAddress, 'streak_warning', copy, streakDays, now, email, push);

@@ -35,6 +35,14 @@ beforeAll(async () => {
       cert: readFileSync(certPath),
     },
     fetch: async (request) => {
+      const url = new URL(request.url);
+      if (url.pathname === '/bounce') {
+        hits.push({ authorization: 'redirect', bytes: 0 });
+        return new Response(null, {
+          status: 302,
+          headers: { location: `https://127.0.0.1:${server.port}/stolen` },
+        });
+      }
       const body = new Uint8Array(await request.arrayBuffer());
       hits.push({
         authorization: request.headers.get('authorization') ?? '',
@@ -89,5 +97,15 @@ describe('local web push receiver', () => {
     );
     expect(refused).toEqual({ ok: false, code: 'push_disabled' });
     expect(hits).toHaveLength(1);
+
+    process.env.VAPID_PUBLIC_KEY = keys.publicKey;
+    process.env.VAPID_PRIVATE_KEY = keys.privateKey;
+    const before = hits.length;
+    const redirected = await deliverWebPush(
+      { endpoint: `https://127.0.0.1:${server.port}/bounce`, p256dh: base64url(raw), auth: base64url(auth) },
+      payload,
+    );
+    expect(redirected).toMatchObject({ ok: false, code: 'push_failed', statusCode: 302 });
+    expect(hits.slice(before)).toEqual([{ authorization: 'redirect', bytes: 0 }]);
   });
 });
