@@ -152,6 +152,38 @@ describe('study queue', () => {
     expect(queue.mode).toBe('filtered');
   });
 
+  test('a future setDue keeps every FSRS state out of today\'s queue', async () => {
+    const { cookie, deckId } = await setup();
+    const later = new Date(Date.now() + 2 * 86_400_000).toISOString();
+    const readyNew = await seedBasicCard(app, cookie, { deckId, front: 'Ready new' });
+    const postponedNew = await seedBasicCard(app, cookie, { deckId, front: 'Postponed new' });
+    const postponedLearning = await seedBasicCard(app, cookie, { deckId, front: 'Postponed learning' });
+    const postponedReview = await seedBasicCard(app, cookie, { deckId, front: 'Postponed review' });
+    const dueReview = await seedBasicCard(app, cookie, { deckId, front: 'Due review' });
+    await db.update(cards).set({ state: 'learning', due: new Date(Date.now() - 60_000) }).where(eq(cards.id, postponedLearning.id));
+    await db.update(cards).set({ state: 'review', due: new Date(Date.now() - 60_000) }).where(eq(cards.id, postponedReview.id));
+    await db.update(cards).set({ state: 'review', due: new Date(Date.now() - 60_000) }).where(eq(cards.id, dueReview.id));
+
+    const single = await callApp(app, 'PATCH', `/cards/${postponedNew.id}`, { cookie, body: { setDue: later } });
+    expect(single.status).toBe(200);
+    expect(await single.json()).toMatchObject({ state: 'new', due: later });
+    const learning = await callApp(app, 'PATCH', `/cards/${postponedLearning.id}`, { cookie, body: { setDue: later } });
+    expect(await learning.json()).toMatchObject({ state: 'learning', due: later });
+    const bulk = await callApp(app, 'POST', '/cards/bulk', {
+      cookie, body: { action: 'setDue', cardIds: [postponedReview.id], payload: { setDue: later } },
+    });
+    expect(bulk.status).toBe(200);
+    expect((await bulk.json()).cards).toEqual([expect.objectContaining({ id: postponedReview.id, state: 'review', due: later })]);
+
+    const queue = await (await callApp(app, 'GET', '/cards/queue', { cookie })).json<any>();
+    expect(queue.new.map((card: { id: string }) => card.id)).toEqual([readyNew.id]);
+    expect(queue.due.map((card: { id: string }) => card.id)).toEqual([dueReview.id]);
+    expect(queue.summary).toMatchObject({
+      newCount: 2, dueNew: 1, availableNew: 1, learningCount: 1, dueLearning: 0,
+      reviewCount: 2, dueReview: 1, totalAvailable: 2, nextDueAt: later,
+    });
+  });
+
   test('the next UTC day makes yesterday\'s budget available without a write', async () => {
     const { cookie, userId, deckId } = await setup();
     await seedBasicCard(app, cookie, { deckId, front: 'New' });
