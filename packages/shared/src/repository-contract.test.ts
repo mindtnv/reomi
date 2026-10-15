@@ -141,15 +141,19 @@ describe('repository contracts', () => {
     expect(workflow).toContain('-X POST "$COOLIFY_URL/applications/$API_APP_UUID/stop?docker_cleanup=false"');
   });
 
-  test('deploy publishes both image names and keeps the Coolify application ids', () => {
+  test('deploy publishes reomi images and keeps the Coolify application ids', () => {
     const workflow = readRepoFile('.github/workflows/deploy.yml');
-    for (const name of ['neuronexus-api', 'neuronexus-web', 'reomi-api', 'reomi-web']) {
+    for (const name of ['reomi-api', 'reomi-web']) {
       expect(workflow).toContain(`ghcr.io/\${{ github.repository_owner }}/${name}:\${{ github.sha }}`);
       expect(workflow).toContain(`ghcr.io/\${{ github.repository_owner }}/${name}:latest`);
     }
+    expect(workflow).not.toContain('neuronexus-api');
+    expect(workflow).not.toContain('neuronexus-web');
     expect(workflow).toContain('API_APP_UUID: u6kweu7gzzw9kidpuq7i0n7y');
     expect(workflow).toContain('WEB_APP_UUID: tmc5k98iayyj0g28qr7inbaj');
-    expect(workflow.indexOf('neuronexus-api:${{ github.sha }}')).toBeLessThan(workflow.indexOf('reomi-web:${{ github.sha }}'));
+    expect(workflow.indexOf('reomi-api:${{ github.sha }}')).toBeLessThan(
+      workflow.indexOf('reomi-web:${{ github.sha }}'),
+    );
     expect(workflow).toContain('"neuronexus" in name or "reomi" in name');
     const apiStop = workflow.indexOf('applications/$API_APP_UUID/stop');
     const webUuidLoop = workflow.indexOf('for uuid in "$API_APP_UUID" "$WEB_APP_UUID"');
