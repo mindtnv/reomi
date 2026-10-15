@@ -135,3 +135,38 @@ test('reopening a new-note draft repeats one create operation', async () => {
   expect(posts).not.toContain('legacy');
   expect(new Set(posts).size).toBe(1);
 });
+
+test('a deleted note drops the uncertain create so the next save posts a new operation', async () => {
+  const posts: string[] = [];
+  let revertedReads = 0;
+  const tombstones = new Set<string>();
+  globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+    const path = String(url);
+    if (path.endsWith('/session')) return Response.json({ sessionId: newUuidV7() });
+    const operationId = path.match(/\/notes\/operations\/([0-9a-f-]{36})/i)?.[1];
+    if (operationId && (init?.method ?? 'GET') === 'GET') {
+      if (tombstones.has(operationId)) {
+        revertedReads += 1;
+        return Response.json({ status: 'reverted' });
+      }
+      return Response.json({ error: 'operation_not_found' }, { status: 404 });
+    }
+    if (operationId && init?.method === 'POST') {
+      posts.push(operationId);
+      if (posts.length === 1) throw new Error('reply lost after commit');
+      const note = { id: 'second-note', noteTypeId: BASIC_NOTE_TYPE.id, fieldValues: { Front: 'A', Back: '' }, tags: [], updatedAt: '2026-09-23T00:00:02.000Z' };
+      return Response.json({ note, cards: [{ id: 'second-card', noteId: note.id, deckId: 'deck', templateOrd: 0, state: 'new' }], replayed: false });
+    }
+    return Response.json({ items: [] });
+  }) as unknown as typeof fetch;
+  await act(async () => root.render(view(() => {})));
+  await front('A');
+  await act(async () => button('actions.create').click());
+  expect(host.textContent).toContain('actionsRecovery.uncertain');
+  tombstones.add(posts[0]!);
+  await act(async () => button('actionsRecovery.retry').click());
+  await act(async () => button('actionsRecovery.retry').click());
+  expect(revertedReads).toBe(1);
+  expect(posts).toHaveLength(2);
+  expect(posts[1]).not.toBe(posts[0]);
+});
