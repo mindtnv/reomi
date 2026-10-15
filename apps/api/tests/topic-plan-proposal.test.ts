@@ -9,7 +9,9 @@ import { cards, db, notebooks, sources as sourcesTable } from '@reomi/db';
 import { buildApp } from '../src/app.ts';
 import { __resetAiClientForTests, __setAiClientForTests } from '../src/ai/openai-client.ts';
 import { __setDnsLookupForTests, __setPageFetchForTests } from '../src/ai/page-reader.ts';
+import { capStoredToolResult } from '../src/ai/tool-result-cap.ts';
 import { buildToolRegistry, type ToolResult } from '../src/ai/tools.ts';
+import { topicPlanCardRows } from '../../web/src/lib/topic-plan-card.ts';
 import { rootLogger } from '../src/logger.ts';
 import { resetTestDb, signUpAndCookie, uniqueEmail } from './helpers.ts';
 
@@ -319,6 +321,26 @@ describe('propose_topic_plan', () => {
     expect(result).toEqual({ ok: false, error: 'ai_disabled' });
     expect(state.calls).toBe(0);
     expect(await accountCounts()).toEqual(before);
+  });
+
+  test('an 8-module plan at the title and outcome caps stays a card after the stored cap', async () => {
+    const modules = Array.from({ length: 8 }, (_, index) => ({
+      title: `${index}${'T'.repeat(119)}`,
+      outcome: `${index}${'O'.repeat(399)}`,
+      prerequisiteIndexes: index === 0 ? [] : [index - 1],
+      urls: [] as string[],
+    }));
+    const { userId } = await signUpAndCookie(app, uniqueEmail());
+    const result = await propose(userId, {
+      goal: 'G'.repeat(200),
+      level: 'L'.repeat(80),
+      modules,
+    });
+    const stored = capStoredToolResult('propose_topic_plan', result.ok ? result.text : '');
+    expect(topicPlanCardRows(stored)?.map((row) => row.title)).toEqual(modules.map((module) => module.title));
+    expect(topicPlanCardRows(stored)?.map((row) => row.outcome)).toEqual(
+      modules.map((module) => module.outcome),
+    );
   });
 
   test('the welcome screen still offers only deck, library, and chat', async () => {
