@@ -37,6 +37,7 @@ const m = {
   easeLabel: 'ease {v}',
   bestTime: 'Лучшее время дня',
   bestTimeSub: 'Повторы по часам UTC',
+  bestTimeSubZone: 'Повторы по часам ({zone})',
   peak: 'Пик:',
   retentionInline: 'успех',
   weekLine: 'за неделю · {time} · ~{avg} мин/день',

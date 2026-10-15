@@ -309,6 +309,13 @@
       "when": 1792079543018,
       "tag": "0043_topic_plan",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792083556995,
+      "tag": "0044_study_day",
+      "breakpoints": true
     }
   ]
 }

@@ -17,6 +17,7 @@ import { TextInput, TextArea, SegmentedControl } from '@/components/design-syste
 import { useLocale } from '@/lib/i18n';
 import { McpSettings } from '@/components/mcp-settings';
 import { ReminderSettings } from '@/components/reminder-settings';
+import { StudyDaySettings } from '@/components/study-day-settings';
 import { PALETTE_IDS, PALETTE_VARIANTS, resolveTheme } from '@/lib/theme';
 import { ORIGINAL_PALETTE_IDS } from '@/lib/theme-originals';
 import { useAppearance } from '@/lib/use-appearance';
@@ -632,6 +633,10 @@ const SettingsContent = () => {
             />
           </div>
         )}
+      </Section>
+
+      <Section group="learning" title={t('settings.studyDay.title')} subtitle={t('settings.studyDay.subtitle')}>
+        <StudyDaySettings />
       </Section>
 
       <Section group="general" title={t('settings.notifications.title')} subtitle={t('settings.notifications.subtitle')}>

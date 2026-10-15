@@ -7,7 +7,7 @@
 // (same approach as progress-tools.test.ts).
 
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { cards as cardsTable, db, deckOptionsPreset, decks as decksTable, notes, reviews } from '@reomi/db';
+import { cards as cardsTable, db, deckOptionsPreset, decks as decksTable, notes, reviews, studyDayPolicy } from '@reomi/db';
 import { eq, sql } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import { callApp, resetTestDb, seedBasicCard, signUpAndCookie, uniqueEmail } from './helpers.ts';
@@ -58,6 +58,7 @@ async function seedReview(
   deckId: string,
   rating: number,
   reviewedAt: Date,
+  stamp?: { studyDay: string; studyEpochStart: Date },
 ): Promise<void> {
   await db.insert(reviews).values({
     userId,
@@ -69,6 +70,7 @@ async function seedReview(
     nextDue: new Date(reviewedAt.getTime() + DAY_MS),
     nextStability: 1,
     nextDifficulty: 5,
+    ...(stamp ? { studyDay: stamp.studyDay, studyEpochStart: stamp.studyEpochStart } : {}),
   });
 }
 
@@ -449,6 +451,27 @@ describe('GET /stats/overview and /stats/decks', () => {
         expect(winter).toBe('2026-01-15');
       });
     }
+  });
+
+  test('a stamped review stays on its study day when the new zone span starts later', async () => {
+    const { cookie, userId } = await signUpAndCookie(app, uniqueEmail());
+    const deckId = await freshDeck(cookie);
+    const cardId = await seedScheduledCard(cookie, deckId, { due: daysFromNow(2) });
+    const todayStart = new Date(NOW);
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const yesterdayStart = new Date(todayStart.getTime() - DAY_MS);
+    const label = yesterdayStart.toISOString().slice(0, 10);
+    const stampedAt = new Date(yesterdayStart.getTime() - 9 * 60 * 60 * 1000);
+    await db.insert(studyDayPolicy).values({ userId, timeZone: 'UTC', rolloverMinute: 0 });
+    await seedReview(userId, cardId, deckId, 3, stampedAt, {
+      studyDay: label,
+      studyEpochStart: stampedAt,
+    });
+
+    const body = await getOverview(cookie, '?days=2');
+    expect(body.series.find((point) => point.day === label)?.answerCount).toBe(1);
+    const previous = new Date(yesterdayStart.getTime() - DAY_MS).toISOString().slice(0, 10);
+    expect(body.series.find((point) => point.day === previous)?.answerCount ?? 0).toBe(0);
   });
 
   test('deck breakdown counts the full collection, and targets follow effective retention', async () => {

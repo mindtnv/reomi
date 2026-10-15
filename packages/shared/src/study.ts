@@ -23,9 +23,23 @@ export interface StudySummary extends StudyCounts {
   serverNow: string;
 }
 
+/** The open study interval the queue, home, and summary agree on. */
+export interface StudyDaySnapshot {
+  label: string;
+  startsAt: string;
+  endsAt: string;
+  usedNew: number;
+  usedReviews: number;
+  todayMinutes: number;
+  legacy: boolean;
+  zone: string;
+  rolloverMinute: number;
+}
+
 export interface StudyOverview {
   overall: StudySummary;
   /** Each deck includes all its descendants and its effective daily limits. */
   decks: Record<string, StudySummary>;
   direct: Record<string, StudyCounts>;
+  studyDay: StudyDaySnapshot;
 }

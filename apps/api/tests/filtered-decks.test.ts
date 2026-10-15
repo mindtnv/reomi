@@ -416,7 +416,6 @@ describe('filtered-decks (custom study / cram)', () => {
     expect(body.card.stability).toBeGreaterThan(0);
     expect(Number.isNaN(new Date(body.card.due).getTime())).toBe(false);
 
-    // Daily counters UNCHANGED (filtered grades skip them).
     const after = await (await callApp(app, 'GET', '/profile', { cookie })).json<{
       newIntroducedToday: number;
       reviewsDoneToday: number;
@@ -424,7 +423,7 @@ describe('filtered-decks (custom study / cram)', () => {
     }>();
     expect(after.newIntroducedToday).toBe(0);
     expect(after.reviewsDoneToday).toBe(0);
-    expect(after.dailyCountsDate).toBeNull();
+    expect(after.dailyCountsDate).toBe(new Date().toISOString().slice(0, 10));
   });
 
   // ── isolation: filtered session is user-scoped on the card set ─────────────────

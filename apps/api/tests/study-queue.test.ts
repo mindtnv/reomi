@@ -1,8 +1,18 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { cards, db, profile } from '@reomi/db';
 import { eq } from 'drizzle-orm';
+import { legacyOpenEpoch } from '@reomi/shared';
 import { buildApp } from '../src/app.ts';
 import { callApp, resetTestDb, seedBasicCard, signUpAndCookie, uniqueEmail } from './helpers.ts';
+
+function openUtcEpoch(label: string) {
+  const epoch = legacyOpenEpoch(label, label);
+  return {
+    dailyCountsDate: label,
+    studyEpochStart: epoch!.start,
+    studyEpochEnd: epoch!.end,
+  };
+}
 
 const app = buildApp();
 
@@ -24,7 +34,8 @@ describe('study queue', () => {
       await db.update(cards).set({ state, due: new Date(Date.now() - 60_000) }).where(eq(cards.id, card.id));
       ids.push(card.id);
     }
-    await db.update(profile).set({ reviewsDoneToday: 200, dailyCountsDate: new Date().toISOString().slice(0, 10) })
+    const today = new Date().toISOString().slice(0, 10);
+    await db.update(profile).set({ reviewsDoneToday: 200, ...openUtcEpoch(today) })
       .where(eq(profile.userId, userId));
     const result = await callApp(app, 'GET', '/cards/queue', { cookie });
     expect(result.status).toBe(200);
@@ -101,7 +112,8 @@ describe('study queue', () => {
     await db.update(cards).set({ state: 'learning', due: next }).where(eq(cards.id, learning.id));
     const paused = await seedBasicCard(app, cookie, { deckId, front: 'Paused' });
     await db.update(cards).set({ suspended: true }).where(eq(cards.id, paused.id));
-    await db.update(profile).set({ newIntroducedToday: 20, reviewsDoneToday: 200, dailyCountsDate: new Date().toISOString().slice(0, 10) })
+    const today = new Date().toISOString().slice(0, 10);
+    await db.update(profile).set({ newIntroducedToday: 20, reviewsDoneToday: 200, ...openUtcEpoch(today) })
       .where(eq(profile.userId, userId));
     const queue = await (await callApp(app, 'GET', '/cards/queue', { cookie })).json<any>();
     expect(queue.total).toBe(0);
@@ -188,7 +200,7 @@ describe('study queue', () => {
     const { cookie, userId, deckId } = await setup();
     await seedBasicCard(app, cookie, { deckId, front: 'New' });
     const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-    await db.update(profile).set({ newIntroducedToday: 20, reviewsDoneToday: 200, dailyCountsDate: yesterday })
+    await db.update(profile).set({ newIntroducedToday: 20, reviewsDoneToday: 200, ...openUtcEpoch(yesterday) })
       .where(eq(profile.userId, userId));
     const queue = await (await callApp(app, 'GET', '/cards/queue', { cookie })).json<any>();
     expect(queue.new).toHaveLength(1);

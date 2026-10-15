@@ -101,10 +101,11 @@ async function render() {
 
 function mockStats(
   body: ReturnType<typeof overview>,
-  forecast: { days: number; overdueCount: number; total: number; buckets: { day: string; count: number }[] } = {
+  forecast: { days: number; overdueCount: number; total: number; labels?: string[]; buckets: { day: string; count: number }[] } = {
     days: 30,
     overdueCount: 0,
     total: 0,
+    labels: [],
     buckets: [],
   },
 ) {
@@ -123,8 +124,8 @@ function section(title: string): string {
   return heading?.parentElement?.textContent ?? '';
 }
 
-test('stats screen renders Eden-revived UTC days and the peak hour the percentage uses', async () => {
-  const today = new Date().toISOString().slice(0, 10);
+test('stats screen renders server study-day labels and the peak hour the percentage uses', async () => {
+  const invented = new Date().toISOString().slice(0, 10);
   mockStats(overview({
     answerCount: 4,
     answerSuccessCount: 3,
@@ -136,11 +137,13 @@ test('stats screen renders Eden-revived UTC days and the peak hour the percentag
     grades: { again: 1, hard: 1, good: 1, easy: 1 },
     series: [seriesPoint('2026-10-15', 4)],
     hours: hours({ index: 15, count: 4, success: 3 }),
+    hourZone: 'America/New_York',
   }), {
     days: 30,
     overdueCount: 0,
     total: 4,
-    buckets: [{ day: today, count: 4 }],
+    labels: ['2026-03-08', '2026-03-09'],
+    buckets: [{ day: '2026-03-08', count: 4 }],
   });
   await render();
   expect(container.textContent).toContain('Oct 15');
@@ -148,8 +151,12 @@ test('stats screen renders Eden-revived UTC days and the peak hour the percentag
   expect(container.textContent).not.toContain('3pm–');
   expect(container.textContent).not.toContain('5pm');
   expect(container.textContent).toContain('75%');
-  expect(container.innerHTML).toContain(`${today}: 4`);
-  expect(container.innerHTML).not.toContain(`${today}: 0`);
+  expect(container.textContent).toContain('Reviews by hour in America/New_York');
+  expect(container.textContent).not.toContain('Reviews by UTC hour');
+  expect(container.innerHTML).toContain('2026-03-08: 4');
+  expect(container.innerHTML).toContain('2026-03-09: 0');
+  expect(container.innerHTML).not.toContain(`${invented}: 0`);
+  expect(container.innerHTML).not.toContain(`${invented}: 4`);
 });
 
 test('grade shares are a dash when there are no reviews', async () => {

@@ -36,6 +36,7 @@ const m = {
   graphSub: '{nodes} узлов · {links} связей · {clusters} кластеров',
   forecast: 'Прогноз',
   forecastSub: '7 учебных дней · UTC',
+  forecastSubZone: '7 учебных дней · {zone}',
   aiSuggestions: 'Подсказки ИИ',
   suggestionsBadge: '{n} новых',
   suggestions: {

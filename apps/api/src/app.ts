@@ -16,6 +16,7 @@ import { NoteWriteConflict } from './modules/card-regeneration';
 import { reviewsModule } from './modules/reviews.ts';
 import { statsModule } from './modules/stats.ts';
 import { profileModule } from './modules/profile.ts';
+import { studyDayModule } from './modules/study-day.ts';
 import { mediaModule } from './modules/media.ts';
 import { aiModule, chatModule, contextualChatModule } from './modules/ai.ts';
 import { cardsSimilarModule, graphModule } from './modules/semantic.ts';
@@ -244,6 +245,7 @@ export function buildApp(options: BuildAppOptions = {}) {
       return status(500, { error: 'InternalServerError' });
     })
     .use(profileModule)
+    .use(studyDayModule)
     .use(personalTokensModule)
     .use(decksModule)
     .use(noteTypesModule)

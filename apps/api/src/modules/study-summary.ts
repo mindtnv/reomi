@@ -1,7 +1,8 @@
 import { cards, db, decks, deckOptionsPreset, profile } from '@reomi/db';
 import { eq, sql } from 'drizzle-orm';
-import { todayISO, type StudyCounts, type StudySummary, type StudyOverview } from '@reomi/shared';
+import { type StudyCounts, type StudySummary, type StudyOverview } from '@reomi/shared';
 import { resolveDeckConfig } from './deck-config';
+import { readAccountStudyDay, studyDaySnapshot } from './study-day.ts';
 
 /** One aggregate per deck; never fetches card contents or embeds vectors. */
 export async function loadStudyCounts(userId: string, now: Date): Promise<Map<string, StudyCounts>> {
@@ -64,9 +65,9 @@ export async function loadStudyOverview(userId: string, now = new Date()): Promi
     loadStudyCounts(userId, now),
   ]);
   const snapshot = { userDecks, presetsById: new Map(presets.map((p) => [p.id, p])), profile: profiles[0] ?? null };
-  const today = todayISO(now);
-  const usedNew = snapshot.profile?.dailyCountsDate === today ? snapshot.profile.newIntroducedToday : 0;
-  const usedReviews = snapshot.profile?.dailyCountsDate === today ? snapshot.profile.reviewsDoneToday : 0;
+  const { read } = await readAccountStudyDay(userId, profiles[0] ?? null, now);
+  const usedNew = read.usedNew;
+  const usedReviews = read.usedReviews;
   const availability = (counts: StudyCounts, deckId: string | null) => {
     const config = resolveDeckConfig(deckId, snapshot);
     return studyAvailability(counts, Math.max(0, config.newPerDay - usedNew), Math.max(0, config.reviewsPerDay - usedReviews), now);
@@ -86,5 +87,6 @@ export async function loadStudyOverview(userId: string, now = new Date()): Promi
     overall: availability(sumStudyCounts(direct.values()), null),
     decks: Object.fromEntries([...aggregated].map(([id, counts]) => [id, availability(counts, id)])),
     direct: Object.fromEntries(userDecks.map((deck) => [deck.id, direct.get(deck.id) ?? sumStudyCounts([])])),
+    studyDay: studyDaySnapshot(read),
   };
 }

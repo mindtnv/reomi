@@ -1,6 +1,6 @@
 # Tasks
 
-Each numbered section is one pull request. Land them in order. A later section starts from the previous section's merged result.
+Each numbered section is one pull request. Land them in order. A later section starts from the previous section's branch tip.
 
 ## 1. Persist an owned plan
 
@@ -19,18 +19,23 @@ Each numbered section is one pull request. Land them in order. A later section s
 - [x] 3.1 Add failing tests for URL normalization, reuse of the oldest owned non-deleting match, create-and-attach of a new URL, a batch that stops at the library cap and the notebook source cap, a later ingest error that keeps the module link, and a foreign module that writes nothing. Verify no test creates a card.
 - [x] 3.2 Implement `POST /notebooks/:id/plan/modules/:moduleId/sources` with the pure normalizer, the existing inline URL insert, and after-commit enqueue. Verify 3.1 passes, a retry of the same URL does not insert a second row, and a crash-shaped partial batch leaves the earlier rows reusable.
 
-## 4. Open the plan from an empty account
+## 4. Propose the plan in the existing assistant
 
-- [ ] 4.1 Add failing web tests that the welcome screen shows the learn-a-topic action plus the existing deck, library, and chat actions, that generate is unavailable when chat is off, and that a blank save routes to the new notebook. Verify both locale catalogs contain the new strings.
-- [ ] 4.2 Build the shared dialog for the welcome screen, the empty notebooks screen, and a notebook that has no plan. Verify 4.1 passes, a failed save keeps the typed modules, and cancelling a draft does not create a notebook.
+- [x] 4.1 Add failing tests that `propose_topic_plan` is offered in the global assistant registry and the notebook registry, that a goal call returns 4 to 8 modules and writes no notebook or source, that a call which already includes a module list does not call the model, that a dead or private URL is absent, and that chat disabled makes no model call. Verify the welcome screen source does not gain a learn-a-topic action.
+- [x] 4.2 Render the proposal tool result as a plan card in the existing transcript, with both locales. Verify 4.1 passes, a second explicit module list replaces the card data without a completion, and cancelling or leaving the chat creates no notebook.
 
-## 5. Show the plan on the notebook
+## 5. Confirm the plan and ingest the pages
 
-- [ ] 5.1 Add failing tests for empty, ingesting, readable, and unavailable module status, and for opening a linked source in the existing reader. Verify the tests fail while the dock has no Plan tab.
-- [ ] 5.2 Add the Plan tab, select it on first open when a plan exists, and wire the add-sources action to the response codes from section 3. Verify 5.1 passes, overview and studio still render, and neither opening the tab nor adding a URL creates a card.
-- [ ] 5.3 Update `CLAUDE.md` with the plan route, the four tables, and the API-before-web rollback, then mirror the body into `AGENTS.md`. Verify the files differ only by the Codex header.
+- [ ] 5.1 Add failing tests that applying `create_topic_plan` creates one notebook and one plan, ingests each accepted URL through the existing URL ingest, attaches those sources to the notebook, and links them to the modules. Verify reject writes nothing, a fetch is not started before the source row exists, a later ingest error keeps the link, a cap stops the rest of the batch, the user id comes from the session, and no card row is created.
+- [ ] 5.2 Implement the write tool on the existing confirm path, using the plan save and the per-module URL action. Render the same modules and URLs on the existing confirm card. Verify 5.1 passes and Apply does not call the model.
 
-## 6. Fresh verification after the last edit
+## 6. Show the plan on the notebook
 
-- [ ] 6.1 Run `bun run spec:validate`, `bun run typecheck`, `bun run db:migrate:apply:test`, and `bun run test:ci`. Verify each command exits 0 on the merged sections.
-- [ ] 6.2 Run `bun run build` and the learner smoke in `.cursor/skills/verify-reomi/SKILL.md` against the local stack. Verify a new account can save a hand-built plan, add one URL, open it from the plan, and still reach the existing deck, library, and chat actions from the welcome screen.
+- [ ] 6.1 Add failing tests for empty, ingesting, readable, and unavailable module status, and for opening a linked source in the existing reader. Verify the tests fail while the dock has no Plan tab, and verify the tab is not a goal or URL form.
+- [ ] 6.2 Add the Plan tab and select it on first open when a plan exists. Verify 6.1 passes, overview and studio still render, and neither opening the tab nor reading the plan creates a card.
+- [ ] 6.3 Update `CLAUDE.md` with the chat proposal, the confirm ingest, the four tables, and the API-before-web rollback, then mirror the body into `AGENTS.md`. Verify the files differ only by the Codex header.
+
+## 7. Fresh verification after the last edit
+
+- [ ] 7.1 Run `bun run spec:validate`, `bun run typecheck`, `bun run db:migrate:apply:test`, and `bun run test:ci`. Verify each command exits 0.
+- [ ] 7.2 Run `bun run build` and the learner smoke in `.cursor/skills/verify-reomi/SKILL.md` against the local stack. Verify a new account still reaches the existing deck, library, and chat actions from the welcome screen, and that the welcome screen has no plan dialog.
