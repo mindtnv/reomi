@@ -30,6 +30,16 @@ import { writeBrowserValue } from './storage-migration';
 
 type BulkAction = 'move' | 'delete' | 'suspend' | 'unsuspend' | 'addTag' | 'removeTag' | 'forget' | 'setDue';
 
+export interface CardlessNote {
+  id: string;
+  noteTypeId: string;
+  noteTypeName: string;
+  fieldValues: FieldValues;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface State {
   acceptRecoveredNote: (owner: string, result: any) => Card[];
   acceptRecoveredType: (owner: string, result: NoteType, originalId?: string) => Promise<NoteType>;
@@ -79,6 +89,12 @@ interface State {
 
   /** Delete a note (DELETE /notes/:id). Cascades its cards via FK; mirror drops them. */
   deleteNote: (noteId: string) => Promise<void>;
+
+  /** Notes whose cards were all deleted. The note text stays until restore or an explicit delete. */
+  listCardlessNotes: () => Promise<{ total: number; items: CardlessNote[] }>;
+
+  /** Recreate cards for a cardless note in the chosen deck and add them to the mirror. */
+  restoreCardlessNote: (noteId: string, deckId: string) => Promise<Card[]>;
 
   /** Delete a single card (DELETE /cards/:id). Card-level delete still exists. */
   deleteCard: (id: string) => Promise<void>;
@@ -763,6 +779,21 @@ export const useNN = create<State>()((set, get) => ({
     await ok(await (api as any).notes({ id: noteId }).delete());
     if (generation !== bootstrapGeneration) return;
     set((s) => ({ cards: s.cards.filter((c) => c.noteId !== noteId) }));
+  },
+
+  async listCardlessNotes() {
+    const res = await ok(await (api as any).notes.cardless.get());
+    return res as { total: number; items: CardlessNote[] };
+  },
+
+  async restoreCardlessNote(noteId, deckId) {
+    const generation = bootstrapGeneration;
+    const res: any = await ok(await (api as any).notes({ id: noteId }).restore.post({ deckId }));
+    const noteType = get().noteTypes.find((type) => type.id === res.note.noteTypeId);
+    const created: Card[] = ((res.cards ?? []) as any[]).map((row) => cardFromApi({ ...row, note: res.note, noteType }));
+    if (generation !== bootstrapGeneration) return created;
+    set((s) => ({ cards: [...s.cards, ...created] }));
+    return created;
   },
 
   async deleteCard(id) {
