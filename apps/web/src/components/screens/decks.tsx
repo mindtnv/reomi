@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import { restoreLayerFocus } from '@/lib/use-transient-layer';
 
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';

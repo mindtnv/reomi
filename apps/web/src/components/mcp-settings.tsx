@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState, useRef } from 'react';
+import { SegmentedControl, TextInput } from '@/components/design-system/primitives';
 import { NNBtn, NNSkeleton } from './ui';
 import { useT } from '@/lib/i18n';
 import { apiErrorFromResponse } from '@/lib/api';
@@ -14,8 +15,6 @@ async function request<T>(path = '', options: RequestInit = {}): Promise<T> {
   if (!response.ok) throw await apiErrorFromResponse(response);
   return response.json() as Promise<T>;
 }
-const fieldStyle: React.CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', padding: '9px 11px', fontSize: 13, width: '100%' };
-
 /** Parent keys this component by session user so secrets never cross accounts. */
 export function McpSettings() {
   const t = useT();
@@ -69,10 +68,10 @@ export function McpSettings() {
     <p style={{ margin: 0, fontSize: 13, color: 'var(--text-dim)' }}>{t('settings.mcp.hint')}</p>
     {error && <div role="alert" style={{ color: 'var(--rose-400)', fontSize: 13 }}>{t('settings.mcp.error')} <NNBtn size="sm" onClick={refresh}>{t('settings.mcp.retry')}</NNBtn></div>}
     <form className="reomi-mcp-create" onSubmit={create} style={{ display: 'grid', gap: 10 }}>
-      <label style={{ fontSize: 12 }}>{t('settings.mcp.name')}<input value={name} onChange={e => setName(e.target.value)} maxLength={80} required placeholder="Codex / Claude" style={{ ...fieldStyle, marginTop: 5 }} /></label>
+      <label style={{ fontSize: 12 }}>{t('settings.mcp.name')}<TextInput value={name} onChange={e => setName(e.target.value)} maxLength={80} required placeholder="Codex / Claude" aria-label={t('settings.mcp.name')} style={{ marginTop: 5 }} /></label>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <label style={{ flex: '1 1 200px', fontSize: 12 }}>{t('settings.mcp.permissions')}<select value={scope} onChange={e => setScope(e.target.value as 'read' | 'write')} style={{ ...fieldStyle, marginTop: 5 }}><option value="read">{t('settings.mcp.read')}</option><option value="write">{t('settings.mcp.write')}</option></select></label>
-        <label style={{ flex: '1 1 140px', fontSize: 12 }}>{t('settings.mcp.expires')}<select value={days} onChange={e => setDays(Number(e.target.value))} style={{ ...fieldStyle, marginTop: 5 }}>{[7, 30, 90, 365].map(n => <option key={n} value={n}>{t('settings.mcp.days', { n })}</option>)}</select></label>
+        <div style={{ flex: '1 1 200px' }}><SegmentedControl label={t('settings.mcp.permissions')} value={scope} onChange={setScope} options={[{ value: 'read', label: t('settings.mcp.read') }, { value: 'write', label: t('settings.mcp.write') }]} /></div>
+        <div style={{ flex: '1 1 220px' }}><SegmentedControl label={t('settings.mcp.expires')} value={String(days)} onChange={value => setDays(Number(value))} options={[7, 30, 90, 365].map(n => ({ value: String(n), label: t('settings.mcp.days', { n }) }))} /></div>
       </div>
       <div><NNBtn type="submit" size="sm" disabled={busy || Boolean(created) || !name.trim()}>{busy ? t('settings.mcp.working') : t('settings.mcp.create')}</NNBtn></div>
     </form>

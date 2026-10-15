@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 // ArtifactReader («Блокноты 2.0» — full-window studio document reader). The
 // generated studio document was unreadable in the 340px dock («микро окно»), so
 // a ready artifact now opens here: a full-window overlay (like the citation

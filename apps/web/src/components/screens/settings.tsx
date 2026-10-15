@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import { downloadProfileExport } from '@/lib/profile-export';
 import React, { createContext, useContext, useCallback, useEffect, useRef, useState, useId, Children, isValidElement, cloneElement } from 'react';
 

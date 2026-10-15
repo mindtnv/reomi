@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 // M5 — QuickCardDialog: selection → flashcard.
 // Opened from the selection popover («В карточку») or a mark's edit popover.
 // Deck picker uses the same NNSelect + buildDeckTree/flattenTree/deckPathLabel

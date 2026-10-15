@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 // NotebooksScreen — the «Блокноты 2.0» list (N1, Р13). A grid of notebook
 // tiles: an emoji avatar on a color-tinted backdrop, title, a one-line
 // description, count chips (sources · notes · cards), an «updated N ago» line,

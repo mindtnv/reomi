@@ -1,4 +1,6 @@
 'use client';
+
+/* eslint-disable react/forbid-elements -- #78 */
 import React from 'react';
 import { Modal } from '@/components/design-system/modal';
 import { useNavigationGuard, useAppNavigation } from '@/components/navigation';

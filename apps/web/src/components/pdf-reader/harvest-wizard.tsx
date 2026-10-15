@@ -1,4 +1,6 @@
 'use client';
+
+/* eslint-disable react/forbid-elements -- #78 */
 import { InlineDeckCreate } from '../inline-deck-create';
 
 // Feature #2 — «Урожай выделений → карточки» wizard. Opened from the «Разметка»

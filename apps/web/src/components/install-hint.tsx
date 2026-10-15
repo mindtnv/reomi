@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import React, { useEffect, useState } from 'react';
 import { useT } from '@/lib/i18n';
 import { readBrowserValue, writeBrowserValue } from '@/lib/storage-migration';

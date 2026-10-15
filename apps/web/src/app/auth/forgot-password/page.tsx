@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import { useState } from 'react';
 import { apiErrorFromResponse } from '@/lib/api';
 import { authFailureText, authFieldError, forgotPasswordOutcome, passwordResetRequestUrl } from '@/lib/auth-recovery';

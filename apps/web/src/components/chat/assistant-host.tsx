@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import { useWindowControlsOverlay } from '@/lib/ui-store';
 import { LayerParent, useTransientLayer } from '@/lib/use-transient-layer';
 import { assistantFocusControls } from '@/lib/assistant-overlay-focus';

@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import { useState, useEffect, useRef, useMemo, useId } from 'react';
 import { useTransientLayer } from '@/lib/use-transient-layer';
 import { NNIcon, NNKbd, NNBtn } from '@/components/ui';

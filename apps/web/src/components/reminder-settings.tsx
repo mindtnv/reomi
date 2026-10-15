@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { SegmentedControl, TextInput } from '@/components/design-system/primitives';
+import { SegmentedControl, Switch, TextInput } from '@/components/design-system/primitives';
 import { NNBtn } from '@/components/ui';
 import { api, ok } from '@/lib/api';
 import { useLocale, useT } from '@/lib/i18n';
@@ -68,27 +68,6 @@ async function defaultSubscribe(publicKey: string): Promise<void> {
     keys: json.keys,
     expirationTime: json.expirationTime ?? null,
   }));
-}
-
-function Switch({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (next: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      className="reomi-switch"
-      aria-label={label}
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-    />
-  );
 }
 
 function SettingRow({

@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { NNIcon, type IconName } from './ui';
 import { useT } from '@/lib/i18n';

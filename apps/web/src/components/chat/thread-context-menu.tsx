@@ -1,4 +1,6 @@
 'use client';
+
+/* eslint-disable react/forbid-elements -- #78 */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTransientLayer } from '@/lib/use-transient-layer';
 import { createPortal } from 'react-dom';

@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import { useNavigationScroll, NavigationRestoreNotice } from '@/lib/use-navigation-scroll';
 import { NNIcon } from '@/components/ui';
 import { PdfPageVisibility } from '@/lib/pdf-page-visibility';

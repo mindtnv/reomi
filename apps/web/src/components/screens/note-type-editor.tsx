@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import { withDraftKeys, withoutDraftKey, adoptTypeIdentities } from '@/lib/type-draft-identities';
 import { newUuidV7, normalizeFieldName, validFieldNames, validateTemplates, typedAnswerField, renameFieldValues, renameTemplateFields } from '@reomi/shared';
 

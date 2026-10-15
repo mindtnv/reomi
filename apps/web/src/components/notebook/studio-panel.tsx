@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import { Modal } from '../design-system/modal';
 import { useTransientLayer } from '@/lib/use-transient-layer';
 import { useWorkspaceState } from '@/components/navigation';

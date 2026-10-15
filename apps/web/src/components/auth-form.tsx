@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { signIn, signUp } from '@/lib/auth';

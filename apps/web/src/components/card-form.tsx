@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAppNavigation } from '@/components/navigation';
 import { NNBtn, NNBadge, NNTag, NNCard, NNIcon, NNPageSkeleton } from '@/components/ui';

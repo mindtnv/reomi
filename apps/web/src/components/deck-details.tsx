@@ -1,4 +1,6 @@
 'use client';
+
+/* eslint-disable react/forbid-elements -- #78 */
 import type { StudySummary } from '@reomi/shared';
 import type { Deck } from '@/lib/types';
 import { useStudyForecast } from '@/lib/use-study-overview';

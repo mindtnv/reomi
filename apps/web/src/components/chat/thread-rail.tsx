@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import { restoreLayerFocus } from '@/lib/use-transient-layer';
 
 // ThreadRail — the chat screen's left rail, extracted from chat.tsx (A-pack).

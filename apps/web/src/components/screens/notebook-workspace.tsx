@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 // NotebookWorkspace (L2 — clean NotebookLM, Р6). The notebook is now pure
 // research/chat: the FULL reader (PDF + ink + marks + quick-card) lives at
 // `/library/[id]`; reading no longer requires a notebook.

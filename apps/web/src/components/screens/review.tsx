@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAssistantPageContext } from '@/components/chat/assistant-provider';
 import { ResizeHandle } from '@/components/design-system/resize-handle';

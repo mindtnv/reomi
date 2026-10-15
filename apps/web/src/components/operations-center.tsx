@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { newUuidV7, OPERATION_GROUPS, type OperationItem, type OperationRetryInput } from '@reomi/shared';
 import { useNN } from '@/lib/store';

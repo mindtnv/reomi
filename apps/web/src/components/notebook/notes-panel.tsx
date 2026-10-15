@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import { useWorkspaceState } from '@/components/navigation';
 import { useNavigationScroll } from '@/lib/use-navigation-scroll';
 import { AssistantAskButton } from '../chat/assistant-ask-button';

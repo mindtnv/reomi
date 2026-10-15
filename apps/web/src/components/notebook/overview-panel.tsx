@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 // OverviewPanel («Блокноты 2.0» N2, Р6/Р12 «Обзор» tab — the FIRST/default dock
 // tab) — the notebook briefing + suggested questions.
 //

@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import React, { CSSProperties, ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { NNIcon, NNLogo } from './ui';

@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import { useEffect, useState, useRef } from 'react';
 import { fetchMarks, updateMark } from '@/lib/pdf-annotations';
 import type { SourceMark } from '@/lib/types';

@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 #73 */
+
 import { useAssistantOverlayFocus } from '@/lib/assistant-overlay-focus';
 import { AssistantPopup } from './assistant-popup';
 import { NotebookScopePicker } from './notebook-scope-picker';

@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 // MentionPopover + SlashMenu (D1/D2) — composer popovers, anchored above the
 // textarea (PickerMenu's visual idiom: absolute, --shadow-lg, nn-scroll) but
 // with full keyboard navigation driven by the PARENT (the textarea keeps focus;

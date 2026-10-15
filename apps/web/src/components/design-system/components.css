@@ -56,6 +56,11 @@
 .reomi-input::placeholder { color: var(--text-muted); opacity: .8; }
 .reomi-input[aria-invalid='true'] { border-color: var(--rose-500); }
 .reomi-input:disabled { opacity: .5; cursor: not-allowed; }
+.reomi-input[type='checkbox'],
+.reomi-input[type='radio'] {
+  width: 16px; min-width: 16px; height: 16px; min-height: 16px; padding: 0; flex: none;
+  accent-color: var(--accent-500);
+}
 .reomi-textarea { min-height: 105px; resize: vertical; }
 .reomi-segments { display: flex; gap: 3px; padding: 4px; background: var(--surface-3); border: 0; border-radius: 12px; min-width: 0; }
 .reomi-segments > button { flex: 1; min-width: 0; border: 0; border-radius: 9px; padding: 8px 12px; background: transparent; color: var(--text-muted); font: 500 12.5px/1.3 var(--font-sans); cursor: pointer; transition: background-color var(--control-motion), color var(--control-motion); }
@@ -67,7 +72,12 @@
 .reomi-reading :is(pre,code,kbd) { font-family: var(--font-mono); }
 .reomi-reading > :first-child { margin-top: 0; }
 .reomi-reading > :last-child { margin-bottom: 0; }
-@media (pointer: coarse) { .reomi-button,.reomi-segments > button { min-height: 44px; } .reomi-input { min-height: 44px; font-size: 16px; } }
+@media (pointer: coarse) {
+  .reomi-button,.reomi-segments > button { min-height: 44px; }
+  .reomi-input { min-height: 44px; font-size: 16px; }
+  .reomi-input[type='checkbox'],
+  .reomi-input[type='radio'] { width: 20px; min-width: 20px; height: 20px; min-height: 20px; font-size: inherit; }
+}
 @media (prefers-reduced-motion: reduce) {
   .reomi-button,.reomi-input,.reomi-segments > button,.reomi-surface { transition: none; }
   .reomi-button:not(:disabled):active { transform: none; }

@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '@/lib/i18n';
 import { useAppearance } from '@/lib/use-appearance';

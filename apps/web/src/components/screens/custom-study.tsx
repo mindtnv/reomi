@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppNavigation } from '@/components/navigation';
 import { parseCardQuery, CardQueryError } from '@reomi/shared';

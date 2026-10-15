@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 // NeuroNexus — Graph screen
 // Interactive knowledge graph: d3-force layout + d3-zoom pan/zoom + d3-drag nodes.
 // Real data wired from the useNN store; derived via buildGraph.

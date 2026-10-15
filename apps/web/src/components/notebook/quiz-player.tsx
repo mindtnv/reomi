@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 // QuizPlayer («Блокноты 2.0» N3, Р8) — the in-studio quiz runner. Opened from the
 // studio when a ready artifact is `type='quiz'` (instead of the markdown viewer).
 //

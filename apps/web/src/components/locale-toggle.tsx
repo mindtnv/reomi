@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- #78 */
+
 import React from 'react';
 import { useLocale, Locale } from '@/lib/i18n';
 
