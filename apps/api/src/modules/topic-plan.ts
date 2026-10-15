@@ -369,7 +369,6 @@ async function writePlan(
   return loaded;
 }
 
-/** Create mode with no notebook id. writePlan stays the only plan writer. */
 export async function createPlanNotebook(userId: string, parsed: ParsedPlan): Promise<PlanView> {
   return writePlan(userId, 'create', undefined, parsed);
 }

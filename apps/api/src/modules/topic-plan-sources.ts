@@ -1,15 +1,17 @@
-// Add the URLs the user accepted for one module. Each create commits on its
-// own and ingest starts only after that row exists. A later URL that would
-// pass a cap is not inserted; earlier rows stay.
+// Each create commits on its own, and ingest starts only after that row
+// exists. The youtube unique index ignores error rows, so a failed video is
+// reused here instead of inserted again.
 
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { db, notebookSources, sources, topicModuleSources, topicModules, topicPlans } from '@reomi/db';
+import { parseYoutubeUrl } from '@reomi/shared';
 import { env } from '../env.ts';
 import {
   attachSourceToNotebook,
   countLibraryItems,
   countNotebookSources,
   createInlineSource,
+  SourceInputError,
 } from './sources-shared.ts';
 import { normalizePlanUrl } from './plan-url.ts';
 
@@ -62,6 +64,41 @@ async function linkModule(userId: string, moduleId: string, sourceId: string): P
     .onConflictDoNothing({ target: [topicModuleSources.moduleId, topicModuleSources.sourceId] });
 }
 
+async function findOwnedYoutube(userId: string, canonicalUrl: string): Promise<{ id: string } | null> {
+  const [row] = await db
+    .select({ id: sources.id })
+    .from(sources)
+    .where(
+      and(
+        eq(sources.userId, userId),
+        eq(sources.kind, 'youtube'),
+        eq(sources.url, canonicalUrl),
+        sql`${sources.status} <> 'deleting'`,
+      ),
+    )
+    .orderBy(asc(sources.createdAt), asc(sources.id))
+    .limit(1);
+  return row ?? null;
+}
+
+async function adoptSource(
+  userId: string,
+  notebookId: string,
+  moduleId: string,
+  sourceId: string,
+  url: string,
+): Promise<{ item: SourceAddResult; stopped: 'too_many_sources' | null }> {
+  const attached = await isAttached(userId, notebookId, sourceId);
+  if (!attached) {
+    if ((await countNotebookSources(userId, notebookId)) >= env.ai.MAX_SOURCES_PER_NOTEBOOK) {
+      return { item: { url, result: 'too_many_sources' }, stopped: 'too_many_sources' };
+    }
+    await attachSourceToNotebook(db, { userId, notebookId, sourceId });
+  }
+  await linkModule(userId, moduleId, sourceId);
+  return { item: { url, result: 'linked', sourceId }, stopped: null };
+}
+
 export async function addModuleSources(
   userId: string,
   notebookId: string,
@@ -100,19 +137,26 @@ export async function addModuleSources(
       continue;
     }
 
+    const video = parseYoutubeUrl(normalized);
+    if (!video.ok && video.reason === 'not_a_video') {
+      items.push({ url: normalized, result: 'invalid_url' });
+      continue;
+    }
+    if (video.ok) {
+      const existingVideo = await findOwnedYoutube(userId, video.canonicalUrl);
+      if (existingVideo) {
+        const adopted = await adoptSource(userId, notebookId, moduleId, existingVideo.id, normalized);
+        if (adopted.stopped) stopped = adopted.stopped;
+        items.push(adopted.item);
+        continue;
+      }
+    }
+
     const existing = await findOldestUrl(userId, normalized);
     if (existing) {
-      const attached = await isAttached(userId, notebookId, existing.id);
-      if (!attached) {
-        if ((await countNotebookSources(userId, notebookId)) >= env.ai.MAX_SOURCES_PER_NOTEBOOK) {
-          stopped = 'too_many_sources';
-          items.push({ url: normalized, result: stopped });
-          continue;
-        }
-        await attachSourceToNotebook(db, { userId, notebookId, sourceId: existing.id });
-      }
-      await linkModule(userId, moduleId, existing.id);
-      items.push({ url: normalized, result: 'linked', sourceId: existing.id });
+      const adopted = await adoptSource(userId, notebookId, moduleId, existing.id, normalized);
+      if (adopted.stopped) stopped = adopted.stopped;
+      items.push(adopted.item);
       continue;
     }
 
@@ -127,9 +171,27 @@ export async function addModuleSources(
       continue;
     }
 
-    const row = await createInlineSource(userId, { kind: 'url', title: titleForUrl(normalized), url: normalized }, notebookId);
-    await linkModule(userId, moduleId, row.id);
-    items.push({ url: normalized, result: 'created', sourceId: row.id });
+    try {
+      const row = await createInlineSource(
+        userId,
+        { kind: 'url', title: titleForUrl(normalized), url: normalized },
+        notebookId,
+      );
+      await linkModule(userId, moduleId, row.id);
+      items.push({ url: normalized, result: 'created', sourceId: row.id });
+    } catch (err) {
+      if (!(err instanceof SourceInputError)) throw err;
+      const sourceId =
+        err.existingSourceId ??
+        (video.ok ? (await findOwnedYoutube(userId, video.canonicalUrl))?.id : undefined);
+      if (err.code === 'duplicate_source' && sourceId) {
+        const adopted = await adoptSource(userId, notebookId, moduleId, sourceId, normalized);
+        if (adopted.stopped) stopped = adopted.stopped;
+        items.push(adopted.item);
+        continue;
+      }
+      items.push({ url: normalized, result: 'invalid_url' });
+    }
   }
 
   return { ok: true, items };

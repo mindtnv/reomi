@@ -101,6 +101,10 @@ export const profile = pgTable('profile', {
   newIntroducedToday: integer('new_introduced_today').notNull().default(0),
   reviewsDoneToday: integer('reviews_done_today').notNull().default(0),
   dailyCountsDate: text('daily_counts_date'),
+  studyEpochStart: timestamp('study_epoch_start', { withTimezone: true }),
+  studyEpochEnd: timestamp('study_epoch_end', { withTimezone: true }),
+  lastReviewEpochEnd: timestamp('last_review_epoch_end', { withTimezone: true }),
+  goalMetEpochStart: timestamp('goal_met_epoch_start', { withTimezone: true }),
   desiredRetention: doublePrecision('desired_retention'),
   // Standing instructions for the agentic chat (settings → injected into the
   // system prompt as preferences; can never override grounding/confirm rules).
@@ -114,7 +118,27 @@ export const profile = pgTable('profile', {
     .default(sql`ARRAY['fern','cactus','succulent','bonsai','sakura','mushroom']::text[]`),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  check(
+    'profile_study_epoch_bounds_chk',
+    sql`(${t.studyEpochStart} is null and ${t.studyEpochEnd} is null) or ${t.studyEpochStart} < ${t.studyEpochEnd}`,
+  ),
+]);
+
+export const studyDayPolicy = pgTable(
+  'study_day_policy',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    timeZone: text('time_zone').notNull(),
+    rolloverMinute: integer('rollover_minute').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check('study_day_policy_rollover_minute_chk', sql`${t.rolloverMinute} between 0 and 1439`),
+  ],
+);
 
 // ── deck_options_preset ──────────────────────────────────────────────────────
 // Named FSRS / scheduling preset that can be attached to one or more decks.
@@ -353,6 +377,10 @@ export interface UndoSnapshot {
     reviewsDoneToday: number;
     dailyCountsDate: string | null;
     updatedAt: string; // ISO
+    studyEpochStart?: string | null;
+    studyEpochEnd?: string | null;
+    lastReviewEpochEnd?: string | null;
+    goalMetEpochStart?: string | null;
     name?: string;
     dailyGoalMinutes?: number;
     desiredRetention?: number | null;
@@ -387,9 +415,12 @@ export const reviews = pgTable(
     // (pre-0008) or rows that have already been undone (the row is deleted).
     // Date fields are stored as ISO strings (reconstructed via `new Date(...)`).
     undoSnapshot: jsonb('undo_snapshot').$type<UndoSnapshot>(),
+    studyDay: text('study_day'),
+    studyEpochStart: timestamp('study_epoch_start', { withTimezone: true }),
   },
   (t) => [
     index('reviews_user_idx').on(t.userId, t.reviewedAt),
+    index('reviews_user_study_day_idx').on(t.userId, t.studyDay),
     index('reviews_card_idx').on(t.cardId),
     // Deck-scoped study_stats / retention aggregations filter by
     // (user_id, deck_id IN (...), reviewed_at >= ...) — this index lets

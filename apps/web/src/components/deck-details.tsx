@@ -9,6 +9,7 @@ import { AppLink } from './navigation';
 import { AssistantAskButton } from './chat/assistant-ask-button';
 import { deckColorValue, deckIconName } from './deck-appearance';
 import { useNavigationScroll } from '@/lib/use-navigation-scroll';
+import { civilDate } from '@/lib/study-date';
 
 export function deckCardsHref(decks: Deck[], id: string) {
   const path = deckPathLabel(decks, id).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
@@ -27,13 +28,12 @@ export function DeckDetails({ deck, decks, counts, onBack, onAppearance }: {
     { label: t('cards.states.review'), value: counts?.reviewCount, color: 'var(--lime-500)' },
     { label: t('cards.states.suspended'), value: counts?.suspendedCount, color: 'var(--text-dim)' },
   ];
-  const now = new Date(counts?.serverNow ?? Date.now());
-  const start = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  const buckets = new Map(forecast.data?.buckets.map(b => [b.day.slice(0,10), b.count]));
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(start + i * 86400000);
-    return { date, count: buckets.get(date.toISOString().slice(0,10)) ?? 0 };
-  });
+  const buckets = new Map(forecast.data?.buckets.map(b => [b.day, b.count]));
+  const days = (forecast.data?.labels ?? []).map((label) => ({
+    label,
+    date: civilDate(label),
+    count: buckets.get(label) ?? 0,
+  }));
   const max = Math.max(1, ...days.map(d => d.count));
   return <aside ref={position.ref} className="reomi-deck-details" aria-label={t('decks.details.title')}>
     <NNBtn className="reomi-deck-back" variant="ghost" icon="chevl" onClick={onBack}>{t('decks.details.back')}</NNBtn>
@@ -57,9 +57,9 @@ export function DeckDetails({ deck, decks, counts, onBack, onAppearance }: {
       <p className="reomi-deck-detail-caption">{t('decks.details.forecastHint')}</p>
       {forecast.error ? <div role="alert">{t('home.forecastError')}<NNBtn variant="ghost" onClick={forecast.reload}>{t('review.retry')}</NNBtn></div>
         : !forecast.data ? <p role="status">{t('cards.loading')}</p>
-        : <><div className="reomi-deck-forecast" role="img" aria-label={days.map(d => `${d.date.toLocaleDateString(locale, { timeZone: 'UTC', day:'numeric',month:'short' })}: ${d.count}`).join(', ')}>
-          {days.map(({ date, count }) => <div key={date.toISOString()} title={`${date.toLocaleDateString(locale,{timeZone:'UTC'})}: ${count}`}>
-            <strong>{count}</strong><div><span style={{ height: `${count / max * 100}%` }}/></div><small>{date.toLocaleDateString(locale,{timeZone:'UTC',weekday:'short'})}</small>
+        : <><div className="reomi-deck-forecast" role="img" aria-label={days.map(d => `${d.label}: ${d.count}`).join(', ')}>
+          {days.map(({ label, date, count }) => <div key={label} title={`${label}: ${count}`}>
+            <strong>{count}</strong><div><span style={{ height: `${count / max * 100}%` }}/></div><small>{date ? date.toLocaleDateString(locale, { weekday: 'short' }) : label}</small>
           </div>)}
         </div>{forecast.data.overdueCount > 0 && <p className="reomi-deck-detail-caption">{t('decks.details.overdue', { n: forecast.data.overdueCount })}</p>}</>}
     </section>

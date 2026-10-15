@@ -7,6 +7,11 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { newUuidV7 } from '@reomi/shared';
 
+function reviewWithoutStudyStamp(row: Record<string, unknown>): Record<string, unknown> {
+  const { study_day: _studyDay, study_epoch_start: _studyEpochStart, ...rest } = row;
+  return rest;
+}
+
 test('context migration preserves old transcripts and approvals, backfills notebooks, and detaches deleted context', async () => {
   const folder = join(import.meta.dir, 'migrations');
   const journal = JSON.parse(await readFile(join(folder, 'meta/_journal.json'), 'utf8'));
@@ -51,7 +56,10 @@ test('context migration preserves old transcripts and approvals, backfills noteb
     await migrate(database, { migrationsFolder: folder });
     expect([...await fixture`SELECT * FROM cards WHERE id=${card}`]).toEqual(beforeCard);
     expect([...await fixture`SELECT * FROM notes WHERE id=${note}`]).toEqual(beforeNote);
-    expect([...await fixture`SELECT * FROM reviews WHERE id=${review}`]).toEqual(beforeReview);
+    const afterReview = [...await fixture`SELECT * FROM reviews WHERE id=${review}`];
+    expect(afterReview.map(reviewWithoutStudyStamp)).toEqual(beforeReview.map(reviewWithoutStudyStamp));
+    expect(afterReview[0]!.study_day).toBe('2026-03-20');
+    expect(new Date(afterReview[0]!.study_epoch_start as string | Date).toISOString()).toBe('2026-03-20T00:00:00.000Z');
     const contexts = await fixture`SELECT * FROM conversation_contexts WHERE conversation_id=${thread}`;
     expect(contexts).toHaveLength(1);
     expect(contexts[0]!.object_id).toBe(notebook);
@@ -65,7 +73,9 @@ test('context migration preserves old transcripts and approvals, backfills noteb
     expect((await fixture`SELECT tool_calls FROM messages WHERE id=${message}`)[0]!.tool_calls).toEqual(pending);
     expect(await fixture`SELECT id FROM conversation_contexts WHERE conversation_id=${thread}`).toHaveLength(1);
     expect([...await fixture`SELECT * FROM cards WHERE id=${card}`]).toEqual(beforeCard);
-    expect([...await fixture`SELECT * FROM reviews WHERE id=${review}`]).toEqual(beforeReview);
+    const retainedReview = [...await fixture`SELECT * FROM reviews WHERE id=${review}`];
+    expect(retainedReview.map(reviewWithoutStudyStamp)).toEqual(beforeReview.map(reviewWithoutStudyStamp));
+    expect(retainedReview[0]!.study_day).toBe('2026-03-20');
     await fixture`DELETE FROM conversations WHERE id=${thread}`;
     expect(await fixture`SELECT id FROM messages WHERE id=${message}`).toHaveLength(0);
     expect(await fixture`SELECT id FROM conversation_contexts WHERE conversation_id=${thread}`).toHaveLength(0);

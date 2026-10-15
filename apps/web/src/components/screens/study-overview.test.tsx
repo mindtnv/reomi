@@ -89,6 +89,46 @@ describe('study overview screens', () => {
     expect(container.textContent).toContain('Try again');
   });
 
+  test('home forecast follows the server study-day labels and minutes', async () => {
+    useNN.setState({ profile: { userId: 'study-overview-owner', todayMinutes: 99, todayMinutesDate: '2026-10-15', dailyGoalMinutes: 30 } as any });
+    globalThis.fetch = adaptRecoveryFetch(((url: any) => Promise.resolve(Response.json(
+      String(url).includes('/study-summary') ? {
+        ...overview,
+        overall: { ...counts, serverNow: '2026-10-15T23:00:00.000Z' },
+        studyDay: {
+          label: '2026-03-08',
+          startsAt: '2026-03-08T05:00:00.000Z',
+          endsAt: '2026-03-09T04:00:00.000Z',
+          usedNew: 1,
+          usedReviews: 0,
+          todayMinutes: 12,
+          legacy: false,
+          zone: 'America/New_York',
+          rolloverMinute: 0,
+        },
+      }
+      : String(url).includes('/stats/forecast') ? {
+        days: 7,
+        labels: ['2026-03-08', '2026-03-09'],
+        buckets: [{ day: '2026-03-08', count: 3 }],
+        overdueCount: 0,
+        total: 3,
+      }
+      : String(url).includes('/status') ? { chatEnabled: false }
+      : [],
+    ))) as unknown as typeof fetch);
+    await render(<NNHome />);
+    expect(container.textContent).toContain('Sunday');
+    expect(container.textContent).toContain('Monday');
+    expect(container.textContent).not.toContain('Thursday');
+    expect(container.textContent).toContain('Mar 8');
+    expect(container.textContent).toContain('Mar 9');
+    expect(container.textContent).toContain('12');
+    expect(container.textContent).not.toContain('99');
+    expect(container.textContent).toContain('7 study days · America/New_York');
+    expect(container.textContent).toContain('Today · Mar 8');
+  });
+
   test('forecast errors do not render a fabricated zero forecast', async () => {
     globalThis.fetch = adaptRecoveryFetch(((url: any) => Promise.resolve(
       String(url).includes('/stats/forecast') ? Response.json({ error: 'unavailable' }, { status: 503 })
@@ -224,15 +264,17 @@ describe('organized deck workspace', () => {
 });
 
 
-test('deck forecast preserves populated UTC buckets revived by the API client', async () => {
+test('deck forecast renders the server study-day labels', async () => {
   const fallback=globalThis.fetch;
-  const today=new Date().toISOString().slice(0,10);
   globalThis.fetch = adaptRecoveryFetch((async(url:any,init?:RequestInit)=>String(url).includes('/stats/forecast')
-    ? Response.json({days:7,buckets:[{day:today,count:7}],overdueCount:2,total:7}) : fallback(url,init)) as typeof fetch);
+    ? Response.json({days:7,labels:['2026-03-08','2026-03-09'],buckets:[{day:'2026-03-08',count:7}],overdueCount:2,total:7}) : fallback(url,init)) as typeof fetch);
   await render(<NNDecks/>);
   await act(async()=>container.querySelector<HTMLElement>('[data-deck-id="deck"]')!.click());
-  expect(container.querySelector('.reomi-deck-forecast strong')?.textContent).toBe('7');
+  const bars = [...container.querySelectorAll('.reomi-deck-forecast strong')].map((node) => node.textContent);
+  expect(bars).toEqual(['7', '0']);
+  expect(container.querySelector('.reomi-deck-forecast')?.getAttribute('aria-label')).toBe('2026-03-08: 7, 2026-03-09: 0');
   expect(container.querySelector('.reomi-deck-details')?.textContent).toContain('Overdue before today: 2');
+  expect(container.textContent).not.toContain('Days in UTC');
 });
 
 test('failed move leaves the authoritative tree intact and offers retry in the dialog', async () => {

@@ -8,6 +8,19 @@ export function utcDayKey(value: unknown): string {
   return /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : '';
 }
 
+/** Local civil date for a server `YYYY-MM-DD` label. Invalid labels stay null. */
+export function civilDate(label: string): Date | null {
+  const key = utcDayKey(label);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const date = Number(match[3]);
+  const civil = new Date(year, month - 1, date);
+  if (civil.getFullYear() !== year || civil.getMonth() !== month - 1 || civil.getDate() !== date) return null;
+  return civil;
+}
+
 /** A study date is an exact UTC calendar day, never Date's rollover parsing. */
 export function studyDateIso(value: string): string | null {
   const day = value.trim();
