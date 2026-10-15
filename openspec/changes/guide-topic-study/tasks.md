@@ -10,9 +10,9 @@ Each numbered section is one pull request. Land them in order. A later section s
 
 ## 2. Generate an unsaved draft
 
-- [ ] 2.1 Add failing tests that a chat-enabled draft returns 4 to 8 parsed modules, writes no notebook or source, sends the goal as delimited data, and names locale `ru` when requested. Verify invalid JSON and fewer than 4 valid modules return `generation_failed` with no writes, chat disabled returns `ai_disabled` without a model call, and a suggested URL that fails the secure HEAD/GET check or the SSRF guard is absent from the draft.
-- [ ] 2.2 Add a failing unit test that `cooldownCheck` rejects a second `plan-draft:<userId>` call inside 30 seconds when the clock is injected. Verify the route test still runs with the existing test-mode cooldown disable.
-- [ ] 2.3 Implement `POST /notebooks/plan-drafts` on the non-streaming completion. Verify 2.1 and 2.2 pass and the route does not enqueue ingest.
+- [x] 2.1 Add failing tests that a chat-enabled draft returns 4 to 8 parsed modules, writes no notebook or source, sends the goal as delimited data, and names locale `ru` when requested. Verify invalid JSON and fewer than 4 valid modules return `generation_failed` with no writes, chat disabled returns `ai_disabled` without a model call, and a suggested URL that fails the secure HEAD/GET check or the SSRF guard is absent from the draft.
+- [x] 2.2 Add a failing unit test that `cooldownCheck` rejects a second `plan-draft:<userId>` call inside 30 seconds when the clock is injected. Verify the route test still runs with the existing test-mode cooldown disable.
+- [x] 2.3 Implement `POST /notebooks/plan-drafts` on the non-streaming completion. Verify 2.1 and 2.2 pass and the route does not enqueue ingest.
 
 ## 3. Add accepted URLs
 

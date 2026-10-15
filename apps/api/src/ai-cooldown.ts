@@ -73,4 +73,6 @@ export const AI_COOLDOWN_MS = {
   suggestCard: 5_000,
   /** POST /sources/:id/harvest-cards — per-source (a batch generation). */
   harvest: 15_000,
+  /** POST /notebooks/plan-drafts — per-user. */
+  planDraft: 30_000,
 } as const;
