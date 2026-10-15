@@ -2,20 +2,20 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAppNavigation } from '@/components/navigation';
-import { format, startOfMonth, subDays } from 'date-fns';
+import { format } from 'date-fns';
 import { PageSurface } from '@/components/design-system/primitives';
 
 import { NNBadge, NNBtn, NNCard, NNIcon, NNSkeleton } from '@/components/ui';
 import { useStudyForecast, useStudyOverview } from '@/lib/use-study-overview';
 import { useNN } from '@/lib/store';
 import { api, ok } from '@/lib/api';
-import { reviewFromApi } from '@/lib/mappers';
-import type { LibraryItem, Notebook, Review } from '@/lib/types';
+import type { LibraryItem, Notebook } from '@/lib/types';
 import { sourceKindToneVar } from '@/lib/source-kind';
 import { resolveMediaSrc } from '@/lib/media-url';
 import { useEmptyRedirect } from '@/lib/use-empty-redirect';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useT, useDateLocale } from '@/lib/i18n';
+import { utcDayKey } from '@/lib/study-date';
 
 export const NNHome = () => {
   const t = useT();
@@ -31,9 +31,9 @@ export const NNHome = () => {
   const listLibrary = useNN((s) => s.listLibrary);
   const listNotebooks = useNN((s) => s.listNotebooks);
 
-  const [recentReviews, setRecentReviews] = useState<Review[]>([]);
-  const [monthReviews, setMonthReviews] = useState<Review[]>([]);
+  const [recallPct, setRecallPct] = useState<number | null>(null);
   const [lastReviewAt, setLastReviewAt] = useState<number | null>(null);
+  const [todayDurationMs, setTodayDurationMs] = useState(0);
 
   // ── Knowledge domains (P3.1) — lazy, post-bootstrap, graceful-hide on empty ──
   const [reading, setReading] = useState<LibraryItem[]>([]);
@@ -44,26 +44,22 @@ export const NNHome = () => {
     if (!bootstrapped) return;
     let cancelled = false;
     (async () => {
-      const now = new Date();
-      const since30 = subDays(now, 30).getTime();
-      const sinceMonth = startOfMonth(now).getTime();
       try {
-        // Both lists are server-ordered (reviewedAt desc).
-        const [recentRaw, monthlyRaw] = await Promise.all([
-          ok(await (api as any).reviews.get({ query: { since: String(since30) } })),
-          ok(await (api as any).reviews.get({ query: { since: String(sinceMonth) } })),
-        ]);
+        const overview = (await ok(await (api as any).stats.overview.get({ query: { days: '30' } }))) as {
+          answerSuccessPct: number | null;
+          lastReviewedAt: string | null;
+          series: { day: string; durationMs: number }[];
+        };
         if (cancelled) return;
-        const recent = (recentRaw as any[]).map(reviewFromApi);
-        const monthly = (monthlyRaw as any[]).map(reviewFromApi);
-        setRecentReviews(recent);
-        setMonthReviews(monthly);
-        setLastReviewAt(recent[0]?.reviewedAt ?? null);
+        const today = new Date().toISOString().slice(0, 10);
+        setRecallPct(overview.answerSuccessPct);
+        setLastReviewAt(overview.lastReviewedAt ? new Date(overview.lastReviewedAt).getTime() : null);
+        setTodayDurationMs(overview.series.find((point) => utcDayKey(point.day) === today)?.durationMs ?? 0);
       } catch {
         if (cancelled) return;
-        setRecentReviews([]);
-        setMonthReviews([]);
+        setRecallPct(null);
         setLastReviewAt(null);
+        setTodayDurationMs(0);
       }
     })();
     return () => {
@@ -108,34 +104,15 @@ export const NNHome = () => {
   const reviewCount = counts?.availableReview ?? 0;
   const estMinutes = dueCount > 0 ? Math.max(1, Math.round(dueCount * 0.25)) : 0;
 
-  // Today's reviewed minutes — sums durationMs across today's reviews (fallback
-  // to the server ledger below, which is authoritative once it rolls up).
-  const todayReviewedMinutes = useMemo(() => {
-    const today = new Date(`${now.toISOString().slice(0, 10)}T00:00:00Z`).getTime();
-    const msToday = recentReviews
-      .filter((r) => r.reviewedAt >= today)
-      .reduce((sum, r) => sum + (r.durationMs || 0), 0);
-    return Math.floor(msToday / 60000);
-  }, [recentReviews, now]);
-
   const dailyGoalMinutes = profile?.dailyGoalMinutes ?? 30;
 
-  // Prefer the server-authoritative ledger; fall back to summing today's
-  // reviews if the server hasn't rolled up yet (e.g., during first bootstrap).
-  const todayMinutesServer = (() => {
-    if (!profile) return todayReviewedMinutes;
-    const todayIso = now.toISOString().slice(0, 10);
-    return profile.todayMinutesDate === todayIso ? profile.todayMinutes : 0;
-  })();
-  const todayMinutes = profile ? todayMinutesServer : todayReviewedMinutes;
+  // The profile ledger is the daily-goal source. Without a profile, today's
+  // UTC bucket from the overview is the fallback.
+  const todayIso = now.toISOString().slice(0, 10);
+  const todayMinutes = profile
+    ? (profile.todayMinutesDate === todayIso ? profile.todayMinutes : 0)
+    : Math.floor(todayDurationMs / 60000);
   const goalPct = Math.min(100, Math.round((todayMinutes / Math.max(1, dailyGoalMinutes)) * 100));
-
-  // Retention over last 30 days (rating >= 3 / total) — queried async from db.
-  const retentionPct = useMemo(() => {
-    if (recentReviews.length === 0) return null;
-    const good = recentReviews.filter((r) => r.rating >= 3).length;
-    return Math.round((good / recentReviews.length) * 100);
-  }, [recentReviews]);
 
 
 
@@ -168,16 +145,6 @@ export const NNHome = () => {
     if (m >= 1) return t('home.minutesAgo', { n: m });
     return t('time.justNow');
   }, [lastReviewAt, t]);
-
-  // "Best day" label from this month's reviews — pick weekday with most reviews.
-  const bestDayLabel = useMemo(() => {
-    if (monthReviews.length === 0) return '—';
-    const byDow = new Array(7).fill(0);
-    for (const r of monthReviews) byDow[new Date(r.reviewedAt).getDay()]++;
-    const best = byDow.indexOf(Math.max(...byDow));
-    const keys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
-    return t(`home.weekday.${keys[best]}`);
-  }, [monthReviews, t]);
 
   const todayLabel = format(now, 'MMM d', { locale: dateLocale });
 
@@ -291,7 +258,7 @@ export const NNHome = () => {
           >
             {[
               { v: counts ? String(counts.total) : '—', l: t('home.stats.cards') },
-              { v: retentionPct != null ? `${retentionPct}%` : '—', l: t('home.stats.retention') },
+              { v: recallPct != null ? `${recallPct}%` : '—', l: t('home.stats.recall') },
             ].map((s) => (
               <div key={s.l}>
                 <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)' }} className="mono">

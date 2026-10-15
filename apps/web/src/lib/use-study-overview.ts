@@ -4,6 +4,7 @@ import { useCallback, useEffect } from 'react';
 import type { StudyOverview } from '@reomi/shared';
 import { api, ok } from './api';
 import { useSessionResource } from './session-resource';
+import { utcDayKey } from './study-date';
 import { useNN } from './store';
 
 /** Screens share the server contract; a card-cache page is never a count. */
@@ -49,7 +50,7 @@ export function useStudyForecast(days: number, refreshKey?: string, deckId?: str
     const result = await ok(await api.stats.forecast.get({ query: { days: String(days), ...(deckId ? { deckId } : {}) } }));
     // Eden revives date-looking strings, including YYYY-MM-DD, into Date objects.
     // Keep the public hook contract as UTC day keys for charts on every screen.
-    return { ...result, buckets: result.buckets.map(bucket => ({ ...bucket, day: new Date(bucket.day).toISOString().slice(0, 10) })) };
+    return { ...result, buckets: result.buckets.map(bucket => ({ ...bucket, day: utcDayKey(bucket.day) })) };
   }, [days, deckId, refreshKey]);
   const state = useSessionResource<StudyForecast>({ key: `study:forecast:${userId ?? 'current'}:${days}:${deckId ?? 'all'}`, enabled: bootstrapped, keepPreviousData: false, fetcher });
   return { ...state, reload: state.refresh };

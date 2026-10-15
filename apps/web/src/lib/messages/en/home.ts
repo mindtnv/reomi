@@ -23,6 +23,7 @@ const m = {
   stats: {
     cards: 'cards',
     retention: 'retention',
+    recall: 'recall',
     xp: 'XP',
   },
   activity: 'Activity',

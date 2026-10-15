@@ -226,7 +226,7 @@ describe('notes', () => {
     const moved = await (await callApp(app, 'GET', `/cards/${cardId}`, { cookie })).json<any>();
     expect(moved).toMatchObject({ deckId: destination, due: grade.card.due, reps: grade.card.reps });
     const other = await signUpAndCookie(app, uniqueEmail());
-    expect(await (await callApp(app, 'GET', '/reviews', { cookie: other.cookie })).json()).toEqual([]);
+    expect(await (await callApp(app, 'GET', '/reviews', { cookie: other.cookie })).json<any[]>()).toEqual([]);
   });
 
   test('text backfill is user-scoped and idempotent without changing source or FSRS', async () => {

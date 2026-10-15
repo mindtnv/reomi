@@ -46,7 +46,7 @@ test('undo preserves the operation tombstone so retry cannot resurrect its grade
   const retry=await callApp(app,'POST',`/reviews/operations/${operationId}`,{cookie,body});expect(retry.status).toBe(409);
   expect((await retry.json<any>()).error).toBe('operation_reverted');
   const receipt=await(await callApp(app,'GET',`/reviews/operations/${operationId}`,{cookie})).json<any>();expect(receipt.status).toBe('reverted');
-  expect(await(await callApp(app,'GET','/reviews',{cookie})).json()).toEqual([]);
+  expect(await(await callApp(app,'GET','/reviews',{cookie})).json<any[]>()).toEqual([]);
 });
 
 test('checkpoint history lookup is bounded, owner-scoped and excludes undo snapshots',async()=>{

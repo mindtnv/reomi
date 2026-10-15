@@ -154,10 +154,34 @@ describe('reviews', () => {
     const future = Date.now() + 60_000;
     const none = await (
       await callApp(app, 'GET', `/reviews?since=${future}`, { cookie })
-    ).json<unknown[]>();
+    ).json<unknown>();
     expect(none).toEqual([]);
-    const all = await (await callApp(app, 'GET', '/reviews', { cookie })).json<unknown[]>();
-    expect(all.length).toBe(1);
+    const all = await (await callApp(app, 'GET', '/reviews', { cookie })).json<{ id: string; rating: number; undoSnapshot?: unknown }[]>();
+    expect(Array.isArray(all)).toBe(true);
+    expect(all).toHaveLength(1);
+    expect(all[0]).toHaveProperty('undoSnapshot');
+    expect(all[0]).toMatchObject({ rating: 3 });
+  });
+
+  test('GET /reviews pages without the undo snapshot', async () => {
+    const { cookie, cardId } = await setupCard();
+    for (const rating of [1, 2, 3] as const) {
+      await callApp(app, 'POST', '/reviews', { cookie, body: { cardId, rating } });
+    }
+    const first = await (await callApp(app, 'GET', '/reviews?limit=2', { cookie })).json<{
+      items: { rating: number; undoSnapshot?: unknown }[];
+      nextCursor: string | null;
+    }>();
+    expect(first.items.map((row) => row.rating)).toEqual([3, 2]);
+    expect(first.items.every((row) => row.undoSnapshot === undefined)).toBe(true);
+    expect(first.nextCursor).toBeTruthy();
+    const second = await (await callApp(app, 'GET', `/reviews?limit=2&cursor=${encodeURIComponent(first.nextCursor!)}`, { cookie })).json<{
+      items: { rating: number }[];
+      nextCursor: string | null;
+    }>();
+    expect(second.items.map((row) => row.rating)).toEqual([1]);
+    expect(second.nextCursor).toBeNull();
+    expect((await callApp(app, 'GET', '/reviews?cursor=not-a-cursor', { cookie })).status).toBe(400);
   });
 });
 

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { Elysia, t, status } from 'elysia';
-import { and, count, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, lt, or, sql } from 'drizzle-orm';
 import {
   cards,
   db,
@@ -303,10 +303,25 @@ async function gradeReview(user:{id:string;name?:string|null}, body:GradeInput, 
 }
 
 
+const DEFAULT_REVIEWS_PAGE = 100;
+const MAX_REVIEWS_PAGE = 500;
+const REVIEW_CURSOR_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function parseReviewCursor(raw: string): { at: Date; id: string } | null {
+  const split = raw.lastIndexOf('_');
+  if (split <= 0) return null;
+  const at = new Date(raw.slice(0, split));
+  const id = raw.slice(split + 1);
+  if (!REVIEW_CURSOR_ID.test(id) || !Number.isFinite(at.getTime())) return null;
+  return { at, id };
+}
+
 export const reviewsModule = new Elysia({ prefix: '/reviews' })
   .use(authPlugin)
-  // List reviews for the current user, optionally filtered by a since-timestamp
-  // (epoch ms or ISO string). Default: last 90 days, most recent first.
+  // History. Deploy rolls the API out before the web app, and the previous
+  // client calls this with `since` only and maps the body as an array. That
+  // call stays an array (full rows, no page cap). `limit` or `cursor` selects
+  // the page object and omits undo snapshots. Order is reviewed_at DESC, id DESC.
   .get(
     '/',
     async ({ user, query, status }) => {
@@ -314,14 +329,64 @@ export const reviewsModule = new Elysia({ prefix: '/reviews' })
         ? new Date(/^\d+$/.test(query.since) ? Number(query.since) : query.since)
         : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
       if (!Number.isFinite(since.getTime())) return status(400, { error: 'invalid_since' });
+      const paged = (query.limit !== undefined && query.limit !== '') || (query.cursor !== undefined && query.cursor !== '');
+      const conds = [eq(reviews.userId, user.id), gte(reviews.reviewedAt, since)];
+      if (!paged) {
+        return db
+          .select()
+          .from(reviews)
+          .where(and(...conds))
+          .orderBy(desc(reviews.reviewedAt), desc(reviews.id));
+      }
+      const limit = query.limit === undefined || query.limit === '' ? DEFAULT_REVIEWS_PAGE : Number(query.limit);
+      if (!Number.isInteger(limit) || limit < 1 || limit > MAX_REVIEWS_PAGE) {
+        return status(400, { error: 'invalid_limit' });
+      }
+      const cursor = query.cursor ? parseReviewCursor(query.cursor) : null;
+      if (query.cursor && !cursor) return status(400, { error: 'invalid_cursor' });
+      if (cursor) {
+        conds.push(
+          or(
+            lt(reviews.reviewedAt, cursor.at),
+            and(eq(reviews.reviewedAt, cursor.at), lt(reviews.id, cursor.id)),
+          )!,
+        );
+      }
       const rows = await db
-        .select()
+        .select({
+          id: reviews.id,
+          cardId: reviews.cardId,
+          deckId: reviews.deckId,
+          rating: reviews.rating,
+          durationMs: reviews.durationMs,
+          reviewedAt: reviews.reviewedAt,
+          nextDue: reviews.nextDue,
+          nextStability: reviews.nextStability,
+          nextDifficulty: reviews.nextDifficulty,
+        })
         .from(reviews)
-        .where(and(eq(reviews.userId, user.id), gte(reviews.reviewedAt, since)))
-        .orderBy(desc(reviews.reviewedAt), desc(reviews.id));
-      return rows;
+        .where(and(...conds))
+        .orderBy(desc(reviews.reviewedAt), desc(reviews.id))
+        .limit(limit + 1);
+      const page = rows.slice(0, limit);
+      const last = rows.length > limit ? page[page.length - 1] : undefined;
+      return {
+        items: page.map((row) => ({
+          ...row,
+          reviewedAt: row.reviewedAt.toISOString(),
+          nextDue: row.nextDue.toISOString(),
+        })),
+        nextCursor: last ? `${last.reviewedAt.toISOString()}_${last.id}` : null,
+      };
     },
-    { auth: true, query: t.Object({ since: t.Optional(t.String()) }) },
+    {
+      auth: true,
+      query: t.Object({
+        since: t.Optional(t.String()),
+        cursor: t.Optional(t.String()),
+        limit: t.Optional(t.String()),
+      }),
+    },
   )
   // Total review count (used by achievements screen).
   .get(
