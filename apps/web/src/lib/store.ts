@@ -514,6 +514,11 @@ export function isCooldownError(err: unknown): err is CooldownError {
 
 let bootstrapPromise: Promise<void> | null = null;
 let bootstrapGeneration = 0;
+
+/** Account epoch bumped by reset(). Screen-local caches compare it around awaits. */
+export function mirrorAccountGeneration(): number {
+  return bootstrapGeneration;
+}
 let typeMutationSequence = 0;
 const latestTypeMutation = new Map<string, number>();
 let cardReadGeneration = 0;
