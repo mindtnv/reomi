@@ -11,6 +11,20 @@ The system SHALL use one configurable study-day boundary and explain collection,
 - **WHEN** a user studies across midnight, a timezone transition or concurrent tabs
 - **THEN** budget usage and day statistics follow the selected policy without an accidental reset or hidden overrun
 
+#### Scenario: Legacy UTC midnight
+- **WHEN** the account has no `study_day_policy` row and a grade is recorded at `2026-10-15T23:00:00.000Z`
+- **THEN** the open epoch is `[2026-10-15T00:00:00.000Z, 2026-10-16T00:00:00.000Z)` and the review study day is `2026-10-15`
+
+#### Scenario: DST fall fold
+- **WHEN** the policy is `America/New_York` with rollover minute 90 and the instant is `2026-11-01T05:30:00.000Z`
+- **THEN** the epoch starts at the earlier instant `2026-11-01T05:30:00.000Z` and ends at `2026-11-02T06:30:00.000Z`
+- **AND** `2026-11-01T06:00:00.000Z` stays inside that same epoch
+
+#### Scenario: Zone save during an open epoch
+- **WHEN** the open UTC epoch is `[2026-10-15T00:00:00.000Z, 2026-10-16T00:00:00.000Z)` and the user saves `Asia/Tokyo` at midnight rollover while `now` is `2026-10-15T23:00:00.000Z`
+- **THEN** the start, the end, and the counters stay unchanged
+- **AND** the saved zone takes effect at `2026-10-16T00:00:00.000Z`
+
 ### Requirement: Reversible scheduling controls
 The system SHALL distinguish daily bury, sibling bury, suspension, reset and set-due, provide predictable learning and new-card ordering, and disclose preset effects.
 
