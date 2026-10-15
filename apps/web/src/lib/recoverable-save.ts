@@ -75,11 +75,13 @@ export class RecoverableSave<T> {
       const expiredUncertainty = Boolean(original && code === 'request_expired');
       const lostAuthentication = Boolean(original && (status === 401 || status === 403));
       const knownFailure = executing && status >= 400 && status < 500 && !lostAuthentication;
-      // Expiry says the old receipt is no longer available, not that the old
-      // create never committed. Keep its identity in the persisted draft.
-      this.publish({ status: knownFailure && status === 409 ? 'conflict' : knownFailure ? 'failed' : 'uncertain',
+      // A reconciled tombstone means the committed note is gone. Drop that
+      // operation so the next explicit save can use a new id. Expiry is the
+      // opposite case: the receipt may still exist, so keep its identity.
+      const revertedReceipt = Boolean(original && !executing && code === 'operation_reverted');
+      this.publish({ status: revertedReceipt ? 'failed' : knownFailure && status === 409 ? 'conflict' : knownFailure ? 'failed' : 'uncertain',
         errorStatus: status,
-        pending: knownFailure && !expiredUncertainty ? null : submitted,
+        pending: (knownFailure && !expiredUncertainty) || revertedReceipt ? null : submitted,
         error: code });
       return null;
     } finally { this.busy = false; }

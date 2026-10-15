@@ -530,6 +530,11 @@ export function isCooldownError(err: unknown): err is CooldownError {
 
 let bootstrapPromise: Promise<void> | null = null;
 let bootstrapGeneration = 0;
+
+/** Account epoch bumped by reset(). Screen-local caches compare it around awaits. */
+export function mirrorAccountGeneration(): number {
+  return bootstrapGeneration;
+}
 let typeMutationSequence = 0;
 const latestTypeMutation = new Map<string, number>();
 let cardReadGeneration = 0;
@@ -670,18 +675,23 @@ export const useNN = create<State>()((set, get) => ({
   },
 
   async updateDeck(id, patch) {
+    const generation = bootstrapGeneration;
     const updated = deckFromApi(await ok(await (api as any).decks({ id }).patch(patch)));
-    set((s) => ({ decks: s.decks.map((d) => (d.id === id ? updated : d)) }));
+    if (generation === bootstrapGeneration) set((s) => ({ decks: s.decks.map((d) => (d.id === id ? updated : d)) }));
   },
 
   async moveDeck(id, targetId, placement) {
+    const generation = bootstrapGeneration;
     const ownerId = get().profile?.userId;
     const rows = await ok(await (api as any).decks({ id }).move.post({ targetId, placement })) as any[];
-    if (get().profile?.userId === ownerId) set({ decks: rows.map(deckFromApi) });
+    if (generation !== bootstrapGeneration || get().profile?.userId !== ownerId) return;
+    set({ decks: rows.map(deckFromApi) });
   },
 
   async deleteDeck(id) {
+    const generation = bootstrapGeneration;
     await ok(await (api as any).decks({ id }).delete());
+    if (generation !== bootstrapGeneration) return;
     // Drop this deck + any local descendants + any cards under them. The server
     // cascades via FK ON DELETE CASCADE, we mirror that in the cache.
     const all = get().decks;
@@ -787,25 +797,32 @@ export const useNN = create<State>()((set, get) => ({
   },
 
   async deleteCard(id) {
+    const generation = bootstrapGeneration;
     await ok(await (api as any).cards({ id }).delete());
+    if (generation !== bootstrapGeneration) return;
     set((s) => ({ cards: s.cards.filter((c) => c.id !== id) }));
   },
 
   async forgetCard(id) {
+    const generation = bootstrapGeneration;
     const updated = mergeReviewedCard(await ok(await (api as any).cards({ id }).patch({ forget: true })), get().cards.find((c) => c.id === id));
+    if (generation !== bootstrapGeneration) return;
     set((s) => ({ cards: s.cards.map((c) => (c.id === updated.id ? updated : c)) }));
   },
 
   async setCardDue(id, iso) {
+    const generation = bootstrapGeneration;
     const updated = mergeReviewedCard(await ok(await (api as any).cards({ id }).patch({ setDue: iso })), get().cards.find((c) => c.id === id));
+    if (generation !== bootstrapGeneration) return;
     set((s) => ({ cards: s.cards.map((c) => (c.id === updated.id ? updated : c)) }));
   },
 
   async refetchCard(id) {
     const generation = cardReadGeneration;
+    const account = bootstrapGeneration;
     try {
       const updated = cardFromApi(await ok(await (api as any).cards({ id }).get()));
-      if (generation !== cardReadGeneration) return;
+      if (generation !== cardReadGeneration || account !== bootstrapGeneration) return;
       set((s) => {
         const exists = s.cards.some((c) => c.id === updated.id);
         return {
@@ -821,12 +838,13 @@ export const useNN = create<State>()((set, get) => ({
 
   async refetchDeckCards(deckId) {
     const generation = cardReadGeneration;
+    const account = bootstrapGeneration;
     try {
       // GET /cards?deckId=… is cursor-paginated ({ items, nextCursor }) but the
       // first page (≤500) is enough to surface freshly-created cards in the
       // mirror; deeper pages load on-demand elsewhere (same contract bootstrap uses).
       const page: any = await ok(await (api as any).cards.get({ query: { deckId } }));
-      if (generation !== cardReadGeneration) return;
+      if (generation !== cardReadGeneration || account !== bootstrapGeneration) return;
       const rows = Array.isArray(page) ? page : (page?.items ?? []);
       const fresh: Card[] = (rows as any[]).map(cardFromApi);
       if (fresh.length === 0) return;
@@ -912,6 +930,7 @@ export const useNN = create<State>()((set, get) => ({
 
   async searchCards(q, opts) {
     const generation = cardReadGeneration;
+    const account = bootstrapGeneration;
     const res: any = await ok(
       await (api as any).cards.search.get({
         query: {
@@ -924,7 +943,7 @@ export const useNN = create<State>()((set, get) => ({
       }),
     );
     const items: Card[] = (res.items as any[]).map(cardFromApi);
-    if (generation !== cardReadGeneration) return { items, nextCursor: res.nextCursor ?? null };
+    if (generation !== cardReadGeneration || account !== bootstrapGeneration) return { items, nextCursor: res.nextCursor ?? null };
     // Merge into mirror: update existing by id, append new.
     set((s) => {
       const byId = new Map(s.cards.map((c) => [c.id, c]));
@@ -998,9 +1017,10 @@ export const useNN = create<State>()((set, get) => ({
   },
 
   async getCardTags() {
+    const generation = bootstrapGeneration;
     const res: any = await ok(await (api as any).cards.tags.get());
     const tags: string[] = res.tags ?? [];
-    set({ cardTags: tags });
+    if (generation === bootstrapGeneration) set({ cardTags: tags });
     return tags;
   },
 
@@ -1127,6 +1147,7 @@ export const useNN = create<State>()((set, get) => ({
   },
 
   async addPreset(input) {
+    const generation = bootstrapGeneration;
     const created = presetFromApi(
       await ok(
         await (api as any)['deck-options'].post({
@@ -1141,7 +1162,7 @@ export const useNN = create<State>()((set, get) => ({
         }),
       ),
     );
-    set((s) => ({ presets: [...s.presets, created] }));
+    if (generation === bootstrapGeneration) set((s) => ({ presets: [...s.presets, created] }));
     return created;
   },
 
@@ -1155,16 +1176,19 @@ export const useNN = create<State>()((set, get) => ({
     if ('desiredRetention' in patch) body.desiredRetention = patch.desiredRetention ?? null;
     if (patch.leechThreshold !== undefined) body.leechThreshold = patch.leechThreshold;
     if (patch.maximumInterval !== undefined) body.maximumInterval = patch.maximumInterval;
+    const generation = bootstrapGeneration;
     const updated = presetFromApi(
       await ok(await (api as any)['deck-options']({ id }).patch(body)),
     );
-    set((s) => ({ presets: s.presets.map((p) => (p.id === id ? updated : p)) }));
+    if (generation === bootstrapGeneration) set((s) => ({ presets: s.presets.map((p) => (p.id === id ? updated : p)) }));
     return updated;
   },
 
   async deletePreset(id) {
+    const generation = bootstrapGeneration;
     const res: any = await ok(await (api as any)['deck-options']({ id }).delete());
     const affectedDecks: number = res.affectedDecks ?? 0;
+    if (generation !== bootstrapGeneration) return { affectedDecks };
     set((s) => ({
       presets: s.presets.filter((p) => p.id !== id),
       // Mirror the SET NULL that the server applied to bound decks.
@@ -1174,13 +1198,15 @@ export const useNN = create<State>()((set, get) => ({
   },
 
   async bindDeckPreset(deckId, presetId) {
+    const generation = bootstrapGeneration;
     const updated = deckFromApi(
       await ok(await (api as any).decks({ id: deckId }).patch({ presetId })),
     );
-    set((s) => ({ decks: s.decks.map((d) => (d.id === deckId ? updated : d)) }));
+    if (generation === bootstrapGeneration) set((s) => ({ decks: s.decks.map((d) => (d.id === deckId ? updated : d)) }));
   },
 
   async addFilteredDeck(input) {
+    const generation = bootstrapGeneration;
     const created = filteredDeckFromApi(
       await ok(
         await (api as any)['filtered-decks'].post({
@@ -1192,11 +1218,12 @@ export const useNN = create<State>()((set, get) => ({
         }),
       ),
     );
-    set((s) => ({ filteredDecks: [...s.filteredDecks, created] }));
+    if (generation === bootstrapGeneration) set((s) => ({ filteredDecks: [...s.filteredDecks, created] }));
     return created;
   },
 
   async updateFilteredDeck(id, patch) {
+    const generation = bootstrapGeneration;
     const body: any = {};
     if (patch.name !== undefined) body.name = patch.name;
     if (patch.query !== undefined) body.query = patch.query;
@@ -1206,14 +1233,16 @@ export const useNN = create<State>()((set, get) => ({
     const updated = filteredDeckFromApi(
       await ok(await (api as any)['filtered-decks']({ id }).patch(body)),
     );
-    set((s) => ({
+    if (generation === bootstrapGeneration) set((s) => ({
       filteredDecks: s.filteredDecks.map((fd) => (fd.id === id ? updated : fd)),
     }));
     return updated;
   },
 
   async deleteFilteredDeck(id) {
+    const generation = bootstrapGeneration;
     await ok(await (api as any)['filtered-decks']({ id }).delete());
+    if (generation !== bootstrapGeneration) return;
     set((s) => ({ filteredDecks: s.filteredDecks.filter((fd) => fd.id !== id) }));
   },
 

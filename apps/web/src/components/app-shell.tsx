@@ -19,6 +19,7 @@ import { LayerParent, useTransientLayer } from '@/lib/use-transient-layer';
 import { OperationsButton, OperationsHost } from './operations-center';
 import { AssistantHost } from './chat/assistant-host';
 import { readBrowserValue, writeBrowserValue } from '@/lib/storage-migration';
+import { InstallHint } from './install-hint';
 
 const AppShellContent = ({ children }: { children: React.ReactNode }) => {
   const bp = useBreakpoint();
@@ -120,6 +121,7 @@ const AppShellContent = ({ children }: { children: React.ReactNode }) => {
           overflow: 'hidden',
         }}
       >
+        <div style={{ flexShrink: 0 }}><InstallHint /></div>
         {bootstrapStatus === 'error' ? (
           <div
             style={{

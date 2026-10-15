@@ -15,6 +15,7 @@ import { useEditorDraft } from '@/lib/use-editor-draft';
 import { draftFingerprint } from '@/lib/editor-drafts';
 import { isNoteDraftValue, type NoteDraftValue } from '@/lib/editor-draft-values';
 import { useRecoverableAction, type RecoveryAction } from '@/lib/use-recoverable-action';
+import { readNoteOperation, saveNoteOperation } from '@/lib/note-operations';
 import { SaveFeedback } from './save-feedback';
 import { EditorDraftNotice } from './editor-draft-notice';
 import { NoteConversionDialog } from './note-conversion';
@@ -25,6 +26,7 @@ import {
   MAX_MEDIA_BYTES,
   MAX_MEDIA_LABEL,
   MEDIA_MIME_ALLOWLIST,
+  newUuidV7,
   generateCards,
   NoteContentError,
   fieldPlainText,
@@ -541,6 +543,7 @@ const CardFormEditor = ({
   const [baseDeckId, setBaseDeckId] = useState<string>(resolvedDefaultDeckId);
   const [savedNoteId, setSavedNoteId] = useState<string | undefined>();
   const [savedCardId, setSavedCardId] = useState<string | undefined>();
+  const [createOperationId, setCreateOperationId] = useState(newUuidV7);
   const [fieldValues, setFieldValues] = useState<FieldValues>(() => ({ ...(editing?.note?.fieldValues ?? {}) }));
   const [acceptedAnswersText, setAcceptedAnswersText] = useState(editing?.note?.acceptedAnswers?.join('\n') ?? '');
 
@@ -726,13 +729,22 @@ const CardFormEditor = ({
         action = { path: `/card-notes/${targetNoteId}`, method: 'PATCH', args: { input: { ...patch,
           expectedUpdatedAt: preview.sourceVersion, confirmationToken: preview.confirmationToken } } };
       } else {
-        action = { path: '/card-notes', method: 'POST', args: { input: {
+        action = { path: `/notes/operations/${createOperationId}`, method: 'POST', args: { input: {
           noteTypeId: activeNoteType!.id, expectedTypeUpdatedAt: activeNoteType!.updatedAt,
           deckId, fieldValues, acceptedAnswers, tags,
         } } };
       }
       if (!recovering) action.draft = { ...draftValue, pendingSave: null };
-      const accepted = await recovery.save(action, saveFingerprint);
+      const operationId = action.path.startsWith('/notes/operations/') ? action.path.slice('/notes/operations/'.length) : '';
+      const accepted = operationId
+        ? await recovery.controller.run(action, saveFingerprint,
+          (request) => saveNoteOperation(ownerId, request.payload.path.slice('/notes/operations/'.length), request.payload.args.input as object),
+          () => readNoteOperation(ownerId, operationId))
+        : await recovery.save(action, saveFingerprint);
+      if (!accepted) {
+        const snap = recovery.controller.getSnapshot();
+        throw new ApiError(snap.error ?? 'save_failed', { status: snap.errorStatus ?? 0 });
+      }
       if (!mounted.current || useNN.getState().profile?.userId !== ownerId) return false;
       if (!accepted.response.result || accepted.response.outcome !== 'applied') {
         setSavedNoteId(accepted.response.receipt.target.id);
@@ -750,7 +762,10 @@ const CardFormEditor = ({
       return false;
     } catch (err) {
       if (mounted.current) {
-        if (err instanceof ApiError && err.status === 409) {
+        if (err instanceof ApiError && err.safeMessage === 'operation_reverted') {
+          setCreateOperationId(newUuidV7());
+          setError(t('editor.errors.saveFailed'));
+        } else if (err instanceof ApiError && err.status === 409) {
           setError(t('editor.errors.changed'));
           try {
             let currentTypeId = activeNoteType?.id ?? noteTypeId;
@@ -774,12 +789,13 @@ const CardFormEditor = ({
     return false;
   };
 
-  const draftValue: NoteDraftValue = { fieldValues, deckId, noteTypeId, tagsText, acceptedAnswersText,
+  const draftValue: NoteDraftValue = { fieldValues, deckId, noteTypeId, tagsText, acceptedAnswersText, createOperationId,
     baseVersion, baseDeckId, savedNoteId, pendingSave: recovery.snapshot.pending, cardId: editing?.id ?? savedCardId, label: selectedPreview?.renderFrontText.slice(0, 160), noteType: activeNoteType, clozeRetainHistoryFor };
   const localDraft = useEditorDraft({ scope: { ownerId, kind: 'note', entityId: editing?.noteId ?? 'new' },
     value: draftValue, fingerprint: saveFingerprint,
     validate: isNoteDraftValue, unsettled: Boolean(recovery.snapshot.pending), busy: saving || deleting || uploadingFields > 0, onSave: () => handleSave(false),
     onRestore: (value) => {
+      if (value.createOperationId) setCreateOperationId(value.createOperationId);
       if (value.pendingSave) recovery.controller.restorePending(value.pendingSave);
       setSavedNoteId(value.savedNoteId); setSavedCardId(value.cardId);
       // An unchanged deck selection was not an instruction to move sibling

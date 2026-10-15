@@ -4,6 +4,7 @@ import {
   indexWorkerState,
   markRuntimeRunning,
   markRuntimeShuttingDown,
+  reminderWorkerState,
   sourceIngestWorkerState,
 } from './runtime-state.ts';
 
@@ -30,6 +31,7 @@ describe('runtime readiness', () => {
     indexWorkerState.reset();
     sourceIngestWorkerState.reset();
     artifactWorkerState.reset();
+    reminderWorkerState.reset();
   });
 
   test('reports ready with idle workers and a reachable database', async () => {
@@ -46,6 +48,7 @@ describe('runtime readiness', () => {
         index: { queued: 0, active: 0, degraded: false },
         sourceIngest: { queued: 0, active: 0, degraded: false },
         artifact: { queued: 0, active: 0, degraded: false },
+        reminder: { queued: 0, active: 0, degraded: false },
       },
     });
   });

@@ -16,16 +16,12 @@ import { useDialog } from '@/components/dialog';
 import { TextInput, TextArea, SegmentedControl } from '@/components/design-system/primitives';
 import { useLocale } from '@/lib/i18n';
 import { McpSettings } from '@/components/mcp-settings';
+import { ReminderSettings } from '@/components/reminder-settings';
 import { PALETTE_IDS, PALETTE_VARIANTS, resolveTheme } from '@/lib/theme';
 import { ORIGINAL_PALETTE_IDS } from '@/lib/theme-originals';
 import { useAppearance } from '@/lib/use-appearance';
 import { useSessionResource } from '@/lib/session-resource';
 import type { Profile } from '@/lib/types';
-import {
-  isNotificationsEnabled,
-  requestNotificationPermission,
-  setNotificationsEnabled,
-} from '@/lib/notify';
 
 // Read-only flag snapshot from GET /ai/status (P3.3b) — never exposes keys/URLs.
 type AiStatusFlags = {
@@ -266,29 +262,6 @@ const SettingsContent = () => {
       resetStore(); router.replace('/auth/sign-in');
     } catch { setSignOutError(t('settings.session.error')); }
     finally { signOutLock.current = false; setSigningOut(false); }
-  };
-
-  // ── Notifications state (E2) ─────────────────────────────────────────────
-  const [notifEnabled, setNotifEnabled] = useState(() => isNotificationsEnabled());
-  const [notifDenied, setNotifDenied] = useState(false);
-  const [notifUnavailable] = useState(() => typeof Notification === 'undefined');
-
-  const handleNotifToggle = async () => {
-    if (notifEnabled) {
-      // Turn off: just clear the persisted flag (don't revoke browser permission).
-      setNotificationsEnabled(false);
-      setNotifEnabled(false);
-      setNotifDenied(false);
-    } else {
-      // Turn on: request browser permission (only on explicit user action — not at load).
-      const result = await requestNotificationPermission();
-      if (result === 'granted') {
-        setNotifEnabled(true);
-        setNotifDenied(false);
-      } else if (result === 'denied') {
-        setNotifDenied(true);
-      }
-    }
   };
 
   const [exporting, setExporting] = useState(false);
@@ -661,64 +634,8 @@ const SettingsContent = () => {
         )}
       </Section>
 
-      {/* ── Notifications (E2) ── */}
       <Section group="general" title={t('settings.notifications.title')} subtitle={t('settings.notifications.subtitle')}>
-        {notifUnavailable ? (
-          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
-            {t('settings.notifications.unavailable')}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
-            {/* Inline toggle — matches existing settings control patterns */}
-            <button
-              type="button"
-              role="switch"
-              aria-label={t('settings.notifications.enable')}
-              aria-checked={notifEnabled}
-              onClick={() => { void handleNotifToggle(); }}
-              style={{
-                flexShrink: 0,
-                width: 44,
-                height: 24,
-                borderRadius: 12,
-                border: 'none',
-                background: notifEnabled ? 'var(--accent-500)' : 'var(--surface-3)',
-                position: 'relative',
-                cursor: 'pointer',
-                transition: 'background 150ms',
-                marginTop: 2,
-              }}
-            >
-              <span
-                style={{
-                  position: 'absolute',
-                  top: 3,
-                  left: notifEnabled ? 22 : 3,
-                  width: 18,
-                  height: 18,
-                  borderRadius: '50%',
-                  background: '#fff',
-                  boxShadow: '0 1px 3px rgb(0 0 0 / .15)',
-                  transition: 'left 150ms',
-                  pointerEvents: 'none',
-                }}
-              />
-            </button>
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>
-                {t('settings.notifications.enable')}
-              </div>
-              <div style={{ fontSize: 11.5, color: 'var(--text-dim)', marginTop: 3 }}>
-                {t('settings.notifications.enableDesc')}
-              </div>
-              {notifDenied && (
-                <div style={{ fontSize: 11.5, color: 'var(--amber-500)', marginTop: 5 }}>
-                  {t('settings.notifications.denied')}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        <ReminderSettings />
       </Section>
 
       <Section group="general" title={t('settings.session.title')} subtitle={t('settings.session.subtitle')}>
