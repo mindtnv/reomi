@@ -176,7 +176,7 @@ describe('repository contracts', () => {
     const playwright = readRepoFile('playwright.config.ts');
     expect(playwright).toContain("trace: 'off'");
     expect(playwright).toContain('PLAYWRIGHT_NO_COPY_PROMPT');
-    expect(readRepoFile('scripts/verify-reomi.sh')).toContain('bun e2e/secret-scan.ts');
+    expect(readRepoFile('scripts/verify-reomi.sh')).toContain('bun e2e/secret-scan-cli.ts');
     expect(readRepoFile('e2e/smoke.e2e.ts')).toContain('clearPasswordFields');
 
     const deploy = readRepoFile('.github/workflows/deploy.yml');

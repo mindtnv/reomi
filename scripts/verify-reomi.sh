@@ -21,7 +21,7 @@ run_playwright() {
     echo "smoke did not record a password for the artifact scan" >&2
     scan_status=1
   else
-    bun e2e/secret-scan.ts || scan_status=$?
+    bun e2e/secret-scan-cli.ts || scan_status=$?
   fi
   rm -f "$secret_file"
   if [[ "$scan_status" -ne 0 ]]; then
