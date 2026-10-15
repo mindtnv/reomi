@@ -15,7 +15,7 @@ import { resolveMediaSrc } from '@/lib/media-url';
 import { useEmptyRedirect } from '@/lib/use-empty-redirect';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useT, useDateLocale } from '@/lib/i18n';
-import { utcDayKey } from '@/lib/study-date';
+import { civilDate } from '@/lib/study-date';
 
 export const NNHome = () => {
   const t = useT();
@@ -33,7 +33,6 @@ export const NNHome = () => {
 
   const [recallPct, setRecallPct] = useState<number | null>(null);
   const [lastReviewAt, setLastReviewAt] = useState<number | null>(null);
-  const [todayDurationMs, setTodayDurationMs] = useState(0);
 
   // ── Knowledge domains (P3.1) — lazy, post-bootstrap, graceful-hide on empty ──
   const [reading, setReading] = useState<LibraryItem[]>([]);
@@ -48,18 +47,14 @@ export const NNHome = () => {
         const overview = (await ok(await (api as any).stats.overview.get({ query: { days: '30' } }))) as {
           answerSuccessPct: number | null;
           lastReviewedAt: string | null;
-          series: { day: string; durationMs: number }[];
         };
         if (cancelled) return;
-        const today = new Date().toISOString().slice(0, 10);
         setRecallPct(overview.answerSuccessPct);
         setLastReviewAt(overview.lastReviewedAt ? new Date(overview.lastReviewedAt).getTime() : null);
-        setTodayDurationMs(overview.series.find((point) => utcDayKey(point.day) === today)?.durationMs ?? 0);
       } catch {
         if (cancelled) return;
         setRecallPct(null);
         setLastReviewAt(null);
-        setTodayDurationMs(0);
       }
     })();
     return () => {
@@ -105,33 +100,25 @@ export const NNHome = () => {
   const estMinutes = dueCount > 0 ? Math.max(1, Math.round(dueCount * 0.25)) : 0;
 
   const dailyGoalMinutes = profile?.dailyGoalMinutes ?? 30;
-
-  // The profile ledger is the daily-goal source. Without a profile, today's
-  // UTC bucket from the overview is the fallback.
-  const todayIso = now.toISOString().slice(0, 10);
-  const todayMinutes = profile
-    ? (profile.todayMinutesDate === todayIso ? profile.todayMinutes : 0)
-    : Math.floor(todayDurationMs / 60000);
+  const studyDay = study.data?.studyDay;
+  const todayMinutes = studyDay?.todayMinutes ?? 0;
   const goalPct = Math.min(100, Math.round((todayMinutes / Math.max(1, dailyGoalMinutes)) * 100));
 
-
-
-  // Server buckets use UTC study days; zero-fill only a successful response.
   const forecast = useMemo(() => {
     if (!serverForecast.data) return [];
     const counts = new Map(serverForecast.data.buckets.map((bucket) => [bucket.day, bucket.count]));
-    const dayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-    return Array.from({ length: 7 }, (_, i) => {
-      const day = new Date(dayStart + i * 86_400_000).toISOString().slice(0, 10);
-      const labelDate = new Date(`${day}T12:00:00`);
+    return serverForecast.data.labels.map((day) => {
+      const labelDate = civilDate(day);
       const n = counts.get(day) ?? 0;
       return {
-        day: format(labelDate, 'EEEE', { locale: dateLocale }),
-        date: format(labelDate, 'MMM d', { locale: dateLocale }), n,
+        key: day,
+        day: labelDate ? format(labelDate, 'EEEE', { locale: dateLocale }) : day,
+        date: labelDate ? format(labelDate, 'MMM d', { locale: dateLocale }) : day,
+        n,
         clr: n > 50 ? 'amber' as const : 'lime' as const,
       };
     });
-  }, [serverForecast.data, dateLocale, now, t]);
+  }, [serverForecast.data, dateLocale]);
 
   const forecastMax = Math.max(80, ...forecast.map((b) => b.n));
 
@@ -146,7 +133,11 @@ export const NNHome = () => {
     return t('time.justNow');
   }, [lastReviewAt, t]);
 
-  const todayLabel = format(now, 'MMM d', { locale: dateLocale });
+  const todayCivil = studyDay ? civilDate(studyDay.label) : null;
+  const todayLabel = format(todayCivil ?? now, 'MMM d', { locale: dateLocale });
+  const forecastSub = studyDay && !studyDay.legacy
+    ? t('home.forecastSubZone', { zone: studyDay.zone })
+    : t('home.forecastSub');
 
   // Flex ratios for the todo/learn/critical bar — avoid 0 widths.
   const barReview = Math.max(0, reviewCount);
@@ -285,14 +276,14 @@ export const NNHome = () => {
             }}
           >
             <div style={{ fontSize: 14, fontWeight: 600 }}>{t('home.forecast')}</div>
-            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{t('home.forecastSub')}</span>
+            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{forecastSub}</span>
           </div>
           <div style={{ padding: '8px 8px' }}>
             {serverForecast.error && <div role="alert" style={{ padding: 12, fontSize: 13 }}>{t('home.forecastError')} <NNBtn size="sm" variant="ghost" onClick={serverForecast.reload}>{t('review.retry')}</NNBtn></div>}
             {!serverForecast.data && !serverForecast.error && <NNSkeleton width="100%" height={200} />}
-            {forecast.map((r, i) => (
+            {forecast.map((r) => (
               <div
-                key={i}
+                key={r.key}
                 style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', borderRadius: 8 }}
               >
                 <div style={{ width: 90, fontSize: 12.5, color: 'var(--text)', fontWeight: 500 }}>{r.day}</div>

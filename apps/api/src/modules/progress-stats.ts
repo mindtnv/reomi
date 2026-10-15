@@ -1,23 +1,8 @@
-// Progress aggregation helpers for the agent's READ progress-tools (S4 / AC1.1,
-// AC1.2, AC1.5). User-scoped — every query carries `user_id` as the MANDATORY
-// FIRST conjunct (Principle 4), the only cross-user boundary on these reads.
-//
-// `studyStats` is the only genuinely new server capability in this milestone: a
-// single GROUP BY UTC day over `reviews`, plus (for the global scope) a
-// `profile` read for streak/level/xp. Time filters are timestamptz ranges on
-// `reviewed_at` so `(user_id, reviewed_at)` can serve them. `cardProgress` reads the
-// card's flat FSRS columns + its last-N review history (scoped by BOTH cardId AND
-// userId — defense-in-depth even though the card is loaded user-scoped, M4).
-//
-// Neither helper throws for an empty history: an account with no reviews returns
-// `reviewCount:0` + `retentionPct:null` (the "no reviews yet" render case), and a
-// foreign/missing card returns `null`. The tool wrappers in ai/tools.ts turn
-// these into graceful `ToolResult`s (never an error into the loop, Principle 5).
-
 import { and, desc, eq, sql, type SQL } from 'drizzle-orm';
 import { cards, db, reviews } from '@reomi/db';
-import { percentOf } from '@reomi/shared';
+import { percentOf, studySpans } from '@reomi/shared';
 import { resolveDeckConfig, type DeckConfigSnapshot } from './deck-config.ts';
+import { ledgerForRead, loadStudyClock } from './study-day.ts';
 
 /** Raw-SQL executor. A transaction can be passed so tests can `SET LOCAL TIME ZONE`. */
 export interface StatsExecutor {
@@ -46,13 +31,13 @@ export interface StudyStatsResult {
   answerSuccessCount: number;
   /** Alias of `answerSuccessPct` for existing readers. This is not true retention. */
   retentionPct: number | null;
-  /** First review of each card on each UTC day. Repeated same-day answers do not count. */
+  /** First review of each card in each study epoch. Repeated answers in that epoch do not count. */
   trueRetentionCount: number;
   trueRetentionSuccessCount: number;
   trueRetentionPct: number | null;
   studyMinutes: number;
   days: number;
-  /** Non-empty UTC calendar days (`reviewed_at AT TIME ZONE 'UTC'`), oldest-first. */
+  /** Non-empty study-day labels. A missing stamp falls back to the UTC date of reviewed_at. */
   heatmap: { day: string; count: number }[];
   /** Global scope only — the user's gamification snapshot. */
   profile?: { streakDays: number; level: number; xp: number } | null;
@@ -100,7 +85,7 @@ export async function studyStats(args: StudyStatsArgs, executor: StatsExecutor =
 
   const rows = (await executor.execute(sql`
     SELECT
-      (reviewed_at AT TIME ZONE 'UTC')::date AS day,
+      coalesce(study_day, to_char((reviewed_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD')) AS day,
       count(*)                              AS cnt,
       sum(CASE WHEN rating >= 2 THEN 1 ELSE 0 END) AS remembered,
       sum(duration_ms)                      AS duration
@@ -113,7 +98,7 @@ export async function studyStats(args: StudyStatsArgs, executor: StatsExecutor =
     WITH ranked AS (
       SELECT rating, reviewed_at,
              row_number() OVER (
-               PARTITION BY card_id, (reviewed_at AT TIME ZONE 'UTC')::date
+               PARTITION BY card_id, coalesce(study_epoch_start, (date_trunc('day', reviewed_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'))
                ORDER BY reviewed_at, id
              ) AS rn
       FROM reviews
@@ -136,8 +121,6 @@ export async function studyStats(args: StudyStatsArgs, executor: StatsExecutor =
     reviewCount += cnt;
     remembered += Number(r.remembered);
     durationMs += Number(r.duration ?? 0);
-    // `day` comes back as a Date (timestamptz cast) or an ISO string depending on
-    // the driver — normalize to a yyyy-mm-dd string.
     const day = r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day).slice(0, 10);
     heatmap.push({ day, count: cnt });
   }
@@ -203,12 +186,14 @@ export interface DueForecastArgs {
 
 export interface DueForecastResult {
   days: number;
-  /** Cards already overdue BEFORE the start of today (UTC) — the backlog. */
+  /** Cards already due before the open study day's start. */
   overdueCount: number;
   /** Sum of all bucket counts (today .. today+days). */
   total: number;
   /** Day-bucketed due counts, sparse (only non-empty days), oldest-first. */
   buckets: { day: string; count: number }[];
+  /** Study-day labels from today through the forecast window, oldest-first. */
+  labels: string[];
 }
 
 interface ForecastRow {
@@ -233,59 +218,77 @@ function deckScopeConds(deckIds: string[] | undefined): SQL[] {
   return [deckSql(deckIds, sql`deck_id`)];
 }
 
+async function studyCalendar(
+  userId: string,
+  pastDays: number,
+  futureDays: number,
+  executor: StatsExecutor,
+) {
+  const clock = await loadStudyClock(userId, executor);
+  return studySpans({
+    now: clock.now,
+    policy: clock.policy,
+    ledger: ledgerForRead(clock.ledger),
+    pastDays,
+    futureDays,
+  });
+}
+
 /**
  * Forward-looking review workload: how many cards come due on each of the next
- * `days` days (clamped 1..90), plus the overdue backlog as a SEPARATE count
- * (due before the start of today — disjoint from the buckets, so "today"
- * includes anything that came due earlier today). Excludes suspended cards and
- * `state='new'` (a new card's `due` is a fictitious defaultNow() — the queue
- * introduces new cards by createdAt with a daily cap, see cards.ts).
+ * `days` study days (clamped 1..90), plus the overdue backlog due before the
+ * open day's start. Excludes suspended cards and `state='new'`.
  */
 export async function dueForecast(args: DueForecastArgs, executor: StatsExecutor = db): Promise<DueForecastResult> {
   const userId = args.userId;
   const days = clampForecastDays(args.days);
-  // UTC midnight as timestamptz. `date_trunc` on a bare timestamptz follows the
-  // session TimeZone; converting through `timestamp AT TIME ZONE 'UTC'` does not.
-  const utcTodayStart = sql`(date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')`;
-
-  const base = [
-    sql`user_id = ${userId}`,
-    sql`suspended = false`,
-    sql`state <> 'new'`,
-    ...deckScopeConds(args.deckIds),
-  ];
-  const bucketWhere = sql.join(
-    [
-      ...base,
-      sql`due >= ${utcTodayStart}`,
-      sql`due < ${utcTodayStart} + ${`${days} days`}::interval`,
-    ],
-    sql` AND `,
+  const calendar = await studyCalendar(userId, 0, days - 1, executor);
+  const spans = [calendar.today, ...calendar.future];
+  const spanRows = sql.join(
+    spans.map((span) => sql`(${span.label}::text, ${span.start.toISOString()}::timestamptz, ${span.end.toISOString()}::timestamptz)`),
+    sql`, `,
   );
-  const overdueWhere = sql.join([...base, sql`due < ${utcTodayStart}`], sql` AND `);
-
+  const deck = deckSql(args.deckIds, sql`c.deck_id`);
   const rows = (await executor.execute(sql`
-    SELECT (due AT TIME ZONE 'UTC')::date AS day, count(*) AS cnt
-    FROM cards
-    WHERE ${bucketWhere}
-    GROUP BY 1
-    ORDER BY 1
+    SELECT s.label AS day, count(c.id) AS cnt
+    FROM (VALUES ${spanRows}) AS s(label, start_at, end_at)
+    LEFT JOIN cards c
+      ON c.user_id = ${userId}
+     AND c.suspended = false
+     AND c.state <> 'new'
+     AND c.due >= s.start_at
+     AND c.due < s.end_at
+     AND ${deck}
+    GROUP BY s.label, s.start_at
+    ORDER BY s.start_at
   `)) as unknown as ForecastRow[];
-
   const overdueRows = (await executor.execute(sql`
-    SELECT count(*) AS cnt FROM cards WHERE ${overdueWhere}
+    SELECT count(*) AS cnt
+    FROM cards
+    WHERE user_id = ${userId}
+      AND suspended = false
+      AND state <> 'new'
+      AND due < ${calendar.today.start.toISOString()}::timestamptz
+      AND ${deckSql(args.deckIds, sql`deck_id`)}
   `)) as unknown as { cnt: number | string }[];
 
   let total = 0;
   const buckets: { day: string; count: number }[] = [];
   for (const r of rows) {
     const count = Number(r.cnt);
+    if (count <= 0) continue;
     total += count;
     const day = r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day).slice(0, 10);
     buckets.push({ day, count });
   }
 
-  return { days, overdueCount: Number(overdueRows[0]?.cnt ?? 0), total, buckets };
+  return {
+    days,
+    overdueCount: Number(overdueRows[0]?.cnt ?? 0),
+    total,
+    buckets,
+    labels: spans.map((span) => span.label),
+  };
 }
 
 export interface RetentionCurveArgs {
@@ -323,11 +326,8 @@ interface RetentionRow {
 
 /**
  * True retention by the elapsed gap since the previous counted review of the
- * same card. Only the first review of each card on each UTC day is counted, so
- * a same-day Again followed by Good does not create a short-interval success.
- * The first counted review of a card (gap IS NULL) is excluded. Ranking reads
- * the UTC days touched by the window; the predecessor is a separate lookup, so
- * a review older than the window still sets the gap.
+ * same card. Only the first review of each card in each study epoch is counted.
+ * A missing stamp uses UTC midnight. The first counted review of a card is excluded.
  */
 export async function retentionCurve(
   args: RetentionCurveArgs,
@@ -341,12 +341,12 @@ export async function retentionCurve(
     sql` AND `,
   );
 
-  const dayStart = sql`(date_trunc('day', f.reviewed_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')`;
+  const epochStart = sql`coalesce(f.study_epoch_start, (date_trunc('day', f.reviewed_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'))`;
   const rows = (await executor.execute(sql`
     WITH ranked AS (
-      SELECT card_id, rating, reviewed_at, id,
+      SELECT card_id, rating, reviewed_at, id, study_epoch_start,
              row_number() OVER (
-               PARTITION BY card_id, (reviewed_at AT TIME ZONE 'UTC')::date
+               PARTITION BY card_id, coalesce(study_epoch_start, (date_trunc('day', reviewed_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'))
                ORDER BY reviewed_at, id
              ) AS rn
       FROM reviews
@@ -354,7 +354,7 @@ export async function retentionCurve(
         AND ${reviewedRange(rollingDayFloor(days), rollingUpper())}
     ),
     firsts AS (
-      SELECT card_id, rating, reviewed_at, id
+      SELECT card_id, rating, reviewed_at, id, study_epoch_start
       FROM ranked
       WHERE rn = 1
         AND ${reviewedRange(rollingLower(days), rollingUpper())}
@@ -380,16 +380,24 @@ export async function retentionCurve(
         FROM reviews p
         WHERE p.user_id = ${userId}
           AND p.card_id = f.card_id
-          AND p.reviewed_at < ${dayStart}
-          AND p.reviewed_at >= (
-            date_trunc('day', (
+          AND p.reviewed_at < ${epochStart}
+          AND p.reviewed_at >= coalesce(
+            (
+              SELECT max(older.study_epoch_start)
+              FROM reviews older
+              WHERE older.user_id = ${userId}
+                AND older.card_id = f.card_id
+                AND older.reviewed_at < ${epochStart}
+                AND ${deckSql(args.deckIds, sql`older.deck_id`)}
+            ),
+            (date_trunc('day', (
               SELECT max(older.reviewed_at)
               FROM reviews older
               WHERE older.user_id = ${userId}
                 AND older.card_id = f.card_id
-                AND older.reviewed_at < ${dayStart}
+                AND older.reviewed_at < ${epochStart}
                 AND ${deckSql(args.deckIds, sql`older.deck_id`)}
-            ) AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
+            ) AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')
           )
           AND ${deckSql(args.deckIds, sql`p.deck_id`)}
         ORDER BY p.reviewed_at, p.id
@@ -441,10 +449,11 @@ export interface LearningOverview {
   studyMinutes: number;
   averageGrade: number | null;
   grades: { again: number; hard: number; good: number; easy: number };
-  /** Exactly `days` UTC days ending today. Empty days keep null percents. */
+  /** Exactly `days` study-day labels ending today. Empty days keep null percents. */
   series: LearningSeriesPoint[];
-  /** Index is the UTC hour. */
+  /** Index is the hour in `hourZone`. Legacy policy uses UTC. */
   hours: { count: number; success: number }[];
+  hourZone: string;
   lastReviewedAt: string | null;
   target: { status: 'uniform' | 'mixed'; retentionPct: number | null };
 }
@@ -483,16 +492,6 @@ function utcDayKey(value: Date | string): string {
   return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
 }
 
-function shiftUtcDay(day: string, delta: number): string {
-  const [year, month, date] = day.split('-').map(Number);
-  return new Date(Date.UTC(year!, (month ?? 1) - 1, (date ?? 1) + delta)).toISOString().slice(0, 10);
-}
-
-/** UTC midnight of the current Postgres instant. Session TimeZone is not used. */
-function utcTodayStartSql(): SQL {
-  return sql`(date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')`;
-}
-
 function rollingLower(days: number): SQL {
   return sql`now() - ${`${days} days`}::interval`;
 }
@@ -512,12 +511,16 @@ function reviewedRange(start: SQL, end: SQL): SQL {
   return sql`reviewed_at >= ${start} AND reviewed_at < ${end}`;
 }
 
-/** Inclusive UTC calendar window `[today-(days-1), tomorrow)`. */
-function calendarRange(days: number): SQL {
-  return reviewedRange(
-    sql`${utcTodayStartSql()} - ${days - 1}::integer * interval '1 day'`,
-    sql`${utcTodayStartSql()} + interval '1 day'`,
-  );
+const STUDY_STAMP_SLACK_MS = 3 * 24 * 60 * 60 * 1000;
+
+function spanStampWhere(spans: { start: Date; end: Date; label: string }[]): SQL {
+  const start = new Date(spans[0]!.start.getTime() - STUDY_STAMP_SLACK_MS);
+  const end = spans[spans.length - 1]!.end;
+  const labels = sql.join(spans.map((span) => sql`${span.label}`), sql`, `);
+  return sql`${reviewedRange(sql`${start.toISOString()}::timestamptz`, sql`${end.toISOString()}::timestamptz`)} AND (
+    study_day IN (${labels})
+    OR (study_day IS NULL AND to_char((reviewed_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') IN (${labels}))
+  )`;
 }
 
 function averageGrade(sum: number, count: number): number | null {
@@ -599,10 +602,6 @@ export interface StudyOverviewArgs {
   days?: number;
 }
 
-/**
- * Bounded overview for the stats screen and home. Counts come from aggregates
- * over an inclusive UTC calendar window, not from the review journal.
- */
 export async function studyOverview(
   args: StudyOverviewArgs,
   executor: StatsExecutor = db,
@@ -610,13 +609,12 @@ export async function studyOverview(
   const days = clampDays(args.days);
   const userId = args.userId;
   const deckScoped = args.deckIds !== undefined;
-  const where = sql`${scopeWhere(userId, deckScoped, args.deckIds)} AND ${calendarRange(days)}`;
-  const todayRows = (await executor.execute(sql`
-    SELECT (now() AT TIME ZONE 'UTC')::date AS today
-  `)) as unknown as { today: Date | string }[];
-  const today = utcDayKey(todayRows[0]?.today ?? new Date());
+  const calendar = await studyCalendar(userId, days - 1, 0, executor);
+  const spans = [...calendar.past, calendar.today];
+  const hourZone = calendar.legacy ? 'UTC' : calendar.zone;
+  const where = sql`${scopeWhere(userId, deckScoped, args.deckIds)} AND ${spanStampWhere(spans)}`;
   const answerRows = (await executor.execute(sql`
-    SELECT (reviewed_at AT TIME ZONE 'UTC')::date AS day,
+    SELECT coalesce(study_day, to_char((reviewed_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD')) AS day,
            count(*) AS cnt,
            sum(CASE WHEN rating >= 2 THEN 1 ELSE 0 END) AS remembered,
            sum(rating) AS rating_sum,
@@ -631,15 +629,15 @@ export async function studyOverview(
   `)) as unknown as AnswerDayRow[];
   const trueRows = (await executor.execute(sql`
     WITH ranked AS (
-      SELECT rating, reviewed_at,
+      SELECT rating, reviewed_at, study_day, study_epoch_start,
              row_number() OVER (
-               PARTITION BY card_id, (reviewed_at AT TIME ZONE 'UTC')::date
+               PARTITION BY card_id, coalesce(study_epoch_start, (date_trunc('day', reviewed_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'))
                ORDER BY reviewed_at, id
              ) AS rn
       FROM reviews
       WHERE ${where}
     )
-    SELECT (reviewed_at AT TIME ZONE 'UTC')::date AS day,
+    SELECT coalesce(study_day, to_char((reviewed_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD')) AS day,
            count(*) AS cnt,
            sum(CASE WHEN rating >= 2 THEN 1 ELSE 0 END) AS remembered
     FROM ranked
@@ -647,7 +645,7 @@ export async function studyOverview(
     GROUP BY 1
   `)) as unknown as { day: Date | string; cnt: number | string; remembered: number | string }[];
   const hourRows = (await executor.execute(sql`
-    SELECT EXTRACT(HOUR FROM (reviewed_at AT TIME ZONE 'UTC'))::int AS hour,
+    SELECT EXTRACT(HOUR FROM (reviewed_at AT TIME ZONE ${hourZone}))::int AS hour,
            count(*) AS cnt,
            sum(CASE WHEN rating >= 2 THEN 1 ELSE 0 END) AS remembered
     FROM reviews
@@ -666,8 +664,8 @@ export async function studyOverview(
   const grades = { again: 0, hard: 0, good: 0, easy: 0 };
   let durationMs = 0;
   let ratingSum = 0;
-  for (let offset = days - 1; offset >= 0; offset--) {
-    const day = shiftUtcDay(today, -offset);
+  for (const span of spans) {
+    const day = span.label;
     const answer = answers.get(day);
     const first = truth.get(day);
     const answerCount = Number(answer?.cnt ?? 0);
@@ -717,6 +715,7 @@ export async function studyOverview(
     series,
     hours,
     lastReviewedAt: last instanceof Date ? last.toISOString() : last ? String(last) : null,
+    hourZone,
     target: await retentionTarget(userId, args.targetDeckId, executor),
   };
 }
@@ -743,6 +742,8 @@ export async function deckBreakdown(
   executor: StatsExecutor = db,
 ): Promise<{ days: number; decks: DeckLearningRow[] }> {
   const windowDays = clampDays(days);
+  const calendar = await studyCalendar(userId, windowDays - 1, 0, executor);
+  const spans = [...calendar.past, calendar.today];
   const deckRows = (await executor.execute(sql`
     SELECT id, parent_id AS "parentId", preset_id AS "presetId", name, color
     FROM decks WHERE user_id = ${userId}
@@ -761,7 +762,7 @@ export async function deckBreakdown(
     FROM reviews
     WHERE user_id = ${userId}
       AND deck_id IS NOT NULL
-      AND ${calendarRange(windowDays)}
+      AND ${spanStampWhere(spans)}
     GROUP BY deck_id
   `)) as unknown as { deckId: string; cnt: number | string; remembered: number | string; duration: number | string | null }[];
   const presetRows = (await executor.execute(sql`

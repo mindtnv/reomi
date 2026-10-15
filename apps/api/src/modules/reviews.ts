@@ -12,20 +12,24 @@ import {
   type UndoSnapshot,
 } from '@reomi/db';
 import {
-  applyGradeRollup,
+  chargeStudyDay,
   gradeFsrs,
   isLeech,
+  legacyOpenEpoch,
+  legacyReviewEpochEnd,
+  legacyUtcMidnight,
   MAX_REVIEW_DURATION_MS,
-  nextDailyCounts,
   plantStageFromStreak,
+  resolveStudyEpoch,
   stateLabel,
   State,
-  todayISO,
+  StudyDayError,
   xpForRating,
   type FsrsCard,
 } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin.ts';
 import { resolveDeckConfig } from './deck-config.ts';
+import { ledgerFromProfile, loadStudyPolicy } from './study-day.ts';
 
 const stateFromLabel: Record<string, State> = {
   new: State.New,
@@ -87,6 +91,17 @@ async function gradeReview(user:{id:string;name?:string|null}, body:GradeInput, 
     ) return status(409, { error: 'card_changed' });
 
     const now = new Date(Math.max(Date.now(), card.updatedAt.getTime() + 1, (existingProfile?.updatedAt.getTime() ?? 0) + 1));
+    const policy = await loadStudyPolicy(user.id, tx);
+    const ledger = ledgerFromProfile(existingProfile ?? null);
+    let resolved;
+    try {
+      resolved = resolveStudyEpoch(now, policy, ledger);
+    } catch (err) {
+      if (err instanceof StudyDayError && err.code === 'unopened_ledger') {
+        return status(409, { error: 'unopened_ledger' });
+      }
+      throw err;
+    }
 
     // Pre-grade snapshot, taken before the FSRS step and the rollup.
     // Dates are ISO strings for JSONB. A filtered grade does not move the
@@ -127,6 +142,10 @@ async function gradeReview(user:{id:string;name?:string|null}, body:GradeInput, 
             reviewsDoneToday: existingProfile.reviewsDoneToday,
             dailyCountsDate: existingProfile.dailyCountsDate,
             updatedAt: existingProfile.updatedAt.toISOString(),
+            studyEpochStart: existingProfile.studyEpochStart ? existingProfile.studyEpochStart.toISOString() : null,
+            studyEpochEnd: existingProfile.studyEpochEnd ? existingProfile.studyEpochEnd.toISOString() : null,
+            lastReviewEpochEnd: existingProfile.lastReviewEpochEnd ? existingProfile.lastReviewEpochEnd.toISOString() : null,
+            goalMetEpochStart: existingProfile.goalMetEpochStart ? existingProfile.goalMetEpochStart.toISOString() : null,
           }
         : null,
     };
@@ -206,85 +225,58 @@ async function gradeReview(user:{id:string;name?:string|null}, body:GradeInput, 
         nextStability: res.card.stability,
         nextDifficulty: res.card.difficulty,
         undoSnapshot,
+        studyDay: resolved.epoch.label,
+        studyEpochStart: resolved.epoch.start,
       })
       .returning();
 
-    // ── gamification rollup ────────────────────────────────────────
-    // Streak / freeze / today-minutes / daily-goal / XP / level / plant
-    // stage fold into a new profile snapshot. (Achievements were removed.)
     let updatedProfile = existingProfile ?? null;
     let freezeUsed = false;
     let dailyGoalJustMet = false;
 
     if (existingProfile) {
-      // Round AFTER summing. Flooring each individual answer discarded
-      // every sub-minute review. The user/date index bounds this to today.
-      const dayStart = new Date(`${todayISO(now)}T00:00:00Z`);
-      const dayEnd = new Date(dayStart.getTime() + 86_400_000);
-      const [todayTime] = await tx.select({
+      const [epochDuration] = await tx.select({
         durationMs: sql<number>`coalesce(sum(${reviews.durationMs}), 0)`.mapWith(Number),
       }).from(reviews).where(and(
         eq(reviews.userId, user.id),
-        gte(reviews.reviewedAt, dayStart),
-        lt(reviews.reviewedAt, dayEnd),
+        gte(reviews.reviewedAt, resolved.epoch.start),
+        lt(reviews.reviewedAt, resolved.epoch.end),
       ));
-      const rollup = applyGradeRollup({
-        durationMs,
-        todayDurationMs: todayTime?.durationMs ?? durationMs,
+      const charge = chargeStudyDay({
         now,
-        previous: {
-          streakDays: existingProfile.streakDays,
-          streakFreezes: existingProfile.streakFreezes,
-          lastReviewDate: existingProfile.lastReviewDate,
-          todayMinutes: existingProfile.todayMinutes,
-          todayMinutesDate: existingProfile.todayMinutesDate,
-          dailyGoalMinutes: existingProfile.dailyGoalMinutes,
-          dailyGoalMetCount: existingProfile.dailyGoalMetCount,
-          dailyGoalMetDate: existingProfile.dailyGoalMetDate,
-          xp: existingProfile.xp,
-        },
+        policy,
+        ledger,
+        resolved,
+        epochDurationMs: epochDuration?.durationMs ?? durationMs,
+        introducedNew: wasNew,
+        reviewedMature: card.state === 'review',
+        countTowardBudget: body.source !== 'filtered',
         ratingXp: xpForRating(body.rating),
       });
-
-      freezeUsed = rollup.freezeUsed;
-      dailyGoalJustMet = rollup.dailyGoalJustMet;
-
-      // Daily counters (GLOBAL, Decision 2/3). Only REGULAR grades consume
-      // the per-day budget; filtered/cram grades leave the columns as-is.
-      // Folded into THIS profile update — same read-modify-write shape as
-      // the todayMinutes ledger; no separate statement, one transaction.
-      const dailyCounts =
-        body.source === 'filtered'
-          ? null
-          : nextDailyCounts({
-              previousNew: existingProfile.newIntroducedToday,
-              previousReviews: existingProfile.reviewsDoneToday,
-              previousDate: existingProfile.dailyCountsDate,
-              today: todayISO(now),
-              introducedNew: wasNew,
-              reviewedCard: card.state === 'review',
-            });
+      const epoch = charge.ledger.budget.epoch;
+      freezeUsed = charge.freezeUsed;
+      dailyGoalJustMet = charge.dailyGoalJustMet;
 
       const [saved] = await tx
         .update(profile)
         .set({
-          streakDays: rollup.streakDays,
-          streakFreezes: rollup.streakFreezes,
-          lastReviewDate: rollup.lastReviewDate,
-          todayMinutes: rollup.todayMinutes,
-          todayMinutesDate: rollup.todayMinutesDate,
-          dailyGoalMetCount: rollup.dailyGoalMetCount,
-          dailyGoalMetDate: rollup.dailyGoalMetDate ?? null,
-          xp: rollup.xp,
-          level: rollup.level,
-          plantStage: rollup.plantStage,
-          ...(dailyCounts
-            ? {
-                newIntroducedToday: dailyCounts.newIntroducedToday,
-                reviewsDoneToday: dailyCounts.reviewsDoneToday,
-                dailyCountsDate: dailyCounts.date,
-              }
-            : {}),
+          streakDays: charge.ledger.streakDays,
+          streakFreezes: charge.ledger.streakFreezes,
+          lastReviewDate: charge.ledger.lastReviewLabel,
+          todayMinutes: charge.ledger.todayMinutes,
+          todayMinutesDate: epoch.label,
+          dailyGoalMetCount: charge.ledger.dailyGoalMetCount,
+          dailyGoalMetDate: charge.ledger.dailyGoalMetLabel,
+          xp: charge.xp,
+          level: charge.level,
+          plantStage: charge.plantStage,
+          newIntroducedToday: charge.ledger.budget.newIntroduced,
+          reviewsDoneToday: charge.ledger.budget.reviewsDone,
+          dailyCountsDate: epoch.label,
+          studyEpochStart: epoch.start,
+          studyEpochEnd: epoch.end,
+          lastReviewEpochEnd: charge.ledger.lastReviewEpochEnd,
+          goalMetEpochStart: charge.ledger.goalMetEpochStart,
           updatedAt: now,
         })
         .where(eq(profile.userId, user.id))
@@ -334,6 +326,30 @@ function profileEditOwnsUpdatedAt(
     locked.plantSpecies !== snap.plantSpecies ||
     locked.agentInstructions !== (snap.agentInstructions ?? null)
   );
+}
+
+function restoredEpoch(snap: NonNullable<UndoSnapshot['profile']>) {
+  const recorded =
+    snap.studyEpochStart !== undefined ||
+    snap.studyEpochEnd !== undefined ||
+    snap.lastReviewEpochEnd !== undefined ||
+    snap.goalMetEpochStart !== undefined;
+  if (recorded) {
+    return {
+      studyEpochStart: snap.studyEpochStart ? new Date(snap.studyEpochStart) : null,
+      studyEpochEnd: snap.studyEpochEnd ? new Date(snap.studyEpochEnd) : null,
+      lastReviewEpochEnd: snap.lastReviewEpochEnd ? new Date(snap.lastReviewEpochEnd) : null,
+      goalMetEpochStart: snap.goalMetEpochStart ? new Date(snap.goalMetEpochStart) : null,
+    };
+  }
+  // Grades from before the epoch columns stored UTC date labels only.
+  const epoch = legacyOpenEpoch(snap.dailyCountsDate, snap.todayMinutesDate);
+  return {
+    studyEpochStart: epoch?.start ?? null,
+    studyEpochEnd: epoch?.end ?? null,
+    lastReviewEpochEnd: legacyReviewEpochEnd(snap.lastReviewDate),
+    goalMetEpochStart: snap.dailyGoalMetDate ? legacyUtcMidnight(snap.dailyGoalMetDate) : null,
+  };
 }
 
 function parseReviewCursor(raw: string): { at: Date; id: string } | null {
@@ -550,6 +566,7 @@ export const reviewsModule = new Elysia({ prefix: '/reviews' })
               newIntroducedToday: snapshot.profile.newIntroducedToday,
               reviewsDoneToday: snapshot.profile.reviewsDoneToday,
               dailyCountsDate: snapshot.profile.dailyCountsDate,
+              ...restoredEpoch(snapshot.profile),
               updatedAt,
             })
             .where(eq(profile.userId, user.id))

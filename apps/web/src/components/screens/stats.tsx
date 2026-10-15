@@ -19,6 +19,7 @@ interface ForecastData {
   days: number;
   overdueCount: number;
   total: number;
+  labels: string[];
   buckets: { day: string; count: number }[];
 }
 interface IntervalRetentionData {
@@ -48,6 +49,7 @@ interface LearningOverview {
   grades: { again: number; hard: number; good: number; easy: number };
   series: LearningSeriesPoint[];
   hours: { count: number; success: number }[];
+  hourZone?: string;
   target: { status: 'uniform' | 'mixed'; retentionPct: number | null };
 }
 interface DeckLearningRow {
@@ -101,7 +103,11 @@ export const NNStats = () => {
     return {
       overview: { ...overview, series: overview.series.map((point) => ({ ...point, day: utcDayKey(point.day) })) },
       decks: ((decksRaw as { decks: DeckLearningRow[] }).decks ?? []),
-      forecast: { ...forecast, buckets: forecast.buckets.map((bucket) => ({ ...bucket, day: utcDayKey(bucket.day) })) },
+      forecast: {
+        ...forecast,
+        labels: (forecast.labels ?? []).map((label) => utcDayKey(label)).filter((label) => label.length > 0),
+        buckets: forecast.buckets.map((bucket) => ({ ...bucket, day: utcDayKey(bucket.day) })),
+      },
       intervalRetention: retentionRaw as IntervalRetentionData,
     };
   }, []);
@@ -194,7 +200,6 @@ export const NNStats = () => {
     const counts = hourBuckets.counts;
     if (!counts.some((value) => value > 0)) return null;
     const index = counts.indexOf(Math.max(...counts));
-    // The percentage is this single UTC hour, so the label is that hour too.
     return { label: `${((index + 11) % 12) + 1}${index < 12 ? 'am' : 'pm'}`, index };
   }, [hourBuckets]);
 
@@ -205,17 +210,10 @@ export const NNStats = () => {
     return Math.round((hour.success / hour.count) * 100);
   }, [peakHour, overview]);
 
-  // Due-forecast bars: zero-fill the full window. Server buckets are UTC dates.
   const forecastBars = useMemo(() => {
     if (!forecast) return [];
     const byDay = new Map(forecast.buckets.map((b) => [b.day, b.count]));
-    const out: { day: string; count: number }[] = [];
-    const startMs = Date.now();
-    for (let i = 0; i < forecast.days; i++) {
-      const day = new Date(startMs + i * 86400000).toISOString().slice(0, 10);
-      out.push({ day, count: byDay.get(day) ?? 0 });
-    }
-    return out;
+    return forecast.labels.map((day) => ({ day, count: byDay.get(day) ?? 0 }));
   }, [forecast]);
   const forecastMax = useMemo(
     () => Math.max(1, ...forecastBars.map((b) => b.count)),
@@ -630,7 +628,11 @@ export const NNStats = () => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: isMobile ? 10 : 12, marginTop: isMobile ? 12 : 16 }}>
         <NNCard padding={20}>
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{t('stats.bestTime')}</div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-dim)', marginBottom: 14 }}>{t('stats.bestTimeSub')}</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-dim)', marginBottom: 14 }}>
+            {overview?.hourZone && overview.hourZone !== 'UTC'
+              ? t('stats.bestTimeSubZone', { zone: overview.hourZone })
+              : t('stats.bestTimeSub')}
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(24, 1fr)', gap: 2 }}>
             {hourBuckets.counts.map((v, h) => {
               const intensity = v / hourBuckets.max;

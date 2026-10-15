@@ -37,6 +37,7 @@ const m = {
   easeLabel: 'ease {v}',
   bestTime: 'Best time of day',
   bestTimeSub: 'Reviews by UTC hour',
+  bestTimeSubZone: 'Reviews by hour in {zone}',
   peak: 'Peak:',
   retentionInline: 'recall',
   weekLine: 'this week · {time} · ~{avg} min/day',

@@ -19,7 +19,6 @@ import {
   parseCardQuery,
   CardQueryError,
   fsrsResetColumns,
-  todayISO,
   type CardQueryNode,
 } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin.ts';
@@ -29,6 +28,7 @@ import { buildCardWhere } from './card-query-sql.ts';
 import { resolveDeckConfig } from './deck-config.ts';
 import { SORT_ORDERS, type SortOrder } from './filtered-decks.ts';
 import { loadStudyCounts, loadStudyOverview, studyAvailability, sumStudyCounts } from './study-summary.ts';
+import { readAccountStudyDay, studyDaySnapshot } from './study-day.ts';
 
 export const MAX_STUDY_QUEUE = 500;
 
@@ -733,15 +733,9 @@ export const cardsModule = new Elysia({ prefix: '/cards' })
         .where(eq(profile.userId, user.id))
         .limit(1);
       const snapshot = { userDecks, presetsById, profile: existingProfile ?? null };
-
-      // GLOBAL consumed-today, with the same-day reset guard: if the stored
-      // counter date isn't today, treat consumption as 0 (a stale counter from a
-      // previous day — the next grade's nextDailyCounts rolls it over).
-      const today = todayISO(now);
-      const consumedNew =
-        existingProfile?.dailyCountsDate === today ? existingProfile.newIntroducedToday : 0;
-      const consumedReviews =
-        existingProfile?.dailyCountsDate === today ? existingProfile.reviewsDoneToday : 0;
+      const { read: studyDay } = await readAccountStudyDay(user.id, existingProfile ?? null, now);
+      const consumedNew = studyDay.usedNew;
+      const consumedReviews = studyDay.usedReviews;
 
       // Limit VALUES — scoped resolves the TARGET deck; whole-collection passes
       // null so everything falls to profile / ANKI_DEFAULTS (Decision 8).
@@ -805,6 +799,7 @@ export const cardsModule = new Elysia({ prefix: '/cards' })
         total: dueEnriched.length + freshEnriched.length,
         mode: 'regular' as const,
         summary: studyAvailability(sumStudyCounts(scopeCounts), newLimit, reviewLimit, now),
+        studyDay: studyDaySnapshot(studyDay),
       };
     },
     {

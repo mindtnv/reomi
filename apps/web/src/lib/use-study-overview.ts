@@ -32,25 +32,37 @@ export function useStudyOverview() {
   useEffect(() => {
     if (state.status !== 'ready' || !state.data) return;
     const now = Date.parse(state.data.overall.serverNow);
-    const nextDay = Math.floor(now / 86_400_000) * 86_400_000 + 86_400_000;
-    const due = state.data.overall.nextDueAt ? Date.parse(state.data.overall.nextDueAt) : nextDay;
-    const timer = setTimeout(() => { if (!document.hidden) reload(); }, Math.max(250, Math.min(due, nextDay) - now + 50));
+    const boundary = state.data.studyDay?.endsAt ? Date.parse(state.data.studyDay.endsAt) : Number.POSITIVE_INFINITY;
+    const due = state.data.overall.nextDueAt ? Date.parse(state.data.overall.nextDueAt) : boundary;
+    const wait = Math.min(due, boundary);
+    if (!Number.isFinite(wait)) return;
+    const timer = setTimeout(() => { if (!document.hidden) reload(); }, Math.max(250, Math.min(wait - now + 50, 2_147_483_647)));
     return () => clearTimeout(timer);
   }, [state.data, state.status, reload]);
 
   return { ...state, reload };
 }
 
-export interface StudyForecast { days: number; overdueCount: number; total: number; buckets: { day: string; count: number }[] }
+export interface StudyForecast {
+  days: number;
+  overdueCount: number;
+  total: number;
+  labels: string[];
+  buckets: { day: string; count: number }[];
+}
 
 export function useStudyForecast(days: number, refreshKey?: string, deckId?: string) {
   const bootstrapped = useNN((s) => s.bootstrapped);
   const userId = useNN((s) => s.profile?.userId);
   const fetcher = useCallback(async () => {
     const result = await ok(await api.stats.forecast.get({ query: { days: String(days), ...(deckId ? { deckId } : {}) } }));
-    // Eden revives date-looking strings, including YYYY-MM-DD, into Date objects.
-    // Keep the public hook contract as UTC day keys for charts on every screen.
-    return { ...result, buckets: result.buckets.map(bucket => ({ ...bucket, day: utcDayKey(bucket.day) })) };
+    // Eden revives YYYY-MM-DD into a Date. utcDayKey restores the server label.
+    const labels = Array.isArray(result.labels) ? result.labels : [];
+    return {
+      ...result,
+      labels: labels.map((label) => utcDayKey(label)).filter((label) => label.length > 0),
+      buckets: result.buckets.map(bucket => ({ ...bucket, day: utcDayKey(bucket.day) })),
+    };
   }, [days, deckId, refreshKey]);
   const state = useSessionResource<StudyForecast>({ key: `study:forecast:${userId ?? 'current'}:${days}:${deckId ?? 'all'}`, enabled: bootstrapped, keepPreviousData: false, fetcher });
   return { ...state, reload: state.refresh };
