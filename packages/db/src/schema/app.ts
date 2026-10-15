@@ -314,9 +314,9 @@ export const cards = pgTable(
 // Append-only history of every grade. Useful for stats, heatmap, FSRS retuning.
 
 // Pre-grade snapshot stored on the review row that created the grade. Holds the
-// EXACT mutate-set of the grade transaction (card columns mutated at the FSRS
-// step + profile columns mutated by the gamification rollup), so undo restores
-// byte-identically. Date columns are serialized to ISO strings for JSONB.
+// card columns from the FSRS step and the study-ledger columns from the
+// rollup. Undo restores those. plantStage and profile.updatedAt restore only
+// while the grade is still the last writer. Date columns are ISO strings.
 export interface UndoSnapshot {
   card: {
     due: string; // ISO
