@@ -356,14 +356,25 @@ describe('study reminder tick', () => {
         streakWarningEnabled: true,
       })).status, label).toBe(200);
       await db.delete(notificationDeliveries).where(eq(notificationDeliveries.userId, owner.userId));
-      const { email, sent } = captureEmail();
       const start = Date.parse(`${studyDay}T00:00:00.000Z`);
       const end = start + 86_400_000;
       const dueMs = Date.parse(dueAt);
       const firstSlot = start + Math.ceil((dueMs - start) / step) * step;
+      for (let t = start; t < end; t += step) {
+        const when = new Date(t).toISOString();
+        expect(isLocalHourDue(new Date(t), hour, timeZone), `${label} due at ${when}`).toBe(t >= dueMs);
+      }
+      // isLocalHourDue stays false until dueMs and true after it, so later steps
+      // repeat one claim. A tick on all 48 steps of all 16 zones crosses bun's 5s
+      // timeout in CI. Bun leaves that test running, the next beforeEach truncates
+      // the table, and the sent-row assertion then reads zero.
+      const probes = [...new Set([firstSlot - step, firstSlot, firstSlot + step, end - step])]
+        .filter((t) => t >= start && t < end)
+        .sort((a, b) => a - b);
+      const { email, sent } = captureEmail();
       let digestSends = 0;
       let streakSends = 0;
-      for (let t = start; t < end; t += step) {
+      for (const t of probes) {
         await runReminderTick({ now: new Date(t), email });
         const nextDigest = sent.filter((message) => message.subject.endsWith(' due')).length;
         const nextStreak = sent.filter((message) => message.subject.startsWith('Reomi: streak ')).length;
