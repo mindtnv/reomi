@@ -31,9 +31,9 @@ import sanitizeHtml from 'sanitize-html';
 /**
  * The STRICT canonical-UUID relative-token regex (plan C-6). The ONLY shape an
  * `<img src>` may take. Anchored (`^…$`) so no prefix/suffix smuggling. The
- * SAME literal is mirrored on the client edge (`render-card.tsx`
- * `ALLOWED_URI_REGEXP`) and the Next `/m/:uuid` reverse-proxy route — keep all
- * three byte-identical.
+ * SAME literal is mirrored on the client edge (`render-card.tsx`). Stored
+ * markup keeps this relative token; display resolves it to the authenticated
+ * media route. Keep the two literals byte-identical.
  */
 export const MEDIA_TOKEN_RE =
   /^\/m\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
