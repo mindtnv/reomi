@@ -383,7 +383,6 @@ async function gradeAgain(cookie: string, cardId: string): Promise<{ status: num
   return { status: res.status, body: await res.json<LeechGrade>() };
 }
 
-/** One Good finishes the default 10m relearning step and returns the card to review. */
 async function graduateRelearning(cookie: string, cardId: string, lapses: number): Promise<LeechGrade> {
   const res = await callApp(app, 'POST', '/reviews', {
     cookie,
@@ -402,7 +401,6 @@ async function reviewHistory(cookie: string): Promise<{ id: string; cardId: stri
   return (await callApp(app, 'GET', '/reviews', { cookie })).json();
 }
 
-/** A review-state card one lapse short of `lapses`. */
 async function armReviewCard(cookie: string, deckId: string, lapses: number): Promise<string> {
   const card = await seedBasicCard(app, cookie, { deckId, front: 'q', back: 'a' });
   await db
