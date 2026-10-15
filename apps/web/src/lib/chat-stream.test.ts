@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { ApiError } from './api.ts';
 import { regenerateChat, streamChat } from './chat-stream.ts';
+import { learnerChatCopyKey } from './learner-chat-copy.ts';
 
 const originalFetch = globalThis.fetch;
 
@@ -42,6 +43,28 @@ describe('chat stream failure correlation', () => {
     expect(received?.error).toBeInstanceOf(ApiError);
     expect(received?.error).toMatchObject({ status: 503, requestId: 'chat-503' });
     expect(received?.message).toContain('chat-503');
+  });
+
+  test('an SSE error frame keeps the wire code beside the request id', async () => {
+    globalThis.fetch = (async () =>
+      new Response('event: error\ndata: {"type":"error","message":"ai_unavailable"}\n\n', {
+        status: 200,
+        headers: { 'content-type': 'text/event-stream', 'x-request-id': 'req_1' },
+      })) as unknown as typeof fetch;
+
+    let received: { message: string; error?: ApiError } | undefined;
+    await streamChat('conversation', 'hello', {
+      onError: (message, error) => {
+        received = { message, error };
+      },
+    });
+
+    expect(received?.error?.safeMessage).toBe('ai_unavailable');
+    expect(received?.error?.status).toBe(500);
+    expect(received?.error?.requestId).toBe('req_1');
+    expect(received?.message).toContain('req_1');
+    expect(learnerChatCopyKey(received!.error!.safeMessage)).toBe('assistant.errors.ai_unavailable');
+    expect(learnerChatCopyKey(received!.message)).toBe('chat.errors.generic');
   });
 
   test('a deliberate abort keeps the specialized silent behavior', async () => {

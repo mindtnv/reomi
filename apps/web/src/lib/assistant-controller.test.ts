@@ -1,6 +1,8 @@
 import { expect, test } from 'bun:test';
+import { ApiError } from './api';
 import { AssistantController, type AssistantTransport } from './assistant-controller';
 import type { ChatStreamHandlers } from './chat-stream';
+import { learnerChatCopyKey } from './learner-chat-copy';
 
 function harness() {
   const streams = new Map<string, { handlers: ChatStreamHandlers; signal: AbortSignal; finish: () => void }>();
@@ -134,6 +136,25 @@ test('a confirmation resumes only its original session and cannot be sent twice'
   expect(controller.getSnapshot().selectedKey).toBe(other);
   expect(controller.getSnapshot().sessions[other]!.draft).toBe('Untouched');
   expect(controller.getSnapshot().sessions[key]!.messages.at(-1)!.toolCalls?.[0]?.awaitingConfirmation).toBe(false);
+  controller.dispose();
+});
+
+test('an upstream outage stores the wire code when the support suffix is on the message', async () => {
+  const { controller, streams } = harness();
+  const key = controller.newConversation();
+  controller.setDraft(key, 'hello');
+  const sent = controller.send(key);
+  await tick();
+  const stream = streams.get(controller.getSnapshot().sessions[key]!.conversationId!)!;
+  const error = new ApiError('ai_unavailable', { status: 500, requestId: 'req_1' });
+  stream.handlers.onError?.(error.message, error);
+  stream.finish();
+  await sent;
+  const stored = controller.getSnapshot().sessions[key]!.error!;
+  expect(error.message).toBe('ai_unavailable · request: req_1');
+  expect(stored.code).toBe('ai_unavailable');
+  expect(stored.requestId).toBe('req_1');
+  expect(learnerChatCopyKey(stored.code)).toBe('assistant.errors.ai_unavailable');
   controller.dispose();
 });
 
