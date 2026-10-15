@@ -8,13 +8,15 @@ import { authPlugin } from '../auth-plugin.ts';
 import { AI_COOLDOWN_MS, cooldownCheck } from '../ai-cooldown.ts';
 import { normalizePlanUrl } from '../modules/topic-plan.ts';
 
-const GOAL_MAX = 200;
-const LEVEL_MAX = 80;
-const TITLE_MAX = 120;
-const OUTCOME_MAX = 400;
+export const GOAL_MAX = 200;
+export const LEVEL_MAX = 80;
+export const TITLE_MAX = 120;
+export const OUTCOME_MAX = 400;
 const MODULE_MIN = 4;
-const MODULE_MAX = 8;
-const URL_MAX = 4;
+export const MODULE_MAX = 8;
+export const REVISION_MIN = 1;
+export const REVISION_MAX = 12;
+export const URL_MAX = 4;
 const URL_CANDIDATES = 8;
 
 export interface DraftModule {
@@ -40,22 +42,12 @@ function draftPrompt(goal: string, level: string | null, locale: 'en' | 'ru'): s
   ].join('\n');
 }
 
-export function parseDraftModules(raw: string): DraftModule[] | null {
-  const stripped = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
-  const start = stripped.indexOf('{');
-  const end = stripped.lastIndexOf('}');
-  if (start < 0 || end <= start) return null;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(stripped.slice(start, end + 1));
-  } catch {
-    return null;
-  }
-  if (!parsed || typeof parsed !== 'object' || !Array.isArray((parsed as { modules?: unknown }).modules)) {
-    return null;
-  }
-  const incoming = (parsed as { modules: unknown[] }).modules;
-  if (incoming.length < MODULE_MIN || incoming.length > MODULE_MAX) return null;
+// A completion stays at 4 to 8 modules. A revision may shrink to 1 to 12.
+export function readPlanModules(
+  incoming: unknown[],
+  bounds: { min: number; max: number },
+): DraftModule[] | null {
+  if (incoming.length < bounds.min || incoming.length > bounds.max) return null;
 
   const modules: DraftModule[] = [];
   for (let index = 0; index < incoming.length; index++) {
@@ -99,9 +91,54 @@ export function parseDraftModules(raw: string): DraftModule[] | null {
   return modules;
 }
 
+export function parseDraftModules(raw: string): DraftModule[] | null {
+  const stripped = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+  const start = stripped.indexOf('{');
+  const end = stripped.lastIndexOf('}');
+  if (start < 0 || end <= start) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stripped.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object' || !Array.isArray((parsed as { modules?: unknown }).modules)) {
+    return null;
+  }
+  return readPlanModules((parsed as { modules: unknown[] }).modules, { min: MODULE_MIN, max: MODULE_MAX });
+}
+
 async function keepLiveUrls(urls: string[]): Promise<string[]> {
   const checks = await Promise.all(urls.map(async (url) => ({ url, live: await probePageUrl(url) })));
   return checks.filter((check) => check.live).map((check) => check.url).slice(0, URL_MAX);
+}
+
+export async function probePlanModules(modules: DraftModule[]): Promise<DraftModule[]> {
+  const probed: DraftModule[] = [];
+  for (const module of modules) {
+    probed.push({ ...module, urls: await keepLiveUrls(module.urls) });
+  }
+  return probed;
+}
+
+export async function completePlanDraft(input: {
+  goal: string;
+  level: string | null;
+  locale: 'en' | 'ru';
+}): Promise<{ ok: true; modules: DraftModule[] } | { ok: false; error: 'ai_disabled' | 'generation_failed' }> {
+  if (!isChatEnabled()) return { ok: false, error: 'ai_disabled' };
+  let raw: string;
+  try {
+    raw = await complete([
+      { role: 'system', content: 'You propose study modules. Reply with JSON only.' },
+      { role: 'user', content: draftPrompt(input.goal, input.level, input.locale) },
+    ]);
+  } catch {
+    return { ok: false, error: 'generation_failed' };
+  }
+  const parsed = parseDraftModules(raw);
+  if (!parsed) return { ok: false, error: 'generation_failed' };
+  return { ok: true, modules: await probePlanModules(parsed) };
 }
 
 export const topicPlanDraftRoutes = new Elysia({ prefix: '/notebooks' })
@@ -122,23 +159,11 @@ export const topicPlanDraftRoutes = new Elysia({ prefix: '/notebooks' })
       const cooled = cooldownCheck(`plan-draft:${user.id}`, AI_COOLDOWN_MS.planDraft);
       if (!cooled.ok) return status(429, { error: 'cooldown', retryAfterMs: cooled.retryAfterMs });
 
-      let raw: string;
-      try {
-        raw = await complete([
-          { role: 'system', content: 'You propose study modules. Reply with JSON only.' },
-          { role: 'user', content: draftPrompt(goal, level, locale) },
-        ]);
-      } catch {
-        return status(502, { error: 'generation_failed' });
+      const drafted = await completePlanDraft({ goal, level, locale });
+      if (!drafted.ok) {
+        return status(drafted.error === 'ai_disabled' ? 503 : 502, { error: drafted.error });
       }
-
-      const parsed = parseDraftModules(raw);
-      if (!parsed) return status(502, { error: 'generation_failed' });
-      const modules = [];
-      for (const module of parsed) {
-        modules.push({ ...module, urls: await keepLiveUrls(module.urls) });
-      }
-      return { modules };
+      return { modules: drafted.modules };
     },
     {
       auth: true,

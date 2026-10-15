@@ -210,6 +210,7 @@ const m = {
     browse_cards: 'Просмотр ваших карточек',
     get_card: 'Открыта карточка',
     fetch_page: 'Прочитана страница',
+    propose_topic_plan: 'Предложен план обучения',
     // Лейблы write/SRS-тулов (B5) — `{front}` = фронт карточки, `{deck}` =
     // имя колоды; никогда не UUID.
     create_card: 'Черновик карточки для «{deck}»',
@@ -308,6 +309,9 @@ const m = {
     open: 'Открыть в читалке',
     untitled: 'Источник',
     page: 'стр. {n}',
+  },
+  plan: {
+    modules: 'Модули: {count}',
   },
   // Errors surfaced in the stream
   errors: {

@@ -22,6 +22,7 @@ const READ_TOOLS = [
   'list_decks',
   'browse_cards',
   'get_card',
+  'propose_topic_plan',
 ];
 
 describe('buildToolRegistry — web_search gating', () => {
@@ -164,6 +165,7 @@ describe('toOpenAiTools — gateway schema shape', () => {
       'list_decks',
       'browse_cards',
       'get_card',
+      'propose_topic_plan',
       'web_search',
       ...WRITE_SRS_TOOLS,
       ...KNOWLEDGE_TOOLS,

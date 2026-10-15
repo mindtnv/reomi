@@ -20,6 +20,7 @@
 // via the normal path because nothing was flushed.
 
 import { captureSuppliedEvidence } from '../ai/card-evidence';
+import { capStoredToolResult } from '../ai/tool-result-cap.ts';
 import { resolveAssistantPolicyIntent } from '../ai/assistant-policy-intent';
 import { Elysia, t } from 'elysia';
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
@@ -485,8 +486,7 @@ function reconstructHistory(
 
 /** Truncate a tool-result string to the per-result content cap. */
 function capToolResult(text: string): string {
-  if (text.length <= TOOL_RESULT_MAX_CHARS) return text;
-  return `${text.slice(0, TOOL_RESULT_MAX_CHARS)}\n…[truncated]`;
+  return capStoredToolResult('', text);
 }
 
 /** Outcome of a shared agent turn — the caller closes the controller accordingly. */
@@ -761,7 +761,7 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<AgentTurnOutcome> {
             type: 'tool_result',
             id: call.id,
             ok: result.ok,
-            summary: result.ok ? capToolResult(result.text) : result.error,
+            summary: result.ok ? capStoredToolResult(call.name, result.text) : result.error,
             citations: result.ok && resultCitations.length > 0 ? resultCitations : undefined,
           });
           return { call, result, resultCitations };
@@ -775,7 +775,8 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<AgentTurnOutcome> {
           const key = isSourceCitation(c) ? c.sourceChunkId : c.chunkId || c.cardId;
           if (!citationAcc.has(key)) citationAcc.set(key, c);
         }
-        const toolContent = capToolResult(
+        const toolContent = capStoredToolResult(
+          call.name,
           result.ok ? result.text : JSON.stringify({ ok: false, error: result.error }),
         );
         toolResultChars += toolContent.length;
