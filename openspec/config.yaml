@@ -5,8 +5,10 @@ context: |
   Drizzle ORM, PostgreSQL 18 with pgvector, and Better Auth. PostgreSQL is the
   server of truth. Domain writes are user-scoped; agent mutations require a
   validate -> dry-run preview -> explicit confirmation workflow. Persistent IDs
-  are UUIDv7. Development may use db:push, but release safety depends on committed
-  migrations. CLAUDE.md is the canonical agent guide; AGENTS.md mirrors its body.
+  are UUIDv7. Schema push, when used, targets only the disposable test database
+  (TEST_DATABASE_URL) and must not connect to DATABASE_URL. Local tests and
+  release gates build databases from committed migrations. CLAUDE.md is the
+  canonical agent guide; AGENTS.md mirrors its body.
 
 rules:
   proposal:
