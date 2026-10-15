@@ -236,6 +236,24 @@ describe('repository contracts', () => {
     }
   });
 
+  test('production visual audit is dispatched only on the default branch', () => {
+    const audit = readRepoFile('.github/workflows/visual-audit.yml');
+    expect(audit).toContain('workflow_dispatch:');
+    expect(audit).not.toContain('pull_request');
+    expect(audit).toContain(
+      "github.ref == format('refs/heads/{0}', github.event.repository.default_branch)",
+    );
+    expect(audit).toContain('ref: ${{ github.event.repository.default_branch }}');
+    expect(audit).toContain('secrets.E2E_PASSWORD');
+
+    const smoke = readRepoFile('.github/workflows/e2e-prod.yml');
+    expect(smoke).toContain('workflows: [deploy]');
+    expect(smoke).toContain("github.event.workflow_run.conclusion == 'success'");
+    expect(smoke).toContain('ref: ${{ github.event.workflow_run.head_sha }}');
+    expect(smoke).not.toContain('pull_request');
+    expect(smoke).not.toContain('upload-artifact');
+  });
+
   test('workspace packages are named reomi', () => {
     const root = JSON.parse(readRepoFile('package.json')) as { name: string };
     expect(root.name).toBe('reomi');

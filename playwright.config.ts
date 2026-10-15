@@ -7,6 +7,8 @@ const prod = process.env.E2E_TARGET === 'prod';
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.e2e.ts',
+  // The production visual audit has its own config and must not run inside the smoke.
+  testIgnore: ['**/visual-audit.e2e.ts'],
   fullyParallel: false,
   workers: 1,
   timeout: 240_000,
