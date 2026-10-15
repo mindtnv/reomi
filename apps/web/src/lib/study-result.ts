@@ -55,3 +55,11 @@ export function clearStudyResult(userId: string, storage?: ResultStorage): void 
   if (inMemory?.userId === userId) inMemory = null;
   try { removeBrowserValue(storage ?? localStorage, key(userId)); } catch {}
 }
+
+export function subscribeStudyResult(userId: string, onChange: (result: StudyResult | null) => void, storage?: ResultStorage, target?: EventTarget): () => void {
+  const source = target ?? (typeof window === 'undefined' ? null : window);
+  if (!source) return () => {};
+  const onStorage = () => { onChange(readStudyResult(userId, storage)); };
+  source.addEventListener('storage', onStorage);
+  return () => source.removeEventListener('storage', onStorage);
+}
