@@ -431,6 +431,34 @@ test('a completed single read has one disclosure and only three result rows unti
   expect(trace.querySelectorAll('.reomi-tool-result-row')).toHaveLength(8);
 });
 
+test('a proposed topic plan renders module rows and urls in the transcript', async () => {
+  await render(); await act(async () => button('assistant.open').click());
+  const key = controller.getSnapshot().selectedKey!; let sending!: Promise<void>;
+  await act(async () => { controller.setDraft(key, 'I want to learn Kubernetes'); sending = controller.send(key); await new Promise(resolve => setTimeout(resolve, 0)); });
+  const summary = JSON.stringify({
+    goal: 'Learn Kubernetes',
+    level: null,
+    modules: [
+      { title: 'Pods', outcome: 'Run a container on a node.', prerequisiteIndexes: [], urls: ['https://kubernetes.io/docs/concepts/workloads/pods/'] },
+      { title: 'Services', outcome: 'Expose a set of pods.', prerequisiteIndexes: [0], urls: [] },
+    ],
+  });
+  await act(async () => {
+    callbacks.onToolCall?.({ id: 'plan', name: 'propose_topic_plan', args: { goal: 'Learn Kubernetes' } });
+    callbacks.onToolResult?.({ id: 'plan', ok: true, summary });
+    callbacks.onToken?.('Here is a plan.'); callbacks.onDone?.('answer'); finish?.(); await sending;
+  });
+  const trace = document.querySelector('.reomi-tool-trace')!;
+  expect(trace).not.toBeNull();
+  await act(async () => trace.querySelector<HTMLButtonElement>('button')!.click());
+  const rows = [...trace.querySelectorAll('.reomi-tool-result-row')];
+  expect(rows.map((row) => row.querySelector('span')?.textContent)).toEqual(['Pods', 'Services']);
+  expect(rows[0]?.querySelector('a')?.getAttribute('href')).toBe('https://kubernetes.io/docs/concepts/workloads/pods/');
+  expect(rows[1]?.querySelector('a')).toBeNull();
+  expect(trace.textContent).toContain('Run a container on a node.');
+  expect(trace.querySelector('.reomi-confirm-surface')).toBeNull();
+});
+
 test('Back dismisses a model popup before hiding a pending approval, without deciding the write', async () => {
   const { transientLayers } = await import('../../lib/layer-stack');
   models = [{ id: 'fast', label: 'Fast', default: true }]; window.innerWidth = 390;

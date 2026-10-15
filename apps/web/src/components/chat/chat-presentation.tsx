@@ -32,6 +32,7 @@ import {
 } from '@/components/ui';
 import { RichCard } from '@/components/rich-card';
 import { compactToolText } from '@/lib/panel-width';
+import { topicPlanCardRows } from '@/lib/topic-plan-card';
 import { renderCardHtml, SafeHtml } from '@/lib/render-card';
 import { api, ok } from '@/lib/api';
 import { resolveMediaSrc } from '@/lib/media-url';
@@ -2387,6 +2388,21 @@ const WebSearchResultText = ({ text }: { text: string }) => {
 function CompactToolResult({ text, toolName, t }: { text: string; toolName: string; t: (key: string, params?: Record<string, string | number>) => string }) {
   const [expanded, setExpanded] = useState(false);
   const router = useAppNavigation();
+  const planRows = toolName === 'propose_topic_plan' ? topicPlanCardRows(text) : null;
+  if (planRows) {
+    return <div className="reomi-tool-result-list">
+      <div className="reomi-tool-result-count">{t('chat.plan.modules', { count: planRows.length })}</div>
+      {planRows.map((row, index) => <div className="reomi-tool-result-row" key={`${row.title}-${index}`}>
+        <span>{row.title}</span>
+        <small>{row.outcome}</small>
+        {row.urls.map((url) => {
+          const href = safeWebUrl(url);
+          if (!href) return null;
+          return <a key={href} href={href} target="_blank" rel="noopener noreferrer nofollow">{href}</a>;
+        })}
+      </div>)}
+    </div>;
+  }
   const deckRows = Array.from(text.matchAll(/^\s*-\s+(.+?)\s+\[deck:([^\]]+)\]\s*[—–-]\s*(\d+) card\(s\), (\d+) due/gm), match => ({ title: match[1], id: match[2], total: match[3], due: match[4] }));
   let parsed: any = null;
   try { parsed = JSON.parse(text); } catch { /* Existing plain-text tools. */ }

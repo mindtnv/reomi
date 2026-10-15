@@ -75,6 +75,25 @@ describe('cooldownCheck (pure)', () => {
     }
   });
 
+  test('plan-draft:<userId> rejects a second call inside 30 seconds', () => {
+    cooldownReset();
+    const savedEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const userId = '018f3b2a-7c31-7b2a-8c11-111111111111';
+      const ms = AI_COOLDOWN_MS.planDraft;
+      expect(ms).toBe(30_000);
+      const t0 = 5_000_000_000;
+      expect(cooldownCheck(`plan-draft:${userId}`, ms, t0).ok).toBe(true);
+      const again = cooldownCheck(`plan-draft:${userId}`, ms, t0 + 29_999);
+      expect(again.ok).toBe(false);
+      if (!again.ok) expect(again.retryAfterMs).toBe(1);
+      expect(cooldownCheck(`plan-draft:${userId}`, ms, t0 + 30_000).ok).toBe(true);
+    } finally {
+      process.env.NODE_ENV = savedEnv;
+    }
+  });
+
   test('NODE_ENV=test short-circuits to ok', () => {
     const savedEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = 'test';

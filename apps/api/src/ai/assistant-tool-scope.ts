@@ -12,6 +12,8 @@ export async function assistantReadScopeError(ctx: ToolContext, name: string, ra
   const legacy = !snapshot && ctx.notebook;
   if (snapshot?.policy !== 'strict' && !legacy) return undefined;
   if (metadata.has(name)) return undefined;
+  // The plan is drafted from the user's goal. It does not read selected materials.
+  if (name === 'propose_topic_plan') return undefined;
   const args = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
   const sourceIds = snapshot?.sourceIds ?? (legacy ? legacy.sourceIds : []);
   const deckIds = snapshot?.deckIds ?? [];

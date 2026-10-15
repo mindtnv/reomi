@@ -183,6 +183,7 @@ export const TOOL_LABEL_KEY: Record<string, string> = {
   browse_cards: 'chat.tool.browse_cards',
   get_card: 'chat.tool.get_card',
   fetch_page: 'chat.tool.fetch_page',
+  propose_topic_plan: 'chat.tool.propose_topic_plan',
   // Write/SRS tools (B5) — previously fell back to the raw key string.
   create_card: 'chat.tool.create_card',
   edit_card: 'chat.tool.edit_card',
@@ -271,6 +272,7 @@ export const TOOL_ICON_KEY: Record<string, IconName> = {
   due_forecast: 'target',
   web_search: 'link',
   fetch_page: 'doc',
+  propose_topic_plan: 'doc',
   search_cards: 'search',
   create_card: 'plus',
   edit_card: 'edit',
@@ -563,6 +565,11 @@ export function toolLabel(name: string, args: unknown, ctx: ToolLabelCtx = {}): 
       const shortened = url ? url.replace(/^https?:\/\//i, '').replace(/^www\./i, '') : '';
       const display = shortened.length > 60 ? `${shortened.slice(0, 60)}…` : shortened;
       return { labelKey, params: {}, argMono: display || undefined };
+    }
+    case 'propose_topic_plan': {
+      const goal = nonEmptyString(a.goal);
+      const display = goal && goal.length > 60 ? `${goal.slice(0, 60)}…` : goal;
+      return { labelKey, params: {}, argMono: display };
     }
     // Write/SRS tools (B5) — card-targeting ones resolve the card front; the
     // creator resolves the deck name. Never a UUID, never raw JSON.

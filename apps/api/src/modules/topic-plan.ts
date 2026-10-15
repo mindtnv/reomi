@@ -16,6 +16,10 @@ import {
 import { authPlugin } from '../auth-plugin.ts';
 import { env } from '../env.ts';
 import { isUniqueViolation } from './sources-shared.ts';
+import { addModuleSources } from './topic-plan-sources.ts';
+import { normalizePlanUrl } from './plan-url.ts';
+
+export { normalizePlanUrl };
 
 const GOAL_MAX = 200;
 const LEVEL_MAX = 80;
@@ -56,26 +60,6 @@ type PlanBody = {
     urls?: string[];
   }>;
 };
-
-/** http(s) URL with no userinfo, lowercased host, no fragment, no default port. */
-export function normalizePlanUrl(raw: string): string | null {
-  let url: URL;
-  try {
-    url = new URL(raw.trim());
-  } catch {
-    return null;
-  }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
-  if (url.username || url.password || url.hostname.length === 0) return null;
-  url.hash = '';
-  if (
-    (url.protocol === 'http:' && url.port === '80') ||
-    (url.protocol === 'https:' && url.port === '443')
-  ) {
-    url.port = '';
-  }
-  return url.href;
-}
 
 export function parsePlanBody(
   body: PlanBody,
@@ -455,4 +439,20 @@ export const topicPlanRoutes = new Elysia({ prefix: '/notebooks' })
       return plan;
     },
     { auth: true, params: t.Object({ id: t.String() }) },
+  )
+  .post(
+    '/:id/plan/modules/:moduleId/sources',
+    async ({ user, params, body, status }) => {
+      if (!UUID_RE.test(params.id) || !UUID_RE.test(params.moduleId)) {
+        return status(404, { error: 'not_found' });
+      }
+      const added = await addModuleSources(user.id, params.id, params.moduleId, body.urls);
+      if (!added.ok) return status(added.error === 'not_found' ? 404 : 400, { error: added.error });
+      return { items: added.items };
+    },
+    {
+      auth: true,
+      params: t.Object({ id: t.String(), moduleId: t.String() }),
+      body: t.Object({ urls: t.Array(t.String()) }),
+    },
   );

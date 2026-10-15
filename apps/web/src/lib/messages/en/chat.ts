@@ -210,6 +210,7 @@ const m = {
     browse_cards: 'Browsed your cards',
     get_card: 'Opened a card',
     fetch_page: 'Read a page',
+    propose_topic_plan: 'Proposed a study plan',
     // Write/SRS tool labels (B5) — `{front}` = the card's front excerpt,
     // `{deck}` = the target deck name; never a UUID.
     create_card: 'Drafted a card for {deck}',
@@ -309,6 +310,9 @@ const m = {
     open: 'Open in the reader',
     untitled: 'Source',
     page: 'p. {n}',
+  },
+  plan: {
+    modules: '{count} modules',
   },
   // Errors surfaced in the stream
   errors: {
