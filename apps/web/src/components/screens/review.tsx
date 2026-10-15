@@ -21,7 +21,7 @@ import { Modal } from '@/components/design-system/modal';
 import { ReviewSessionDone } from '@/components/review-session-done';
 import { raiseToast } from '@/components/toasts';
 import { useT, useLocale } from '@/lib/i18n';
-import { useNN } from '@/lib/store';
+import { mirrorAccountGeneration, useNN } from '@/lib/store';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useEmptyRedirect } from '@/lib/use-empty-redirect';
 import { resolveDeckConfigClient } from '@/lib/deck-config';
@@ -193,6 +193,7 @@ export const NNReviewClassic = () => {
     setQueueLoading(true);
     setQueueError(null);
     (async () => {
+      const account = mirrorAccountGeneration();
       try {
         const query: Record<string, string> = {};
         if (filteredDeckId) query.filteredDeckId = filteredDeckId;
@@ -211,7 +212,7 @@ export const NNReviewClassic = () => {
           // A lost response may have committed, or another tab may have graded.
           // Reconcile account totals as well as the queue during recovery.
           const latest = await ok(await api.profile.get()).catch(() => null);
-          if (!cancelled && latest?.userId === profile?.userId && latest?.userId) {
+          if (!cancelled && account === mirrorAccountGeneration() && latest?.userId === profile?.userId && latest?.userId) {
             useNN.setState({ profile: profileFromApi(latest) });
           }
         }

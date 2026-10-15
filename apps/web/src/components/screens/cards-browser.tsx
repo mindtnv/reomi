@@ -30,7 +30,7 @@ import { cardCreationDeck } from '@/lib/card-creation-deck';
 import { CardDetailPanel } from '@/components/card-detail-panel';
 
 import { RENDER_KIND_BADGE_TONE } from '@/lib/source-kind';
-import { useNN } from '@/lib/store';
+import { mirrorAccountGeneration, useNN } from '@/lib/store';
 import type { Card } from '@/lib/types';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useT, useDateLocale } from '@/lib/i18n';
@@ -262,15 +262,16 @@ export const NNCardsBrowser = () => {
     // just validated in this entry; a second loading cycle would unmount it.
     if (!focusParam && resolvedFocus?.id === focusTarget && resolvedFocus.entryId === navigationEntry) return;
     let active = true;
+    const account = mirrorAccountGeneration();
     setFocusError(null);setResolvedFocus(null);
     void (async () => {
       try {
         const card = cardFromApi(await ok(await api.cards({ id: focusTarget }).get()));
         if(card.id!==focusTarget)throw new Error('Unexpected card response');
-        if (!active) return;
+        if (!active || account !== mirrorAccountGeneration()) return;
         useNN.setState((state) => ({ cards: [...state.cards.filter((c) => c.id !== card.id), card] }));
         if (focusedId !== card.id && !(await router.confirmLeave())) return;
-        if (!active) return;
+        if (!active || account !== mirrorAccountGeneration()) return;
         setFocusedId(card.id);setResolvedFocus({id:card.id,entryId:navigationEntry});
         if (!focusParam) return;
         const params = new URLSearchParams(Array.from(searchParams.entries()));
@@ -278,7 +279,7 @@ export const NNCardsBrowser = () => {
         const qs = params.toString();
         router.replace(qs ? `/cards?${qs}` : '/cards', { track: false, viewOnly:true });
       } catch (error) {
-        if (active) {
+        if (active && account === mirrorAccountGeneration()) {
           const failure=toApiError(error);setFocusError(failure);
           if(failure.status===404||failure.status===403){
             setFocusedId(null);setResolvedFocus(null);
@@ -361,6 +362,7 @@ export const NNCardsBrowser = () => {
     async (q: string) => {
       const requestKey = `${q}\u0000${sortStr}\u0000${noteTypeScope ?? ''}`;
       const generation = ++searchGeneration.current;
+      const account = mirrorAccountGeneration();
       // A fresh authoritative search supersedes any pagination append in flight.
       loadMoreGeneration.current += 1;
       loadingMoreRef.current = false;
@@ -369,14 +371,14 @@ export const NNCardsBrowser = () => {
       setServerError(null);
       try {
         const { items, nextCursor } = await searchCards(q, { sort: sortStr, noteTypeId: noteTypeScope });
-        if (generation !== searchGeneration.current) return;
+        if (generation !== searchGeneration.current || account !== mirrorAccountGeneration()) return;
         setServerResults(items);
         setSelected((previous) => new Set([...previous].filter((id) => items.some((card) => card.id === id))));
         setServerQ(q);
         setServerKey(requestKey);
         setServerCursor(nextCursor);
       } catch (err) {
-        if (generation !== searchGeneration.current) return;
+        if (generation !== searchGeneration.current || account !== mirrorAccountGeneration()) return;
         console.error('searchCards failed', err);
         setServerError(toApiError(err));
       } finally {
@@ -389,10 +391,11 @@ export const NNCardsBrowser = () => {
   const restoreRows = useCallback(async (anchor: import('@/lib/navigation-context').ScrollAnchor, signal: AbortSignal) => {
     if (!serverActive || serverResults === null) return 'missing' as const;
     const generation = searchGeneration.current;
+    const account = mirrorAccountGeneration();
     const result = await restoreCollectionPages({throughId:anchor.endId,initial:{items:serverResults,nextCursor:serverCursor},
       anchors:[anchor.id,...(anchor.nearby??[])].filter((id):id is string=>Boolean(id)),signal,
       fetchPage:cursor=>searchCards(query,{sort:sortStr,cursor,noteTypeId:noteTypeScope})});
-    if (!signal.aborted && generation === searchGeneration.current) {setServerResults(result.items);setServerCursor(result.nextCursor);}
+    if (!signal.aborted && generation === searchGeneration.current && account === mirrorAccountGeneration()) {setServerResults(result.items);setServerCursor(result.nextCursor);}
     return result.reason;
   },[serverActive,serverResults,serverCursor,searchCards,query,sortStr,noteTypeScope]);
   const tablePosition = useNavigationScroll('cards','table',{ready:serverActive&&!searching,queryKey:currentSearchKey,restoreRows});
@@ -407,6 +410,7 @@ export const NNCardsBrowser = () => {
     if (!serverCursor || serverQ === null || serverKey !== currentSearchKey) return;
     if (loadingMoreRef.current) return;
     const generation = ++loadMoreGeneration.current;
+    const account = mirrorAccountGeneration();
     loadingMoreRef.current = true;
     setLoadingMore(true);
     setServerError(null);
@@ -416,7 +420,7 @@ export const NNCardsBrowser = () => {
         cursor: serverCursor,
         noteTypeId: noteTypeScope,
       });
-      if (generation !== loadMoreGeneration.current) return;
+      if (generation !== loadMoreGeneration.current || account !== mirrorAccountGeneration()) return;
       setServerResults((prev) => {
         const base = prev ?? [];
         const byId = new Map(base.map((c) => [c.id, c]));
@@ -425,7 +429,7 @@ export const NNCardsBrowser = () => {
       });
       setServerCursor(nextCursor);
     } catch (err) {
-      if (generation !== loadMoreGeneration.current) return;
+      if (generation !== loadMoreGeneration.current || account !== mirrorAccountGeneration()) return;
       console.error('searchCards (load more) failed', err);
       setServerError(toApiError(err));
     } finally {
