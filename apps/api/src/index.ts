@@ -16,6 +16,7 @@ import {
   reconcileArtifactsOnStartup,
 } from './ai/artifacts.ts';
 import { createProcessFailureHandlers, createShutdownCoordinator } from './shutdown.ts';
+import { drainReminders, startReminderScheduler } from './reminders/scheduler.ts';
 
 const receiptMaintenance = createReceiptMaintenance(async () => {
   await cleanupUiActionReceipts(); await cleanupOperationRetryReceipts();
@@ -31,6 +32,7 @@ const app = buildApp().listen(env.PORT, () => {
   void resumeSourceIngestOnStartup();
   void reconcileArtifactsOnStartup();
   receiptMaintenance.start();
+  if (env.NODE_ENV !== 'test') startReminderScheduler();
 });
 
 const shutdown = createShutdownCoordinator({
@@ -42,6 +44,7 @@ const shutdown = createShutdownCoordinator({
     sourceIngest: (timeoutMs) => drainSourceIngest({ timeoutMs }),
     artifact: (timeoutMs) => drainArtifactGeneration({ timeoutMs }),
     receipts: () => receiptMaintenance.drain(),
+    reminder: () => drainReminders(),
   },
   closeDb,
   // Avoid process.exit(): after the listener/pool close, the event loop exits

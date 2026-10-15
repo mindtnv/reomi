@@ -129,6 +129,7 @@ export class CorrelatedPendingQueue {
 export const indexWorkerState = new WorkerTracker('index');
 export const sourceIngestWorkerState = new WorkerTracker('source_ingest');
 export const artifactWorkerState = new WorkerTracker('artifact');
+export const reminderWorkerState = new WorkerTracker('reminder');
 
 let lifecycle: 'running' | 'shutting_down' = 'running';
 

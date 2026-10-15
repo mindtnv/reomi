@@ -4,7 +4,7 @@
 //   - A client-side Notification fired on app-open when due > 0 AND user opted in.
 //
 // What this does NOT deliver:
-//   - Background / while-closed notifications (requires server Web Push — NON-GOAL).
+//   - While-closed delivery. Account reminders use the server push/email tick.
 //   - Periodic Background Sync (Chromium-only, throttled, flaky — see hook below).
 //
 // The opt-in flag is persisted in localStorage so it survives page reloads.
@@ -66,8 +66,7 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
  *   - User must have opted in (isNotificationsEnabled())
  *   - n must be > 0
  *
- * Does NOT deliver notifications while the app is closed/backgrounded — that
- * requires server Web Push (NON-GOAL for this milestone).
+ * Does NOT deliver while the app is closed. That path is the server reminder tick.
  *
  * // HOOK: Periodic Background Sync trigger would go here when/if implemented.
  * // At that point, move the Notification dispatch into the SW message handler

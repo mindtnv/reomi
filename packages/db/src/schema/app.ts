@@ -1329,6 +1329,81 @@ export const cardSourcesRelations = relations(cardSources, ({ one }) => ({
   message: one(messages, { fields: [cardSources.messageId], references: [messages.id] }),
 }));
 
+// ── study reminders ────────────────────────────────────────────────────────
+// Account choices live outside `profile` so a review undo snapshot cannot
+// restore a previous reminder hour. Rows appear only after an explicit save.
+// Push endpoints and client keys stay on `push_subscriptions`. Delivery
+// receipts store a slot, never the endpoint path.
+
+export const notificationSettings = pgTable(
+  'notification_settings',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    digestEnabled: boolean('digest_enabled').notNull().default(false),
+    streakWarningEnabled: boolean('streak_warning_enabled').notNull().default(false),
+    timeZone: text('time_zone').notNull(),
+    digestHour: integer('digest_hour').notNull(),
+    streakHour: integer('streak_hour').notNull(),
+    emailEnabled: boolean('email_enabled').notNull().default(false),
+    pushEnabled: boolean('push_enabled').notNull().default(false),
+    locale: text('locale').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check('notification_settings_digest_hour_chk', sql`${t.digestHour} between 0 and 23`),
+    check('notification_settings_streak_hour_chk', sql`${t.streakHour} between 0 and 23`),
+    check('notification_settings_locale_chk', sql`${t.locale} in ('ru', 'en')`),
+  ],
+);
+
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    expiration: timestamp('expiration', { withTimezone: true }),
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    disabledAt: timestamp('disabled_at', { withTimezone: true }),
+    failureCount: integer('failure_count').notNull().default(0),
+  },
+  (t) => [unique('push_subscriptions_user_endpoint_uq').on(t.userId, t.endpoint)],
+);
+
+export const notificationDeliveries = pgTable(
+  'notification_deliveries',
+  {
+    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    channel: text('channel').notNull(),
+    studyDay: text('study_day').notNull(),
+    status: text('status').notNull(),
+    leaseUntil: timestamp('lease_until', { withTimezone: true }),
+    errorCode: text('error_code'),
+    pushService: text('push_service'),
+  },
+  (t) => [
+    unique('notification_deliveries_slot_uq').on(t.userId, t.kind, t.channel, t.studyDay),
+    check('notification_deliveries_kind_chk', sql`${t.kind} in ('due_digest', 'streak_warning')`),
+    check('notification_deliveries_channel_chk', sql`${t.channel} in ('web_push', 'email')`),
+    check('notification_deliveries_status_chk', sql`${t.status} in ('reserved', 'sent', 'skipped', 'failed')`),
+    check(
+      'notification_deliveries_push_service_chk',
+      sql`${t.pushService} is null or ${t.pushService} in ('fcm', 'mozilla', 'apple', 'other')`,
+    ),
+  ],
+);
+
 // ── inferred types ─────────────────────────────────────────────────────────
 
 export type Profile = typeof profile.$inferSelect;
@@ -1377,3 +1452,9 @@ export type NotebookSource = typeof notebookSources.$inferSelect;
 export type NewNotebookSource = typeof notebookSources.$inferInsert;
 export type SourceReadingState = typeof sourceReadingState.$inferSelect;
 export type NewSourceReadingState = typeof sourceReadingState.$inferInsert;
+export type NotificationSettings = typeof notificationSettings.$inferSelect;
+export type NewNotificationSettings = typeof notificationSettings.$inferInsert;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type NewPushSubscription = typeof pushSubscriptions.$inferInsert;
+export type NotificationDelivery = typeof notificationDeliveries.$inferSelect;
+export type NewNotificationDelivery = typeof notificationDeliveries.$inferInsert;

@@ -27,6 +27,7 @@ import { libraryModule } from './modules/library.ts';
 import { operationsModule } from './modules/operations';
 import { uiActionsModule } from './modules/ui-actions';
 import { cardRecoveryModule } from './modules/card-recovery';
+import { remindersModule } from './modules/reminders';
 import { ActionDomainError } from './modules/ui-action-receipts';
 import { personalTokensModule } from './modules/personal-tokens.ts';
 import { handleMcp } from './mcp/server.ts';
@@ -38,6 +39,7 @@ import {
   artifactWorkerState,
   indexWorkerState,
   lifecycleSnapshot,
+  reminderWorkerState,
   sourceIngestWorkerState,
 } from './runtime-state.ts';
 
@@ -176,6 +178,7 @@ export function buildApp(options: BuildAppOptions = {}) {
         index: indexWorkerState.snapshot(),
         sourceIngest: sourceIngestWorkerState.snapshot(),
         artifact: artifactWorkerState.snapshot(),
+        reminder: reminderWorkerState.snapshot(),
       };
       let db: { ok: true; latencyMs: number } | { ok: false; error: 'unavailable' };
       try {
@@ -273,6 +276,7 @@ export function buildApp(options: BuildAppOptions = {}) {
     .use(operationsModule)
     .use(uiActionsModule)
     .use(cardRecoveryModule)
+    .use(remindersModule)
     .all('/mcp', ({ request, log }) => handleMcp(request, (req) => readHandle(req), log), { parse: 'none' })
     // Explicit fallback keeps the completion hook's final status accurate for
     // unmatched routes too (Elysia's implicit 404 is mapped after analytics).

@@ -6,6 +6,7 @@ import {
   decks,
   noteTypes,
   notes,
+  notificationSettings,
   profile,
   reviews,
   user as userTable,
@@ -103,6 +104,7 @@ export const profileModule = new Elysia({ prefix: '/profile' })
     '/export',
     async ({ user }) => {
       const [profileRow] = await db.select().from(profile).where(eq(profile.userId, user.id));
+      const [reminderRow] = await db.select().from(notificationSettings).where(eq(notificationSettings.userId, user.id));
       const [decksRows, noteTypesRows, notesRows, cardsRows, reviewsRows] = await Promise.all([
         db.select().from(decks).where(eq(decks.userId, user.id)),
         db
@@ -122,6 +124,19 @@ export const profileModule = new Elysia({ prefix: '/profile' })
         notes: notesRows,
         cards: cardsRows,
         reviews: reviewsRows,
+        reminders: reminderRow
+          ? {
+              digestEnabled: reminderRow.digestEnabled,
+              streakWarningEnabled: reminderRow.streakWarningEnabled,
+              timeZone: reminderRow.timeZone,
+              digestHour: reminderRow.digestHour,
+              streakHour: reminderRow.streakHour,
+              emailEnabled: reminderRow.emailEnabled,
+              pushEnabled: reminderRow.pushEnabled,
+              locale: reminderRow.locale,
+              updatedAt: reminderRow.updatedAt,
+            }
+          : null,
       };
     },
     { auth: true },

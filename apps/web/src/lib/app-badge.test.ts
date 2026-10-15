@@ -52,6 +52,14 @@ describe('setBadge / clearBadge — no API present (default happy-dom)', () => {
   test('clearBadge() does not throw when clearAppBadge is absent', () => {
     expect(() => clearBadge()).not.toThrow();
   });
+
+  test('a push payload still describes a notification when setAppBadge is absent', async () => {
+    const { applyPushBadge, pushNotificationFromPayload } = await import('./push-display');
+    const note = pushNotificationFromPayload('');
+    expect(note.body).not.toMatch(/\d/);
+    expect(() => applyPushBadge(note.badge, {})).not.toThrow();
+    expect(() => setBadge(5)).not.toThrow();
+  });
 });
 
 // ── "present → calls" ────────────────────────────────────────────────────────
