@@ -25,6 +25,7 @@ import { CARD_COLUMNS, defaultCardColumns, readCardColumns, saveCardColumns, car
 import { CardsViewSwitcher } from '@/components/cards-view-switcher';
 import { raiseToast } from '@/components/toasts';
 import { NoteConversionDialog } from '@/components/note-conversion';
+import { CardlessNotes } from '@/components/cardless-notes';
 import { NNTopbar } from '@/components/shell';
 import { cardCreationDeck } from '@/lib/card-creation-deck';
 import { CardDetailPanel } from '@/components/card-detail-panel';
@@ -726,9 +727,12 @@ export const NNCardsBrowser = () => {
 
   return (
     <>
-    <NNTopbar title={t('cards.title')} actions={<NNBtn className="reomi-create-icon" variant="soft" icon="plus"
+    <NNTopbar title={t('cards.title')} actions={<>
+      <CardlessNotes onChanged={() => void latestSearch.current(queryRef.current)} />
+      <NNBtn className="reomi-create-icon" variant="soft" icon="plus"
       ariaLabel={t('topbar.newCard')} title={creationDeck ? t('cards.createInDeck', { name: creationDeck.name }) : t('topbar.newCard')}
-      onClick={() => void createCard()} />} />
+      onClick={() => void createCard()} />
+    </>} />
     <div ref={workspaceRef} className="reomi-cards-workspace" style={{ '--cards-filters-width': `${filtersWidth}px` } as React.CSSProperties} data-filters={!isMobile && filtersVisible ? 'open' : 'closed'}>
       {/* Query bar */}
       <div className="reomi-cards-toolbar">
