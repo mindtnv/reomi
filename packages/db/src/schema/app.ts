@@ -413,6 +413,20 @@ export const reviewOperations = pgTable('review_operations', {
   index('review_operations_review_idx').on(table.reviewId),
 ]);
 
+// Durable receipts for versioned note creation. A deleted note leaves a
+// tombstone so a retry cannot insert another copy. Field text stays on the note.
+export const noteOperations = pgTable('note_operations', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  operationId: uuid('operation_id').notNull(),
+  argumentsHash: text('arguments_hash').notNull(),
+  noteId: uuid('note_id').references(() => notes.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('note_operations_owner_operation_idx').on(table.userId, table.operationId),
+  index('note_operations_note_idx').on(table.noteId),
+]);
+
 // ── media ───────────────────────────────────────────────────────────────────
 // Tracks uploaded media objects (images) stored in S3-compatible storage.
 // `id` is the UUID used as both the DB primary key and the S3 key
