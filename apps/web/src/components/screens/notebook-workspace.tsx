@@ -38,6 +38,7 @@ import {
 } from '@reomi/shared';
 import { NNBtn, NNCard, NNIcon, NNBadge, NNLoadError, NNSkeleton } from '@/components/ui';
 import { restoreNotebookSourceScope, newlyReadableNotebookSources } from '@/lib/notebook-source-scope';
+import { resolveMediaSrc } from '@/lib/media-url';
 import { isCooldownError, useNN } from '@/lib/store';
 import type { ApiError } from '@/lib/api';
 import { toApiError } from '@/lib/resource-state';
@@ -113,7 +114,7 @@ const NOTEBOOK_COLOR_VAR: Record<NotebookColor, string> = {
   neutral: 'var(--text-muted)',
 };
 
-/** A source-row mini book-spine cover: the real `/m/<uuid>` image when present,
+/** A source-row mini book-spine cover: the private cover read when present,
  *  else a kind-toned gradient with the title's first letter in the serif face. */
 const SourceCover = ({
   source,
@@ -143,7 +144,7 @@ const SourceCover = ({
       {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={`/m/${source.coverMediaId}`}
+          src={resolveMediaSrc(`/m/${source.coverMediaId}`)}
           alt=""
           onError={() => setFailed(true)}
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}

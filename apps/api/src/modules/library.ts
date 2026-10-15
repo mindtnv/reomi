@@ -98,8 +98,8 @@ function shapeLibraryItem(s: Source, agg: LibraryItemAggregates): Record<string,
     pageCount: s.pageCount,
     byteSize: s.byteSize,
     coverMediaId: s.coverMediaId,
-    // `/m/<uuid>` resolves to the cover image via the Next reverse-proxy rewrite;
-    // null when the item has no cover (a kind-placeholder stands in client-side).
+    // Stored `/m/<uuid>` token. The web resolves it to the session-checked
+    // media route; null when the item has no cover.
     coverUrl: s.coverMediaId ? `/m/${s.coverMediaId}` : null,
     notebookCount: agg.notebookCount,
     cardCount: agg.cardCount,

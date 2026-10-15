@@ -53,7 +53,7 @@ Next uses local URL fallbacks when `apps/web/.env.local` is absent. If browser-f
 
 ```bash
 bun run typecheck     # every workspace
-bun run test          # full unit + API integration suite; prepares test DB first
+bun run test          # full unit + API integration suite; applies committed migrations to the test DB first
 bun run build         # API bundle + Next.js production build
 bun audit             # dependency vulnerability audit
 ```
@@ -63,8 +63,8 @@ There is currently no separate linter. Pull requests require typecheck, the full
 ## Database commands
 
 ```bash
-bun run db:push                # destructive schema sync for disposable dev data
-bun run db:push:test           # same against TEST_DATABASE_URL
+bun run db:push                # destructive schema sync against TEST_DATABASE_URL only
+bun run db:push:test           # same; never connects to DATABASE_URL
 bun run db:generate            # generate the next versioned SQL migration
 bun run db:migrate:apply       # apply the committed migration chain
 bun run db:migrate:apply:test  # apply it against the test database
@@ -72,7 +72,7 @@ bun run db:seed                # seed local demo/reference data
 bun run db:studio              # open Drizzle Studio
 ```
 
-Production-bound schema changes use `db:generate`, reviewed/committed SQL, and `db:migrate:apply`. Use `db:push --force` only when the target data is disposable and the change needs no ordered backfill.
+Production, dev, and test databases use `db:generate`, reviewed/committed SQL, and `db:migrate:apply`. `db:push --force` does not replay the chain through `0039_daily_ken_ellis.sql` (the `0020_known_klaw.sql` backfill, the `0027_dazzling_madame_masque.sql` cloze constraint, and the `0038_fancy_yellowjacket.sql` triggers) and does not connect to `DATABASE_URL`.
 
 ## Containers
 

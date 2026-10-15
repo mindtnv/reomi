@@ -8,8 +8,9 @@
 //   * Bytes never flow through Bun. The client presigns a POST policy here,
 //     POSTs the multipart form directly to S3, then calls finalize.
 //   * Keys are EXT-FREE `media/{uuid}` (C-1/A7) — no userId, no extension; the
-//     owner lives only in the `media.userId` DB row and the public token is
-//     `/m/{uuid}` resolved via a Next reverse-proxy.
+//     owner lives only in the `media.userId` DB row. The stored token is
+//     `/m/{uuid}`. Reading it requires the owner's session (`GET /media/:id/content`);
+//     the bucket is not an anonymous download.
 //   * `presignUpload` binds size (content-length-range) AND Content-Type so
 //     MinIO/S3 reject oversize (400) and wrong type (403) server-side.
 //   * `headSize` + `sniffMagic` re-verify real size/MIME at finalize.
@@ -139,7 +140,54 @@ export async function getObjectBytes(key: string): Promise<Uint8Array> {
   return out;
 }
 
-/** Public URL for serving an object: `${S3_PUBLIC_BASE_URL}/${key}`. */
+/**
+ * Absolute object URL on the configured public base. This is not an access
+ * grant: card and cover reads go through the authenticated media route, and
+ * the bucket must not allow anonymous GetObject.
+ */
 export function publicUrl(key: string): string {
   return `${env.S3_PUBLIC_BASE_URL}/${key}`;
+}
+
+type MediaObjectReader = (key: string) => Promise<Uint8Array | null>;
+type MediaObjectLength = (key: string) => Promise<number | undefined>;
+
+let mediaObjectReader: MediaObjectReader | null = null;
+let mediaObjectLength: MediaObjectLength | null = null;
+
+/** Test seam. Production reads the server-derived key from S3. */
+export function __setMediaObjectReaderForTests(reader: MediaObjectReader | null): void {
+  mediaObjectReader = reader;
+}
+
+/** Test seam for the HEAD size check. Production uses object ContentLength. */
+export function __setMediaObjectLengthForTests(reader: MediaObjectLength | null): void {
+  mediaObjectLength = reader;
+}
+
+/**
+ * Object size from HEAD, before any body is buffered. Missing objects and
+ * storage failures become `undefined` so the caller can refuse the read.
+ */
+export async function mediaObjectByteLength(key: string): Promise<number | undefined> {
+  try {
+    return mediaObjectLength ? await mediaObjectLength(key) : await headSize(key);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Full object bytes for an authorized media read. The caller must already have
+ * rejected an over-cap ContentLength. Missing objects and storage failures
+ * become `null` so the route can answer 404 without leaking the cause.
+ */
+export async function readMediaObject(key: string): Promise<Uint8Array | null> {
+  try {
+    const bytes = mediaObjectReader ? await mediaObjectReader(key) : await getObjectBytes(key);
+    if (!bytes || bytes.byteLength < 1) return null;
+    return bytes;
+  } catch {
+    return null;
+  }
 }

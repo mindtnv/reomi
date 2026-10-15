@@ -17,7 +17,7 @@
     "test:s3:ci": "NODE_ENV=test S3_INTEGRATION_REQUIRED=true bun --env-file=./.env test apps/api/tests/media.test.ts apps/api/tests/source-dedup.test.ts",
     "test:unit": "NODE_ENV=test bun --env-file=./.env test packages/shared",
     "test:api": "NODE_ENV=test bun --env-file=./.env test apps/api",
-    "pretest": "bun run db:push:test",
+    "pretest": "bun run db:migrate:apply:test",
     "spec:validate": "openspec validate --all --strict --no-interactive",
     "db:push": "bun run --filter @reomi/db db:push",
     "db:push:test": "bun run --filter @reomi/db db:push:test",

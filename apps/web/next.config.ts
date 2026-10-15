@@ -22,29 +22,17 @@ export const nextConfig: NextConfig = {
       },
     ];
   },
-  // Media resolver (M2 Phase 2, plan C-1): a static reverse-proxy that maps the
-  // stored relative token `/m/{uuid}` → the public S3 object `media/{uuid}`.
-  // Next proxies server-side so the browser request stays same-origin, which is
-  // why `img-src 'self'` in the CSP below still covers it — no CSP widening, no
-  // DB lookup, no Bun hot path. The `:uuid` param is constrained to a strict
-  // canonical UUID (C-6) so traversal / garbage tokens 404 at the route.
-  async rewrites() {
-    const mediaBase = process.env.NEXT_PUBLIC_MEDIA_BASE_URL ?? 'http://localhost:9000/neuronexus-media';
-    return [
-      {
-        source: '/m/:uuid([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})',
-        destination: `${mediaBase}/media/:uuid`,
-      },
-    ];
-  },
+  // Card and cover images are not rewritten to S3. The stored token stays
+  // `/m/<uuid>` in markup; the browser loads `GET /media/:id/content` on the
+  // API with the session cookie. A known UUID is not authorization.
   // Next 16 rewrites dev-time security headers; the prod config mirrors that
   // with an extra CSP that blocks everything except our own origins.
   async headers() {
     // The image upload (M2 Phase 4) is a RAW cross-origin POST from the browser
     // straight to S3/MinIO (presigned POST policy, bytes bypass Bun). Its origin
     // is the S3 endpoint, derived from NEXT_PUBLIC_MEDIA_BASE_URL — add it to
-    // connect-src or the browser CSP-blocks the upload. img-src needs NO change:
-    // images load same-origin via the `/m/:uuid` Next rewrite above.
+    // connect-src or the browser CSP-blocks the upload. img-src names the API
+    // origin because authorized reads are served from there, not from the bucket.
     const mediaBase =
       process.env.NEXT_PUBLIC_MEDIA_BASE_URL ?? 'http://localhost:9000/neuronexus-media';
     let mediaOrigin = '';
@@ -53,8 +41,15 @@ export const nextConfig: NextConfig = {
     } catch {
       mediaOrigin = '';
     }
-    const apiOrigin = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+    let apiOrigin = '';
+    try {
+      apiOrigin = new URL(apiBase).origin;
+    } catch {
+      apiOrigin = '';
+    }
     const connectSrc = ["'self'", apiOrigin, mediaOrigin].filter(Boolean).join(' ');
+    const imgSrc = ["'self'", 'data:', 'blob:', apiOrigin].filter(Boolean).join(' ');
     return [
       {
         source: '/:path*',
@@ -71,7 +66,7 @@ export const nextConfig: NextConfig = {
               // required until we opt into the CSP-nonce pipeline.
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob:",
+              `img-src ${imgSrc}`,
               "font-src 'self' data:",
               // M4 PDF reader: pdf.js boots its worker from a same-origin
               // `/_next/static/media/pdf.worker.min.mjs` chunk (covered by

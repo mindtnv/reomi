@@ -12,6 +12,7 @@ import { api, ok } from '@/lib/api';
 import { reviewFromApi } from '@/lib/mappers';
 import type { LibraryItem, Notebook, Review } from '@/lib/types';
 import { sourceKindToneVar } from '@/lib/source-kind';
+import { resolveMediaSrc } from '@/lib/media-url';
 import { useEmptyRedirect } from '@/lib/use-empty-redirect';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useT, useDateLocale } from '@/lib/i18n';
@@ -436,7 +437,7 @@ function HomeKnowledge({
                   >
                     {item.coverUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={item.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={resolveMediaSrc(item.coverUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                       <span style={{ fontFamily: 'var(--font-serif)', fontSize: 22, color: tone, lineHeight: 1 }}>
                         {letter}

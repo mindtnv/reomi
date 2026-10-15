@@ -35,6 +35,7 @@ import { useIsMobile } from '@/lib/use-breakpoint';
 import { useT } from '@/lib/i18n';
 import { relativeUpdated } from '@/lib/notebook-format';
 import { sourceKindToneVar } from '@/lib/source-kind';
+import { resolveMediaSrc } from '@/lib/media-url';
 import { useDialog } from '@/components/dialog';
 import { raiseToast } from '@/components/toasts';
 import { useKnowledgeRefresh } from '@/lib/use-knowledge-refresh';
@@ -80,7 +81,7 @@ function metaLine(nb: Notebook, t: Tfn): string {
   return `${sources}${t('notebooks.meta.metaSep')}${docs}`;
 }
 
-/** One fanned mini-cover — a real `/m/<uuid>` image when present, else a
+/** One fanned mini-cover — a private cover read when present, else a
  *  kind-tinted gradient tile with the title's first letter in the serif face. */
 const NotebookMiniCover = ({
   cover,
@@ -129,7 +130,7 @@ const NotebookMiniCover = ({
         {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={`/m/${cover.coverMediaId}`}
+            src={resolveMediaSrc(`/m/${cover.coverMediaId}`)}
             alt=""
             onError={() => setFailed(true)}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}

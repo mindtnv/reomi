@@ -15,6 +15,7 @@
 // columns instead (no HTML, perf + safety).
 
 import React from 'react';
+import { rewritePrivateMediaHtml } from './media-url';
 import DOMPurify, { type Config } from 'dompurify';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
@@ -138,8 +139,10 @@ const md = new MarkdownIt({
 md.use(cardMathPlugin, MATH_RE).use(cardClozePlugin).use(cardMediaPlugin);
 
 // The STRICT canonical-UUID relative-token regex (M2 Phase 3, plan C-6). This is
-// the SAME literal as the server edge (`apps/api/src/sanitize.ts` MEDIA_TOKEN_RE)
-// and the Next `/m/:uuid` reverse-proxy route — keep all three byte-identical.
+// the SAME literal as the server edge (`apps/api/src/sanitize.ts` MEDIA_TOKEN_RE).
+// Keep the two literals byte-identical. Display rewrites a surviving token to
+// the authenticated media route after sanitization; the token itself is not a
+// public object URL.
 // An `<img src>` survives ONLY if it matches this exactly; everything else
 // (absolute/protocol-relative/userinfo/suffix URLs, data:/javascript:, traversal,
 // malformed 36-char tokens) is dropped.
@@ -759,6 +762,8 @@ export const SafeHtml = ({ html, mermaidIslands, hostRef, ...rest }: SafeHtmlPro
   if (mermaidIslands && mermaidIslands.size > 0) {
     injected = restoreMermaidIslands(injected, mermaidIslands);
   }
+  // After the allow-list pass: only a strict `/m/<uuid>` src can still be here.
+  injected = rewritePrivateMediaHtml(injected);
   return (
     <div
       {...rest}

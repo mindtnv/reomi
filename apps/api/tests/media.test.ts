@@ -1,7 +1,13 @@
-import { beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { db, media } from '@reomi/db';
+import { newUuidV7 } from '@reomi/shared';
 import { buildApp } from '../src/app.ts';
 import { env } from '../src/env.ts';
-import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers.ts';
+import {
+  __setMediaObjectLengthForTests,
+  __setMediaObjectReaderForTests,
+} from '../src/storage.ts';
+import { callApp, resetTestDb, seedBasicCard, signUpAndCookie, uniqueEmail } from './helpers.ts';
 import { s3RoundTrip } from './s3-test-gate.ts';
 
 const app = buildApp();
@@ -39,9 +45,53 @@ async function uploadToS3(
   return res.status;
 }
 
+const OWNED_BYTES = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x09, 0x09, 0x09,
+]);
+
+async function insertMedia(
+  userId: string,
+  verified: boolean,
+  size = OWNED_BYTES.byteLength,
+): Promise<string> {
+  const id = newUuidV7();
+  await db.insert(media).values({
+    id,
+    userId,
+    s3Key: `media/${id}`,
+    mime: 'image/png',
+    size,
+    verified,
+  });
+  return id;
+}
+
+async function fetchContent(
+  id: string,
+  cookie?: string,
+  headers?: Record<string, string>,
+): Promise<{ status: number; headers: Headers; bytes: Uint8Array }> {
+  const res = await app.handle(
+    new Request(`http://localhost/media/${id}/content`, {
+      headers: {
+        ...(cookie ? { cookie } : {}),
+        ...(headers ?? {}),
+      },
+    }),
+  );
+  return { status: res.status, headers: res.headers, bytes: new Uint8Array(await res.arrayBuffer()) };
+}
+
 describe('media', () => {
   beforeEach(async () => {
     await resetTestDb();
+    __setMediaObjectReaderForTests(null);
+    __setMediaObjectLengthForTests(null);
+  });
+
+  afterEach(() => {
+    __setMediaObjectReaderForTests(null);
+    __setMediaObjectLengthForTests(null);
   });
 
   test('POST /media/presign returns mediaId, token, and upload policy', async () => {
@@ -127,6 +177,13 @@ describe('media', () => {
     expect(row.s3Key).toBe(`media/${presign.mediaId}`);
     expect(row.mime).toBe('image/png');
     expect(row.size).toBe(PNG_1X1.length);
+
+    // Presigned POST still writes while anonymous GetObject stays closed.
+    const anonymousObject = await fetch(
+      `${env.S3_PUBLIC_BASE_URL}/media/${presign.mediaId}`,
+    );
+    expect(anonymousObject.status).not.toBe(200);
+    expect([401, 403, 404]).toContain(anonymousObject.status);
 
     // Idempotent: a second finalize returns the same row, not a duplicate.
     const again = await callApp(app, 'POST', `/media/${presign.mediaId}/finalize`, {
@@ -270,5 +327,170 @@ describe('media', () => {
       await callApp(app, 'GET', '/media', { cookie })
     ).json<{ items: unknown[] }>();
     expect(list.items).toEqual([]);
+  });
+
+  test('private read: owner receives bytes; anonymous and another user do not', async () => {
+    const owner = await signUpAndCookie(app, uniqueEmail('owner'));
+    const stranger = await signUpAndCookie(app, uniqueEmail('stranger'));
+    const ownedId = await insertMedia(owner.userId, true);
+    const foreignId = await insertMedia(stranger.userId, true);
+    const pendingId = await insertMedia(owner.userId, false);
+    const reads: string[] = [];
+    const lengths: string[] = [];
+    __setMediaObjectLengthForTests(async (key) => {
+      lengths.push(key);
+      if (key === `media/${ownedId}` || key === `media/${foreignId}`) return OWNED_BYTES.byteLength;
+      return undefined;
+    });
+    __setMediaObjectReaderForTests(async (key) => {
+      reads.push(key);
+      if (key === `media/${ownedId}` || key === `media/${foreignId}`) return OWNED_BYTES;
+      return null;
+    });
+
+    const anonymous = await fetchContent(ownedId);
+    expect(anonymous.status).toBe(401);
+    expect(Buffer.from(anonymous.bytes).equals(Buffer.from(OWNED_BYTES))).toBe(false);
+    expect(reads).toEqual([]);
+
+    const foreign = await fetchContent(ownedId, stranger.cookie);
+    expect(foreign.status).toBe(404);
+    expect(await new Response(foreign.bytes).json()).toEqual({ error: 'not_found' });
+    expect(foreign.headers.get('cache-control')).toBe('no-store');
+    expect(foreign.headers.get('location')).toBeNull();
+
+    const pending = await fetchContent(pendingId, owner.cookie);
+    expect(pending.status).toBe(404);
+    expect(foreign.headers.get('cache-control')).toBe(pending.headers.get('cache-control'));
+    expect(reads).toEqual([]);
+
+    const missing = await fetchContent(newUuidV7(), owner.cookie);
+    expect(missing.status).toBe(404);
+    expect(await new Response(missing.bytes).json()).toEqual({ error: 'not_found' });
+
+    const allowed = await fetchContent(ownedId, owner.cookie);
+    expect(allowed.status).toBe(200);
+    expect(Buffer.from(allowed.bytes).equals(Buffer.from(OWNED_BYTES))).toBe(true);
+    expect(allowed.headers.get('content-type')).toBe('image/png');
+    expect(allowed.headers.get('cache-control')).toBe('private, max-age=120, must-revalidate');
+    expect(allowed.headers.get('cache-control')).not.toContain('public');
+    expect(allowed.headers.get('vary')?.toLowerCase()).toBe('cookie');
+    expect(allowed.headers.get('etag')).toBe(`"${ownedId}"`);
+    expect(allowed.headers.get('location')).toBeNull();
+    expect(reads).toEqual([`media/${ownedId}`]);
+    expect(lengths).toEqual([`media/${ownedId}`]);
+
+    const ownerSeesForeign = await fetchContent(foreignId, owner.cookie);
+    expect(ownerSeesForeign.status).toBe(404);
+    expect(reads).toEqual([`media/${ownedId}`]);
+
+    const revalidated = await fetchContent(ownedId, owner.cookie, {
+      'if-none-match': `"${ownedId}"`,
+    });
+    expect(revalidated.status).toBe(304);
+    expect(revalidated.bytes.byteLength).toBe(0);
+    expect(revalidated.headers.get('cache-control')).toBe('private, max-age=120, must-revalidate');
+    expect(reads).toEqual([`media/${ownedId}`]);
+
+    const weak = await fetchContent(ownedId, owner.cookie, {
+      'if-none-match': `W/"${ownedId}"`,
+    });
+    expect(weak.status).toBe(304);
+    expect(reads).toEqual([`media/${ownedId}`]);
+    expect(lengths).toEqual([`media/${ownedId}`]);
+  });
+
+  test('private read refuses an over-cap declared size before storage', async () => {
+    const owner = await signUpAndCookie(app, uniqueEmail('huge-row'));
+    const id = await insertMedia(owner.userId, true, env.MAX_MEDIA_BYTES + 1);
+    const calls: string[] = [];
+    __setMediaObjectLengthForTests(async (key) => {
+      calls.push(`head:${key}`);
+      return OWNED_BYTES.byteLength;
+    });
+    __setMediaObjectReaderForTests(async (key) => {
+      calls.push(`get:${key}`);
+      return OWNED_BYTES;
+    });
+    const res = await fetchContent(id, owner.cookie);
+    expect(res.status).toBe(404);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(calls).toEqual([]);
+  });
+
+  test('private read refuses an over-cap object length before buffering', async () => {
+    const owner = await signUpAndCookie(app, uniqueEmail('huge-object'));
+    const id = await insertMedia(owner.userId, true, 32);
+    const reads: string[] = [];
+    __setMediaObjectLengthForTests(async () => env.MAX_MEDIA_BYTES + 1);
+    __setMediaObjectReaderForTests(async (key) => {
+      reads.push(key);
+      return OWNED_BYTES;
+    });
+    const res = await fetchContent(id, owner.cookie);
+    expect(res.status).toBe(404);
+    expect(await new Response(res.bytes).json()).toEqual({ error: 'not_found' });
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(reads).toEqual([]);
+  });
+
+  test('private read hides a storage failure as not_found', async () => {
+    const owner = await signUpAndCookie(app, uniqueEmail('gone'));
+    const id = await insertMedia(owner.userId, true);
+    __setMediaObjectLengthForTests(async () => OWNED_BYTES.byteLength);
+    __setMediaObjectReaderForTests(async () => {
+      throw new Error('storage down');
+    });
+    const res = await fetchContent(id, owner.cookie);
+    expect(res.status).toBe(404);
+    expect(await new Response(res.bytes).json()).toEqual({ error: 'not_found' });
+    expect(res.headers.get('cache-control')).toBe('no-store');
+  });
+
+  test('export keeps note tokens and does not publish foreign or public object URLs', async () => {
+    const owner = await signUpAndCookie(app, uniqueEmail('export-owner'));
+    const stranger = await signUpAndCookie(app, uniqueEmail('export-stranger'));
+    await callApp(app, 'GET', '/profile', { cookie: owner.cookie });
+    await callApp(app, 'GET', '/profile', { cookie: stranger.cookie });
+    const ownedId = await insertMedia(owner.userId, true);
+    const foreignId = await insertMedia(stranger.userId, true);
+    const deck = await (
+      await callApp(app, 'POST', '/decks', { cookie: owner.cookie, body: { name: 'D' } })
+    ).json<{ id: string }>();
+    await seedBasicCard(app, owner.cookie, {
+      deckId: deck.id,
+      front: `own ![](/m/${ownedId}) foreign ![](/m/${foreignId})`,
+      back: 'answer',
+    });
+
+    const exported = await callApp(app, 'GET', '/profile/export', { cookie: owner.cookie });
+    expect(exported.status).toBe(200);
+    const body = JSON.stringify(await exported.json());
+    expect(body).toContain(`/m/${ownedId}`);
+    expect(body).toContain(`/m/${foreignId}`);
+    expect(body).not.toContain(env.S3_PUBLIC_BASE_URL);
+    expect(body).not.toContain('X-Amz-');
+    expect(body).not.toContain(`media/${ownedId}`);
+    expect(body).not.toContain(`media/${foreignId}`);
+    expect(body).not.toContain(env.S3_SECRET_ACCESS_KEY);
+
+    const strangerExport = JSON.stringify(
+      await (await callApp(app, 'GET', '/profile/export', { cookie: stranger.cookie })).json(),
+    );
+    expect(strangerExport).not.toContain(ownedId);
+    expect(strangerExport).not.toContain(env.S3_PUBLIC_BASE_URL);
+
+    __setMediaObjectLengthForTests(async (key) =>
+      key === `media/${ownedId}` ? OWNED_BYTES.byteLength : undefined,
+    );
+    __setMediaObjectReaderForTests(async (key) => (key === `media/${ownedId}` ? OWNED_BYTES : null));
+    const asStranger = await fetchContent(ownedId, stranger.cookie);
+    expect(asStranger.status).toBe(404);
+    const asAnonymous = await fetchContent(foreignId);
+    expect(asAnonymous.status).toBe(401);
+    const asOwner = await fetchContent(ownedId, owner.cookie);
+    expect(asOwner.status).toBe(200);
+    const ownerForeign = await fetchContent(foreignId, owner.cookie);
+    expect(ownerForeign.status).toBe(404);
   });
 });

@@ -34,6 +34,7 @@ import { RichCard } from '@/components/rich-card';
 import { compactToolText } from '@/lib/panel-width';
 import { renderCardHtml, SafeHtml } from '@/lib/render-card';
 import { api, ok } from '@/lib/api';
+import { resolveMediaSrc } from '@/lib/media-url';
 import { toApiError, type ResourceState } from '@/lib/resource-state';
 import { ChatUnavailable } from './chat-unavailable';
 import {
@@ -457,7 +458,7 @@ export const MessageRow = ({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         key={`${a.mediaId}-${i}`}
-                        src={a.token}
+                        src={resolveMediaSrc(a.token)}
                         alt={a.name ?? 'attachment'}
                         title={a.name}
                         style={{
