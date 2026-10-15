@@ -13,6 +13,7 @@ import {
 } from '@reomi/db';
 import { MAX_RETENTION, MIN_RETENTION, PLANT_SPECIES, type PlantSpecies } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin.ts';
+import { requestLogFromContext } from '../logger.ts';
 import { deleteAccountStorage } from '../media-gc.ts';
 
 const plantSpeciesSchema = t.Union([
@@ -151,7 +152,9 @@ export const profileModule = new Elysia({ prefix: '/profile' })
   // protection against XSRF / accidental clicks.
   .delete(
     '/',
-    async ({ user, body, status, log }) => {
+    async (context) => {
+      const { user, body, status } = context;
+      const log = requestLogFromContext(context);
       if (body.confirmEmail.trim().toLowerCase() !== (user.email ?? '').toLowerCase()) {
         return status(400, { error: 'email_mismatch' });
       }
