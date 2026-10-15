@@ -1,6 +1,6 @@
 import type { Logger } from 'pino';
 import type { AssistantContextPolicy } from '@reomi/shared';
-import { isChatUpstreamOutage } from './chat-upstream';
+import { preFlushChatFailure } from './chat-upstream';
 import { complete } from './openai-client';
 export type AssistantPolicyIntent = { kind:'unchanged' } | { kind:'set'; policy:AssistantContextPolicy } | { kind:'selection_required' };
 // This only decides whether a structured check is needed; it never changes the
@@ -47,7 +47,7 @@ export async function resolveAssistantPolicyIntent(text:string, currentPolicy:As
     if(value.intent==='strict'||value.intent==='focus') return value.intent===currentPolicy?{kind:'unchanged'}:{kind:'set',policy:value.intent};
     return {kind:'selection_required'};
   } catch (err) {
-    if (isChatUpstreamOutage(err)) throw err;
+    if (preFlushChatFailure(err)) throw err;
     return {kind:'selection_required'};
   }
   finally {

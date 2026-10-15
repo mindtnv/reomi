@@ -42,6 +42,8 @@ test('a direct request can return to focus but a classifier cannot return arbitr
 test('an upstream or transport failure is rethrown instead of asking for a selection', async () => {
   __setAiClientForTests({ complete: async () => { throw new UpstreamChatError({ status: null, html: false }); } });
   await expect(resolveAssistantPolicyIntent('Use only these materials', 'focus')).rejects.toBeInstanceOf(UpstreamChatError);
+  __setAiClientForTests({ complete: async () => { throw new UpstreamChatError({ status: 401, html: false }); } });
+  await expect(resolveAssistantPolicyIntent('Use only these materials', 'focus')).rejects.toBeInstanceOf(UpstreamChatError);
   __setAiClientForTests({ complete: async () => { throw new TypeError('fetch failed'); } });
   await expect(resolveAssistantPolicyIntent('Use only these materials', 'focus')).rejects.toThrow('fetch failed');
 });

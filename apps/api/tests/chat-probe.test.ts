@@ -149,6 +149,55 @@ describe('chat upstream policy', () => {
     expect(await userCount(convId)).toBe(0);
   });
 
+  test('a JSON 401 on an edited regenerate is chat_failed', async () => {
+    __setAiClientForTests({
+      chatStreamAgentic: async function* (): AsyncIterable<AgentStreamChunk> {
+        yield { type: 'content', text: 'ok' };
+        yield { type: 'finish', reason: 'stop' };
+      },
+    });
+    const { cookie } = await signUpAndCookie(app, uniqueEmail());
+    const convId = await createConversation(cookie);
+    const first = await stream(cookie, convId, 'hello');
+    expect(first.status).toBe(200);
+    await first.text();
+    __setAiClientForTests({
+      chatStreamAgentic: async function* (): AsyncIterable<AgentStreamChunk> {
+        yield { type: 'finish', reason: 'stop' };
+      },
+      complete: async () => {
+        throw new UpstreamChatError({ status: 401, html: false });
+      },
+    });
+    const res = await app.handle(
+      new Request(`http://localhost/chat/conversations/${convId}/regenerate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie },
+        body: JSON.stringify({ content: 'Use only these materials' }),
+      }),
+    );
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: 'chat_failed' });
+    expect(await userCount(convId)).toBe(1);
+  });
+
+  test('a JSON 401 before the user row is chat_failed', async () => {
+    __setAiClientForTests({
+      chatStreamAgentic: async function* (): AsyncIterable<AgentStreamChunk> {
+        yield { type: 'finish', reason: 'stop' };
+      },
+      complete: async () => {
+        throw new UpstreamChatError({ status: 401, html: false });
+      },
+    });
+    const { cookie } = await signUpAndCookie(app, uniqueEmail());
+    const convId = await createConversation(cookie);
+    const res = await stream(cookie, convId, 'Use only these materials');
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: 'chat_failed' });
+    expect(await userCount(convId)).toBe(0);
+  });
+
   test('a transport failure before the user row is 503 ai_unavailable', async () => {
     __setAiClientForTests({
       chatStreamAgentic: async function* (): AsyncIterable<AgentStreamChunk> {

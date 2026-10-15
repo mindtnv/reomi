@@ -115,7 +115,17 @@ export function learnerCodeForThrown(err: unknown): LearnerStreamCode {
 }
 
 export function isChatUpstreamOutage(err: unknown): boolean {
-  return err instanceof UpstreamChatError || isTransportFailure(err);
+  if (isTransportFailure(err)) return true;
+  return err instanceof UpstreamChatError && judgeChatUpstream(err.observation).kind === 'unavailable';
+}
+
+export function preFlushChatFailure(
+  err: unknown,
+): { status: 503; error: 'ai_unavailable' } | { status: 502; error: 'chat_failed' } | null {
+  if (!isChatUpstreamOutage(err) && !(err instanceof UpstreamChatError)) return null;
+  return learnerCodeForThrown(err) === 'ai_unavailable'
+    ? { status: 503, error: 'ai_unavailable' }
+    : { status: 502, error: 'chat_failed' };
 }
 
 type FetchImpl = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;

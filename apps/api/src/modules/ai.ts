@@ -23,7 +23,7 @@
 import { captureSuppliedEvidence } from '../ai/card-evidence';
 import { capStoredToolResult } from '../ai/tool-result-cap.ts';
 import { resolveAssistantPolicyIntent } from '../ai/assistant-policy-intent';
-import { isChatUpstreamOutage, learnerCodeForThrown, probeChatUpstream } from '../ai/chat-upstream.ts';
+import { learnerCodeForThrown, preFlushChatFailure, probeChatUpstream } from '../ai/chat-upstream.ts';
 import { Elysia, t } from 'elysia';
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
@@ -1854,7 +1854,8 @@ const createChatModule = <const Prefix extends string>(prefix: Prefix) => new El
         // Pre-flush failure after the lock was taken — release it or the
         // conversation stays 409-locked until the TTL.
         releaseTurnLock(conv.id, lock);
-        if (isChatUpstreamOutage(err)) return status(503, { error: 'ai_unavailable' });
+        const failure = preFlushChatFailure(err);
+        if (failure) return status(failure.status, { error: failure.error });
         if (err instanceof AssistantContextError) return status(assistantContextErrorStatus(err), { error: err.code });
         throw err;
       }
@@ -2446,7 +2447,8 @@ const createChatModule = <const Prefix extends string>(prefix: Prefix) => new El
       });
       } catch (error) {
         releaseTurnLock(conv.id, lock);
-        if (isChatUpstreamOutage(error)) return status(503, { error: 'ai_unavailable' });
+        const failure = preFlushChatFailure(error);
+        if (failure) return status(failure.status, { error: failure.error });
         if (error instanceof AssistantContextError) return status(assistantContextErrorStatus(error), { error: error.code });
         throw error;
       }
