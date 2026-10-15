@@ -1,6 +1,5 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
 
 // OverviewPanel («Блокноты 2.0» N2, Р6/Р12 «Обзор» tab — the FIRST/default dock
 // tab) — the notebook briefing + suggested questions.
@@ -20,7 +19,7 @@
 //  • Card-coverage bars (N3) + the concept map (N4) render below the overview.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ReadingText } from '@/components/design-system/primitives';
+import { ReadingText, Button } from '@/components/design-system/primitives';
 import { NNBtn, NNIcon, NNSkeleton } from '@/components/ui';
 import { renderCardHtml, SafeHtml } from '@/lib/render-card';
 import { CoverageBars } from '@/components/notebook/coverage-bars';
@@ -249,14 +248,14 @@ export const OverviewPanel = ({
             <SectionHeading icon="bulb" label={t('notebooks.overview.suggestedHeading')} />
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {questions.map((q) => (
-                <button
+                <Button variant="bare"
                   key={q}
                   type="button"
                   className="nn-suggest-pill"
                   onClick={() => onAskQuestion(q)}
                 >
                   {q}
-                </button>
+                </Button>
               ))}
             </div>
           </section>

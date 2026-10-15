@@ -173,13 +173,10 @@ test('a previous move does not rewrite the deck tree after the same account sign
   latest('/deck-hierarchy')!.resolve(Response.json({ revision: 3, decks: keptDecks().map(apiDeck) }));
   await act(async () => { await flushMicrotasks(); });
   await act(async () => button('decks.move.drag').click());
-  const destination = host.querySelector('select[aria-label="decks.move.destination"]') as HTMLSelectElement;
+  const destination = host.querySelector('[aria-label="decks.move.destination"]') as HTMLButtonElement;
   expect(destination).toBeTruthy();
-  await act(async () => {
-    const descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
-    descriptor!.set!.call(destination, 'deck-b');
-    destination.dispatchEvent(new Event('change', { bubbles: true }));
-  });
+  await act(async () => destination.click());
+  await act(async () => Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find((option) => option.textContent === 'Other')!.click());
   await act(async () => button('decks.move.apply').click());
   const move = latest('/move');
   expect(move).toBeTruthy();

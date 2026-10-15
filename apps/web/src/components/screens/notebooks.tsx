@@ -1,6 +1,5 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
 
 // NotebooksScreen — the «Блокноты 2.0» list (N1, Р13). A grid of notebook
 // tiles: an emoji avatar on a color-tinted backdrop, title, a one-line
@@ -29,7 +28,7 @@ import {
   type SourceStatus,
 } from '@reomi/shared';
 import { NNBtn, NNCard, NNIcon, NNBadge, NNInlineRefresh, NNLoadError, NNSkeleton } from '@/components/ui';
-import { TextInput, PageSurface } from '@/components/design-system/primitives';
+import { TextInput, PageSurface, Button } from '@/components/design-system/primitives';
 import { useNN } from '@/lib/store';
 import type { Notebook, NotebookCoverSource, Source } from '@/lib/types';
 import { useTransientLayer } from '@/lib/use-transient-layer';
@@ -532,7 +531,7 @@ const ContinueCard = ({
 // ── «Новый блокнот» dashed create tile ──────────────────────────────────────────
 
 const CreateTile = ({ onClick, t }: { onClick: () => void; t: Tfn }) => (
-  <button type="button" className="nn-nb-create" onClick={onClick}>
+  <Button variant="bare" type="button" className="nn-nb-create" onClick={onClick}>
     <span className="nn-nb-create-plus" aria-hidden>
       <NNIcon name="plus" size={16} color="var(--lime-400)" />
     </span>
@@ -542,7 +541,7 @@ const CreateTile = ({ onClick, t }: { onClick: () => void; t: Tfn }) => (
     <span style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: -4 }}>
       {t('notebooks.list.newCardHint')}
     </span>
-  </button>
+  </Button>
 );
 
 // ── Notebook grid card ─────────────────────────────────────────────────────────
@@ -618,7 +617,7 @@ const NotebookCard = ({
           {menuOpen && (
             <>
               <div role="group" aria-label={notebook.title} className="nn-lib-menu" style={{ right: 0, top: 'calc(100% + 4px)', minWidth: 180 }}>
-                <button
+                <Button variant="bare"
                   type="button"
                   className="nn-lib-menu-item"
                   onClick={() => {
@@ -628,8 +627,8 @@ const NotebookCard = ({
                 >
                   <NNIcon name="pin" size={14} color="var(--text-muted)" />
                   {notebook.pinned ? t('notebooks.meta.unpin') : t('notebooks.meta.pin')}
-                </button>
-                <button
+                </Button>
+                <Button variant="bare"
                   type="button"
                   className="nn-lib-menu-item"
                   onClick={() => {
@@ -639,8 +638,8 @@ const NotebookCard = ({
                 >
                   <NNIcon name="edit" size={14} color="var(--text-muted)" />
                   {t('notebooks.list.rename')}
-                </button>
-                <button
+                </Button>
+                <Button variant="bare"
                   type="button"
                   className="nn-lib-menu-item"
                   onClick={() => {
@@ -650,8 +649,8 @@ const NotebookCard = ({
                 >
                   <NNIcon name="stack" size={14} color="var(--text-muted)" />
                   {notebook.archived ? t('notebooks.meta.unarchive') : t('notebooks.meta.archive')}
-                </button>
-                <button
+                </Button>
+                <Button variant="bare"
                   type="button"
                   className="nn-lib-menu-item"
                   onClick={() => {
@@ -661,7 +660,7 @@ const NotebookCard = ({
                 >
                   <NNIcon name="x" size={14} color="var(--rose-400)" />
                   {t('notebooks.list.delete')}
-                </button>
+                </Button>
               </div>
             </>
           )}
@@ -817,7 +816,7 @@ const CreateNotebookDialog = ({
 
           <div>
             <label style={labelStyle}>{t('notebooks.list.createLabel')}</label>
-            <input
+            <TextInput
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={t('notebooks.list.createPlaceholder')}
@@ -833,7 +832,7 @@ const CreateNotebookDialog = ({
           <div>
             <label style={labelStyle}>{t('notebooks.meta.emojiLabel')}</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-              <button
+              <Button variant="bare"
                 type="button"
                 className="nn-emoji-cell"
                 title={t('notebooks.meta.emojiNone')}
@@ -846,9 +845,9 @@ const CreateNotebookDialog = ({
                 onClick={() => setEmoji(null)}
               >
                 —
-              </button>
+              </Button>
               {EMOJI_PRESETS.map((e) => (
-                <button
+                <Button variant="bare"
                   key={e}
                   type="button"
                   className="nn-emoji-cell"
@@ -857,7 +856,7 @@ const CreateNotebookDialog = ({
                   onClick={() => setEmoji(e)}
                 >
                   {e}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -866,7 +865,7 @@ const CreateNotebookDialog = ({
             <label style={labelStyle}>{t('notebooks.meta.colorLabel')}</label>
             <div style={{ display: 'flex', gap: 6 }}>
               {NOTEBOOK_COLORS.map((c) => (
-                <button
+                <Button variant="bare"
                   key={c}
                   type="button"
                   aria-label={c}
@@ -1075,7 +1074,7 @@ export const AddSourceForm = ({
 
       <div>
         <label style={labelStyle}>{t('notebooks.add.titleLabel')}</label>
-        <input
+        <TextInput
           style={inputStyle}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -1087,7 +1086,7 @@ export const AddSourceForm = ({
       {kind === 'file' && (
         <div>
           <label style={labelStyle}>{t('notebooks.add.fileLabel')}</label>
-          <input
+          <TextInput
             ref={fileInputRef}
             type="file"
             accept=".pdf,.epub,application/pdf,application/epub+zip"
@@ -1103,7 +1102,7 @@ export const AddSourceForm = ({
       {kind === 'url' && (
         <div>
           <label style={labelStyle}>{t('notebooks.add.urlLabel')}</label>
-          <input
+          <TextInput
             style={inputStyle}
             value={url}
             onChange={(e) => setUrl(e.target.value)}

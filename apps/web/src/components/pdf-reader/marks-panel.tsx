@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 // M5 — «Разметка» panel: a sliding panel over the right edge of the reader
 // showing all marks (highlights + notes) and ink pages grouped by page number.
@@ -124,7 +125,7 @@ export function MarksPanel({
           {t('notebooks.marks.panelTitle')}
         </span>
         {onExport && hasMarkup && (
-          <button
+          <Button variant="bare"
             type="button"
             onClick={onExport}
             title={t('notebooks.marks.export')}
@@ -149,9 +150,9 @@ export function MarksPanel({
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-          </button>
+          </Button>
         )}
-        <button
+        <Button variant="bare"
           type="button"
           onClick={onClose}
           aria-label="Close marks panel"
@@ -171,7 +172,7 @@ export function MarksPanel({
           }}
         >
           ×
-        </button>
+        </Button>
       </div>
 
       {/* Content */}
@@ -185,7 +186,7 @@ export function MarksPanel({
         {/* Feature #2 — «Собрать карточки из разметки» (AI-gated by the parent). */}
         {onHarvest && harvestable && (
           <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
-            <button
+            <Button variant="bare"
               type="button"
               onClick={onHarvest}
               style={{
@@ -207,7 +208,7 @@ export function MarksPanel({
             >
               <NNIcon name="sparkle" size={14} color="var(--lime-400)" />
               {t('notebooks.harvest.button')}
-            </button>
+            </Button>
           </div>
         )}
         {groups.length === 0 ? (
@@ -446,7 +447,7 @@ function MarkRow({
           )}
         </div>
         {/* Hover-revealed delete */}
-        <button
+        <Button variant="bare"
           type="button"
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
           title={t('notebooks.marks.delete')}
@@ -470,7 +471,7 @@ function MarkRow({
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}
         >
           ×
-        </button>
+        </Button>
       </div>
 
       {/* Expanded controls */}
@@ -480,7 +481,7 @@ function MarkRow({
             /* Card marks: read-only — show jump-to-card button only. */
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               {mark.cardId && onOpenCard && (
-                <button
+                <Button variant="bare"
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onOpenCard(mark.cardId!); }}
                   style={{
@@ -498,7 +499,7 @@ function MarkRow({
                   }}
                 >
                   {t('notebooks.marks.openCard')}
-                </button>
+                </Button>
               )}
             </div>
           ) : (
@@ -506,7 +507,7 @@ function MarkRow({
               {/* Color picker + «В карточку» */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 {SOURCE_MARK_COLORS.map((c) => (
-                  <button
+                  <Button variant="bare"
                     key={c}
                     type="button"
                     title={t(`notebooks.marks.color_${c}`)}
@@ -530,7 +531,7 @@ function MarkRow({
                   />
                 ))}
                 {/* «В карточку» — open the quick-card dialog prefilled from this mark. */}
-                <button
+                <Button variant="bare"
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onToCard(); }}
                   style={{
@@ -549,7 +550,7 @@ function MarkRow({
                   }}
                 >
                   {t('notebooks.marks.cardAction')}
-                </button>
+                </Button>
               </div>
               {/* Note textarea */}
               <textarea

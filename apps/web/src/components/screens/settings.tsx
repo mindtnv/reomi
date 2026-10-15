@@ -1,6 +1,5 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
 
 import { downloadProfileExport } from '@/lib/profile-export';
 import React, { createContext, useContext, useCallback, useEffect, useRef, useState, useId, Children, isValidElement, cloneElement } from 'react';
@@ -15,7 +14,8 @@ import type { DeckOptionsPreset } from '@/lib/types';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useT } from '@/lib/i18n';
 import { useDialog } from '@/components/dialog';
-import { TextInput, TextArea, SegmentedControl } from '@/components/design-system/primitives';
+import { TextInput, TextArea, SegmentedControl, Button } from '@/components/design-system/primitives';
+import { NNSelect } from '@/components/nn-select';
 import { useLocale } from '@/lib/i18n';
 import { McpSettings } from '@/components/mcp-settings';
 import { ReminderSettings } from '@/components/reminder-settings';
@@ -336,10 +336,10 @@ const SettingsContent = () => {
       <div className="reomi-settings-nav">
         <div className="reomi-settings-account"><span>{(profile?.name || 'R').slice(0,1).toUpperCase()}</span><div><strong>{profile?.name}</strong>{userEmail && <small>{userEmail}</small>}</div></div>
         <label className="reomi-settings-mobile-nav"><span>{t('settings.tabs.label')}</span>
-          <select className="reomi-input" value={activeTab} onChange={event=>setActiveTab(event.target.value as SettingsTab)}>{SETTINGS_TABS.map(tab=><option key={tab} value={tab}>{t(`settings.tabs.${tab}`)}</option>)}</select>
+          <NNSelect ariaLabel={t('settings.tabs.label')} value={activeTab} onChange={setActiveTab} options={SETTINGS_TABS.map(tab => ({ value: tab, label: t(`settings.tabs.${tab}`) }))} />
         </label>
         <div className="reomi-settings-tabs" role="tablist" aria-orientation={isMobile ? 'horizontal' : 'vertical'} aria-label={t('settings.tabs.label')} ref={tabsRef}>
-        {SETTINGS_TABS.map((tab, index) => <button key={tab} type="button" role="tab"
+        {SETTINGS_TABS.map((tab, index) => <Button variant="bare" key={tab} type="button" role="tab"
           id={`settings-tab-${tab}`} aria-controls="settings-panel" aria-selected={activeTab === tab}
           tabIndex={activeTab === tab ? 0 : -1} onClick={() => setActiveTab(tab)}
           onKeyDown={event => {
@@ -348,7 +348,7 @@ const SettingsContent = () => {
             const next = event.key === 'Home' ? 0 : event.key === 'End' ? SETTINGS_TABS.length - 1 : (index + (event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1) + SETTINGS_TABS.length) % SETTINGS_TABS.length;
             setActiveTab(SETTINGS_TABS[next]);
             tabsRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
-          }}><NNIcon name={TAB_ICONS[tab]} size={17}/><span>{t(`settings.tabs.${tab}`)}</span></button>)}
+          }}><NNIcon name={TAB_ICONS[tab]} size={17}/><span>{t(`settings.tabs.${tab}`)}</span></Button>)}
         </div>
       </div>
       <div className="reomi-settings-content nn-scroll" id="settings-panel" role="tabpanel" aria-labelledby={`settings-tab-${activeTab}`} tabIndex={0}>
@@ -415,7 +415,7 @@ const SettingsContent = () => {
                   const active = theme.palette === o.key;
                   const swatches = PALETTE_VARIANTS[o.key][resolvedMode].swatches;
                   return (
-                    <button
+                    <Button variant="bare"
                       key={o.key}
                       type="button"
                       onClick={() => { if (!active) pickTheme({ ...theme, palette: o.key }); }}
@@ -437,7 +437,7 @@ const SettingsContent = () => {
                         ))}
                       </span>
                       <span className="reomi-theme-option-label">{o.label}{active && <NNIcon name="check" size={14}/>}</span>
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -531,7 +531,7 @@ const SettingsContent = () => {
         subtitle={t('settings.retention.subtitle')}
         accent={<span style={{ fontSize: 28, fontWeight: 600, color: 'var(--lime-400)', letterSpacing: -1 }} className="mono">{retentionDraft}%</span>}
       >
-        <input className="reomi-settings-range" type="range" min={70} max={99} step={1} value={retentionDraft}
+        <TextInput className="reomi-settings-range" type="range" min={70} max={99} step={1} value={retentionDraft}
           aria-label={t('settings.retention.title')} aria-valuetext={`${retentionDraft}%`}
           onChange={event => setRetentionDraft(Number(event.target.value))}
           onPointerUp={event => { const value=Number(event.currentTarget.value)/100; if(value !== (profile?.desiredRetention ?? ANKI_DEFAULTS.requestRetention)) saveProfile({desiredRetention:value}); }}

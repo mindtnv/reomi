@@ -1,6 +1,5 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
 
 // LibraryScreen (L1) — the user's personal material store (`/library`). A
 // "library item" IS a sources row; this screen lists them with a cover grid /
@@ -29,7 +28,8 @@ import { useLibraryPdfCovers } from '@/lib/library-pdf-cover';
 import React, { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { IngestErrorCode, SourceKind, SourceMime, SourceStatus } from '@reomi/shared';
-import { PageSurface, TextInput, SegmentedControl } from '@/components/design-system/primitives';
+import { PageSurface, TextInput, SegmentedControl, Button } from '@/components/design-system/primitives';
+import { NNSelect } from '@/components/nn-select';
 import { NNBtn, NNCard, NNIcon, NNBadge, NNInlineRefresh, NNLoadError, NNSkeleton, type IconName } from '@/components/ui';
 import {
   DuplicateSourceError,
@@ -493,7 +493,7 @@ export const LibraryScreen = () => {
       onDrop={onDrop}
       style={{ position: 'relative' }}
     >
-      <input
+      <TextInput
         ref={fileInputRef}
         type="file"
         accept=".pdf,.epub,application/pdf,application/epub+zip"
@@ -775,15 +775,15 @@ const LibraryHeader = ({
         {addMenuOpen && (
           <>
             <div role="group" aria-label={t('library.header.add')} className="nn-lib-menu" style={{ right: 0 }}>
-              <button type="button" className="nn-lib-menu-item" onClick={onPickFiles}>
+              <Button variant="bare" type="button" className="nn-lib-menu-item" onClick={onPickFiles}>
                 <NNIcon name="book" size={14} color="var(--text-muted)" />{t('library.header.addFiles')}
-              </button>
-              <button type="button" className="nn-lib-menu-item" onClick={onAddUrl}>
+              </Button>
+              <Button variant="bare" type="button" className="nn-lib-menu-item" onClick={onAddUrl}>
                 <NNIcon name="link" size={14} color="var(--text-muted)" />{t('library.header.addUrl')}
-              </button>
-              <button type="button" className="nn-lib-menu-item" onClick={onAddText}>
+              </Button>
+              <Button variant="bare" type="button" className="nn-lib-menu-item" onClick={onAddText}>
                 <NNIcon name="edit" size={14} color="var(--text-muted)" />{t('library.header.addText')}
-              </button>
+              </Button>
             </div>
           </>
         )}
@@ -792,19 +792,19 @@ const LibraryHeader = ({
 
     {searchMode === 'title' && (
       <div className="reomi-library-filters">
-        <label><span>{t('library.header.formatLabel')}</span><select value={kind} onChange={event => setKind(event.target.value as typeof kind)}>
-          {KIND_FILTERS.map(k => <option key={k} value={k}>{t(`library.header.kind${kindFilterKey(k)}`)}</option>)}
-        </select></label>
-        <label><span>{t('library.header.readingLabel')}</span><select value={reading} onChange={event => setReading(event.target.value as typeof reading)}>
-          {READING_FILTERS.map(r => <option key={r} value={r}>{t(`library.header.reading${r === 'all' ? 'All' : r === 'unread' ? 'Unread' : r === 'reading' ? 'Reading' : 'Finished'}`)}</option>)}
-        </select></label>
-        {allTags.length > 0 && <label><span>{t('library.header.tagLabel')}</span><select value={tag ?? ''} onChange={event => setTag(event.target.value || null)}>
-          <option value="">{t('library.header.tagAll')}</option>{allTags.map(value => <option key={value} value={value}>{value}</option>)}
-        </select></label>}
-        <button type="button" className="reomi-filter-toggle" aria-pressed={unattached} onClick={() => setUnattached(!unattached)}><NNIcon name="notebook" size={14} />{t('library.header.shelfUnattached')}</button>
-        <label className="reomi-library-sort"><span>{t('library.header.sortLabel')}</span><select value={sort} onChange={event => setSort(event.target.value as SortMode)}>
-          {SORTS.map(value => <option key={value} value={value}>{t(`library.header.sort${value === 'added' ? 'Added' : value === 'title' ? 'Title' : 'LastRead'}`)}</option>)}
-        </select></label>
+        <label><span>{t('library.header.formatLabel')}</span><NNSelect ariaLabel={t('library.header.formatLabel')} value={kind} onChange={setKind}
+          options={KIND_FILTERS.map(k => ({ value: k, label: t(`library.header.kind${kindFilterKey(k)}`) }))} />
+        </label>
+        <label><span>{t('library.header.readingLabel')}</span><NNSelect ariaLabel={t('library.header.readingLabel')} value={reading} onChange={setReading}
+          options={READING_FILTERS.map(r => ({ value: r, label: t(`library.header.reading${r === 'all' ? 'All' : r === 'unread' ? 'Unread' : r === 'reading' ? 'Reading' : 'Finished'}`) }))} />
+        </label>
+        {allTags.length > 0 && <label><span>{t('library.header.tagLabel')}</span><NNSelect ariaLabel={t('library.header.tagLabel')} value={tag ?? ''} onChange={value => setTag(value || null)}
+          options={[{ value: '', label: t('library.header.tagAll') }, ...allTags.map(value => ({ value, label: value }))]} />
+        </label>}
+        <Button variant="bare" type="button" className="reomi-filter-toggle" aria-pressed={unattached} onClick={() => setUnattached(!unattached)}><NNIcon name="notebook" size={14} />{t('library.header.shelfUnattached')}</Button>
+        <label className="reomi-library-sort"><span>{t('library.header.sortLabel')}</span><NNSelect ariaLabel={t('library.header.sortLabel')} value={sort} onChange={setSort}
+          options={SORTS.map(value => ({ value, label: t(`library.header.sort${value === 'added' ? 'Added' : value === 'title' ? 'Title' : 'LastRead'}`) }))} />
+        </label>
         <div className="reomi-library-views">
           <NNBtn variant={view === 'grid' ? 'soft' : 'ghost'} icon="grid" aria-pressed={view === 'grid'} ariaLabel={t('library.header.viewGrid')} title={t('library.header.viewGrid')} onClick={() => setView('grid')} />
           <NNBtn variant={view === 'list' ? 'soft' : 'ghost'} icon="stack" aria-pressed={view === 'list'} ariaLabel={t('library.header.viewList')} title={t('library.header.viewList')} onClick={() => setView('list')} />
@@ -824,7 +824,7 @@ const ContinueShelf = ({ items, onOpen, t }: { items: LibraryItem[]; onOpen: (id
     </h3>
     <div className="nn-scroll" style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
       {items.map((it) => (
-        <button
+        <Button variant="bare"
           key={it.id}
           type="button"
           onClick={() => onOpen(it.id)}
@@ -849,7 +849,7 @@ const ContinueShelf = ({ items, onOpen, t }: { items: LibraryItem[]; onOpen: (id
                 : t('library.shelf.percent', { percent: Math.round((it.percent ?? 0) * 100) })}
             </div>
           </div>
-        </button>
+        </Button>
       ))}
     </div>
   </div>
@@ -924,7 +924,7 @@ const ContentSearchResults = ({
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {g.hits.map((h) => (
-              <button
+              <Button variant="bare"
                 key={h.sourceChunkId}
                 type="button"
                 onClick={() => onOpenHit(g, h)}
@@ -940,7 +940,7 @@ const ContentSearchResults = ({
                 <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                   {h.snippet}
                 </div>
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -1008,7 +1008,7 @@ const LibraryCard = ({ item, onOpen, onDetails, t }: { item: LibraryItem; onOpen
   const notReady = item.status !== 'ready' && (item.total === 0 || item.status === 'deleting');
   const statusLabel = labelForStatus(item, t);
   return (
-    <button type="button" data-navigation-anchor={item.id} onClick={onOpen} className="nn-lib-card">
+    <Button variant="bare" type="button" data-navigation-anchor={item.id} onClick={onOpen} className="nn-lib-card">
       <div style={{ position: 'relative' }}>
         <CoverPlaceholder item={item} aspect />
         {['pending', 'parsing', 'indexing'].includes(item.status) && <LibraryIngestIndicator item={item} t={t} />}
@@ -1080,7 +1080,7 @@ const LibraryCard = ({ item, onOpen, onDetails, t }: { item: LibraryItem; onOpen
           )}
         </div>
       </div>
-    </button>
+    </Button>
   );
 };
 
@@ -1089,7 +1089,7 @@ const LibraryCard = ({ item, onOpen, onDetails, t }: { item: LibraryItem; onOpen
 const LibraryListRow = ({ item, onOpen, onDetails, t }: { item: LibraryItem; onOpen: () => void; onDetails: () => void; t: Tr }) => {
   const notReady = item.status !== 'ready' && (item.total === 0 || item.status === 'deleting');
   return (
-    <button type="button" data-navigation-anchor={item.id} onClick={onOpen} className="nn-lib-row">
+    <Button variant="bare" type="button" data-navigation-anchor={item.id} onClick={onOpen} className="nn-lib-row">
       <CoverPlaceholder item={item} size={40} />
       <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
         <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1133,7 +1133,7 @@ const LibraryListRow = ({ item, onOpen, onDetails, t }: { item: LibraryItem; onO
       >
         <NNIcon name="dots" size={14} color="var(--text-dim)" />
       </span>
-    </button>
+    </Button>
   );
 };
 
@@ -1216,12 +1216,12 @@ const AddInlineDialog = ({
           </h3>
           <div>
             <label style={labelStyle}>{t('library.add.titleLabel')}</label>
-            <input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('library.add.titlePlaceholder')} maxLength={300} />
+            <TextInput style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('library.add.titlePlaceholder')} maxLength={300} />
           </div>
           {kind === 'url' ? (
             <div>
               <label style={labelStyle}>{t('library.add.urlLabel')}</label>
-              <input style={inputStyle} value={value} onChange={(e) => setValue(e.target.value)} placeholder={t('library.add.urlPlaceholder')} maxLength={2000} />
+              <TextInput style={inputStyle} value={value} onChange={(e) => setValue(e.target.value)} placeholder={t('library.add.urlPlaceholder')} maxLength={2000} />
             </div>
           ) : (
             <div>
@@ -1511,14 +1511,14 @@ const DetailsPanel = ({
               </label>
               <div style={{ display: 'flex', gap: 4 }}>
                 {(['unread', 'reading', 'finished'] as ReadingStatus[]).map((rs) => (
-                  <button
+                  <Button variant="bare"
                     key={rs}
                     type="button"
                     onClick={() => applyPatch({ readingStatus: rs })}
                     className={`nn-lib-chip${detail.readingStatus === rs ? ' active' : ''}`}
                   >
                     {t(`library.header.reading${rs === 'unread' ? 'Unread' : rs === 'reading' ? 'Reading' : 'Finished'}`)}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -1532,14 +1532,14 @@ const DetailsPanel = ({
                 {detail.tags.map((tag) => (
                   <span key={tag} className="nn-lib-tag">
                     {tag}
-                    <button type="button" disabled={tagAction.busy || tagAction.uncertain} onClick={() => void onRemoveTag(tag)} aria-label={t('actions.delete')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', display: 'inline-flex', padding: 0 }}>
+                    <Button variant="bare" type="button" disabled={tagAction.busy || tagAction.uncertain} onClick={() => void onRemoveTag(tag)} aria-label={t('actions.delete')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', display: 'inline-flex', padding: 0 }}>
                       <NNIcon name="x" size={11} />
-                    </button>
+                    </Button>
                   </span>
                 ))}
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
-                <input
+                <TextInput
                   value={tagDraft}
                   onChange={(e) => setTagDraft(e.target.value)}
                   onKeyDown={(e) => {
@@ -1580,7 +1580,7 @@ const DetailsPanel = ({
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {detail.notebooks.map((nb) => (
-                    <button
+                    <Button variant="bare"
                       key={nb.id}
                       type="button"
                       onClick={() => onOpenNotebook(nb.id)}
@@ -1589,7 +1589,7 @@ const DetailsPanel = ({
                       <NNIcon name="doc" size={13} color="var(--text-muted)" />
                       <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }}>{nb.title}</span>
                       <NNIcon name="chevr" size={11} color="var(--text-dim)" />
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
@@ -1697,7 +1697,7 @@ const NotebookAttachPicker = ({
               {notebooks.map((nb) => {
                 const already = attachedIds.has(nb.id);
                 return (
-                  <button
+                  <Button variant="bare"
                     key={nb.id}
                     type="button"
                     disabled={already || busy}
@@ -1708,7 +1708,7 @@ const NotebookAttachPicker = ({
                     <NNIcon name="doc" size={13} color="var(--text-muted)" />
                     <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }}>{nb.title}</span>
                     {already && <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{t('library.details.alreadyIn')}</span>}
-                  </button>
+                  </Button>
                 );
               })}
             </div>

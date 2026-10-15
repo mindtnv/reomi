@@ -1,6 +1,5 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
 
 // NotebookWorkspace (L2 — clean NotebookLM, Р6). The notebook is now pure
 // research/chat: the FULL reader (PDF + ink + marks + quick-card) lives at
@@ -75,7 +74,7 @@ import { readBrowserValue, removeBrowserValue, writeBrowserValue } from '@/lib/s
 import { api, ok } from '@/lib/api';
 import type { LibraryItem, SuggestedSource, SuggestSourcesResult } from '@/lib/types';
 
-import { SegmentedControl } from '@/components/design-system/primitives';
+import { SegmentedControl, Button, TextInput } from '@/components/design-system/primitives';
 
 type WorkspaceTab = 'sources' | 'chat' | 'dock';
 
@@ -1105,14 +1104,14 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
         flexShrink: 0,
       }}
     >
-      <button
+      <Button variant="bare"
         type="button"
         className="nn-nb-ws-back"
         onClick={() => router.push('/notebooks')}
       >
         <NNIcon name="chevl" size={14} color="currentColor" />
         {t('notebooks.sources.back')}
-      </button>
+      </Button>
       <span
         className="nn-nb-ws-tile"
         style={{
@@ -1314,14 +1313,14 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
           { key: 'chat', labelKey: 'notebooks.workspace.tabChat' },
           { key: 'dock', labelKey: 'notebooks.workspace.tabDock' },
         ] as { key: WorkspaceTab; labelKey: string }[]).map(({ key: tk, labelKey }) => (
-          <button
+          <Button variant="bare"
             key={tk}
             type="button"
             className={`nn-ws-tab${tab === tk ? ' active' : ''}`}
             onClick={() => setTab(tk)}
           >
             {t(labelKey)}
-          </button>
+          </Button>
         ))}
       </div>
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -1465,11 +1464,11 @@ const SourcesPanel = ({
 
     <div ref={position.ref} className="nn-scroll" style={{ flex: 1, overflowY: 'auto', padding: '12px 12px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
       {/* «Подключить из библиотеки» — dashed connect button. */}
-      <button type="button" className="nn-nb-connect" onClick={onAttachFromLibrary}>
+      <Button variant="bare" type="button" className="nn-nb-connect" onClick={onAttachFromLibrary}>
         <NNIcon name="book" size={15} color="var(--lime-400)" />
         <span style={{ flex: 1 }}>{t('notebooks.sources.connectFromLibrary')}</span>
         <NNIcon name="chevr" size={13} color="var(--text-dim)" />
-      </button>
+      </Button>
 
       {addOpen && <AddSourceForm {...addProps} />}
 
@@ -1545,7 +1544,7 @@ const SourcesPanel = ({
         <span style={{ flex: 1, fontSize: 11.5, color: 'var(--text-dim)' }}>
           {t('notebooks.sources.selectedOf', { count: selectedCount, total: readyCount })}
         </span>
-        <button
+        <Button variant="bare"
           type="button"
           className="nn-nb-rail-link"
           disabled={readyCount === 0}
@@ -1553,7 +1552,7 @@ const SourcesPanel = ({
           style={readyCount === 0 ? { opacity: 0.4, cursor: 'default' } : undefined}
         >
           {allSelected ? t('notebooks.sources.clearSelection') : t('notebooks.sources.selectAll')}
-        </button>
+        </Button>
       </div>
     )}
   </div>
@@ -1582,7 +1581,7 @@ const NNCheck = ({
     }}
     title={label}
   >
-    <input
+    <TextInput
       type="checkbox"
       className="nn-nb-check-input"
       checked={on}
@@ -1678,7 +1677,7 @@ const WorkspaceSourceRow = ({
     <div className="nn-source-row" data-navigation-anchor={source.id}>
       {/* Main row: mini-cover + title/subline (→ read in library) + lime check */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button
+        <Button variant="bare"
           type="button"
           onClick={onReadInLibrary}
           title={t('assistant.readSource')}
@@ -1734,7 +1733,7 @@ const WorkspaceSourceRow = ({
               </span>
             )}
           </span>
-        </button>
+        </Button>
         {readable && (
           <NNCheck
             on={inScope}
@@ -1746,7 +1745,7 @@ const WorkspaceSourceRow = ({
             Two inline buttons + a sub-row crushed the 292px rail (titles ellipsed
             to nothing); reference rows are cover · text · check, actions hidden. */}
         <div className="nn-source-row-actions" style={{ flexShrink: 0, position: 'relative' }}>
-          <button
+          <Button variant="bare"
             type="button"
             className="nn-nb-icon-btn"
             aria-label={t('library.item.menu')}
@@ -1768,12 +1767,12 @@ const WorkspaceSourceRow = ({
             }}
           >
             <NNIcon name="dots" size={14} />
-          </button>
+          </Button>
           {menuOpen && (
             <>
               <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
               <div className="nn-lib-menu" style={{ right: 0, top: 'calc(100% + 4px)', minWidth: 200 }}>
-                <button
+                <Button variant="bare"
                   type="button"
                   className="nn-lib-menu-item"
                   onClick={() => {
@@ -1783,9 +1782,9 @@ const WorkspaceSourceRow = ({
                 >
                   <NNIcon name="edit" size={14} color="var(--text-muted)" />
                   {t('notebooks.sources.rename')}
-                </button>
+                </Button>
                 {readable && (
-                  <button
+                  <Button variant="bare"
                     type="button"
                     className="nn-lib-menu-item"
                     onClick={() => {
@@ -1797,9 +1796,9 @@ const WorkspaceSourceRow = ({
                     {cards === null
                       ? t('notebooks.workspace.cardsButton')
                       : t('notebooks.workspace.cardsCount', { count: cards.length })}
-                  </button>
+                  </Button>
                 )}
-                <button
+                <Button variant="bare"
                   type="button"
                   className="nn-lib-menu-item"
                   onClick={() => {
@@ -1809,8 +1808,8 @@ const WorkspaceSourceRow = ({
                 >
                   <NNIcon name="book" size={14} color="var(--text-muted)" />
                   {t('assistant.readSource')}
-                </button>
-                <button
+                </Button>
+                <Button variant="bare"
                   type="button"
                   className="nn-lib-menu-item"
                   onClick={() => {
@@ -1820,7 +1819,7 @@ const WorkspaceSourceRow = ({
                 >
                   <NNIcon name="x" size={14} color="var(--text-muted)" />
                   {t('library.workspace.detach')}
-                </button>
+                </Button>
               </div>
             </>
           )}
@@ -1837,7 +1836,7 @@ const WorkspaceSourceRow = ({
             </span>
           ) : (
             (cards ?? []).map((c) => (
-              <button
+              <Button variant="bare"
                 key={c.cardId}
                 type="button"
                 onClick={() => onOpenCard(c.cardId)}
@@ -1869,7 +1868,7 @@ const WorkspaceSourceRow = ({
                   {c.front}
                 </span>
                 <NNIcon name="chevr" size={10} color="var(--text-dim)" />
-              </button>
+              </Button>
             ))
           )}
         </div>
@@ -1973,7 +1972,7 @@ const LibraryAttachPicker = ({
             <NNBtn variant="ghost" size="sm" icon="x" ariaLabel={t('library.details.close')} onClick={onClose} />
           </div>
 
-          <input
+          <TextInput
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('library.workspace.attachSearch')}
@@ -2022,7 +2021,7 @@ const LibraryAttachPicker = ({
                         background: checked ? 'var(--surface-3)' : 'var(--surface-2)',
                       }}
                     >
-                      <input
+                      <TextInput
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggle(s.sourceId)}
@@ -2064,7 +2063,7 @@ const LibraryAttachPicker = ({
                       background: checked ? 'var(--surface-3)' : 'var(--surface-2)',
                     }}
                   >
-                    <input
+                    <TextInput
                       type="checkbox"
                       checked={checked || already}
                       disabled={already}

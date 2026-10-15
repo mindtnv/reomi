@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 import { useWindowControlsOverlay } from '@/lib/ui-store';
 import { LayerParent, useTransientLayer } from '@/lib/use-transient-layer';
@@ -76,10 +77,10 @@ export function AssistantHost() {
   const pointerUp = (event: React.PointerEvent) => { if (!drag.current) return; drag.current=null; event.currentTarget.releasePointerCapture?.(event.pointerId); saveAssistantWindow(rectRef.current); };
   if (!mounted || !snapshot.ownerId) return null;
   return createPortal(<LayerParent.Provider value={open ? layer.id : null}>
-    {!open && snapshot.presentation !== 'page' && <button ref={launcher} className="reomi-assistant-launcher" aria-label={t('assistant.open')} title={t('assistant.open')}
+    {!open && snapshot.presentation !== 'page' && <Button variant="bare" ref={launcher} className="reomi-assistant-launcher" aria-label={t('assistant.open')} title={t('assistant.open')}
       onClick={() => { void a.openPage().catch(() => raiseToast({ kind: 'error', titleKey: 'assistant.contextFailed' })); }}>
       <NNIcon name="chat" size={22}/>{count > 0 && <span>{count}</span>}
-    </button>}
+    </Button>}
     {open && <div ref={root} className="reomi-assistant-window" data-assistant-root data-mobile={mobile || undefined} role="dialog" aria-modal={mobile || undefined} aria-label={t('assistant.title')} tabIndex={-1}
       style={mobile ? { left:0,top:viewport.top,width:'100%',height:viewport.height } : { left:rect.x,top:rect.y,width:rect.width,height:rect.height }}
       onKeyDown={event => {

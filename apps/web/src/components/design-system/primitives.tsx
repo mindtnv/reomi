@@ -6,7 +6,7 @@ import {
   type ReactElement, type ReactNode,
 } from 'react';
 
-export type ButtonVariant = 'primary' | 'violet' | 'amber' | 'ghost' | 'soft' | 'outline' | 'danger';
+export type ButtonVariant = 'primary' | 'violet' | 'amber' | 'ghost' | 'soft' | 'outline' | 'danger' | 'bare';
 export type ButtonSize = 'sm' | 'md' | 'lg' | 'xl';
 export type ButtonProps = ComponentProps<'button'> & {
   variant?: ButtonVariant;
@@ -25,6 +25,23 @@ export function Button({
   loading = false, loadingLabel, active, block, disabled, type = 'button',
   className, title, 'aria-label': label, ...props
 }: ButtonProps) {
+  // Chrome that already owns its look (toolbar, menu, tab, icon) stays a
+  // Button so the native tag is gone, without the shared skin or tooltip.
+  if (variant === 'bare') {
+    return (
+      <button
+        {...props}
+        type={type}
+        title={title}
+        className={className}
+        disabled={disabled || loading}
+        aria-busy={loading || undefined}
+        aria-label={loading ? (loadingLabel ?? label) : label}
+      >
+        {leading}{children}{trailing}
+      </button>
+    );
+  }
   return (
     <button
       {...props}
@@ -75,8 +92,12 @@ export function Surface({
   />;
 }
 
-export function TextInput({ className, ...props }: ComponentProps<'input'>) {
-  return <input {...props} className={['reomi-input', className].filter(Boolean).join(' ')} />;
+const UNCHROMED_INPUT = new Set(['file', 'hidden', 'range']);
+
+export function TextInput({ className, type, ...props }: ComponentProps<'input'>) {
+  const chrome = typeof type !== 'string' || !UNCHROMED_INPUT.has(type);
+  const classes = [chrome ? 'reomi-input' : null, className].filter(Boolean).join(' ');
+  return <input {...props} type={type} className={classes || undefined} />;
 }
 
 export function Switch({

@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { TextInput } from '@/components/design-system/primitives';
+
 
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -195,7 +196,7 @@ function Field({
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <span style={{ fontSize: 12, color: 'var(--text-muted)', letterSpacing: 0.3 }}>{label}</span>
-      <input
+      <TextInput
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}

@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 import { AssistantAskButton } from '../chat/assistant-ask-button';
 import { SourceStudioPanel } from '../notebook/source-studio-panel';
 import { SourceAnnotationNotes } from '../pdf-reader/source-annotation-notes';
@@ -731,7 +732,7 @@ paddingLeft: 16 + wcoLeft, paddingRight: 16 + wcoRight,
       )}
     </div>
     {cardCount > 0 && (
-      <button
+      <Button variant="bare"
         type="button"
         onClick={onOpenCards}
         title={t('library.reader.cardsBadge', { n: cardCount })}
@@ -758,7 +759,7 @@ paddingLeft: 16 + wcoLeft, paddingRight: 16 + wcoRight,
           <line x1="2" y1="10" x2="22" y2="10" />
         </svg>
         {t('library.reader.cardsBadge', { n: cardCount })}
-      </button>
+      </Button>
     )}
     {source && <AssistantAskButton object={{ kind: 'source', id: source.id }} compact />}
     {source && <NNBtn variant="ghost" size="sm" icon="note" ariaLabel={t('notebooks.notes.heading')} title={t('notebooks.notes.heading')} onClick={onNotes} />}
@@ -813,13 +814,13 @@ const TextReaderShell = ({
       <div className="nn-chrome nn-reader-toolbar reomi-pdf-toolbar" role="toolbar" aria-label={t('notebooks.reader.toolbar')}>
         <div className="reomi-reader-toolbar-row nn-scroll">
           <div className="reomi-reader-group">
-            <button type="button" onClick={onToggleToc} className={`nn-tb-btn${tocOpen ? ' active' : ''}`}
+            <Button variant="bare" type="button" onClick={onToggleToc} className={`nn-tb-btn${tocOpen ? ' active' : ''}`}
               aria-pressed={tocOpen} data-tooltip={t('library.reader.toc')} aria-label={t('library.reader.toc')}>
               <NNIcon name="menu" size={16} />
-            </button>
+            </Button>
             {source.kind === 'pdf' && <div className="reomi-reader-mode">
-              <button type="button" onClick={() => onMode('pdf')} aria-pressed={false}>{t('notebooks.reader.modePdf')}</button>
-              <button type="button" aria-pressed={true}>{t('notebooks.reader.modeText')}</button>
+              <Button variant="bare" type="button" onClick={() => onMode('pdf')} aria-pressed={false}>{t('notebooks.reader.modePdf')}</Button>
+              <Button variant="bare" type="button" aria-pressed={true}>{t('notebooks.reader.modeText')}</Button>
             </div>}
           </div>
         </div>
@@ -881,7 +882,7 @@ const TocPanel = ({
         </p>
       ) : (
         entries.map((e, i) => (
-          <button
+          <Button variant="bare"
             key={i}
             type="button"
             onClick={() => onJump(e)}
@@ -920,7 +921,7 @@ const TocPanel = ({
                 {e.page}
               </span>
             )}
-          </button>
+          </Button>
         ))
       )}
     </div>
@@ -1017,7 +1018,7 @@ const CardsDrawer = ({
             </p>
           ) : (
             rows.map((c) => (
-              <button
+              <Button variant="bare"
                 key={c.cardId}
                 type="button"
                 onClick={() => onOpenCard(c.cardId)}
@@ -1032,7 +1033,7 @@ const CardsDrawer = ({
                     {c.deckName}
                   </span>
                 )}
-              </button>
+              </Button>
             ))
           )}
         </div>

@@ -1,6 +1,8 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { TextInput, Button } from '@/components/design-system/primitives';
+import { NNSelect } from '@/components/nn-select';
+
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {visibleAssistantViewport} from '@/lib/assistant-overlay-geometry';
@@ -78,19 +80,18 @@ export function ContextPicker({ ownerId, query, onPick, onClose, handleRef, anch
   const panel=<LayerParent.Provider value={layer.id}><div ref={root} className="reomi-assistant-context-picker" role="dialog" data-assistant-overlay aria-label={t('assistant.addContext')} onKeyDown={keyDown} style={placement??undefined}>
     <div className="reomi-assistant-picker-toolbar">
       {source ? <><NNBtn size="sm" variant="ghost" icon="chevl" onClick={() => setSource(null)}>{source.label}</NNBtn>
-        <input autoFocus value={sectionQuery} onChange={e => setSectionQuery(e.target.value)} aria-label={t('assistant.findSections')} placeholder={t('assistant.findSections')} /></>
-        : <select aria-label={t('assistant.objectType')} value={type} onChange={e => setType(e.target.value)}>
-          <option value="">{t('assistant.allObjects')}</option>{ASSISTANT_OBJECT_KINDS.filter(kind => kind !== 'source_passage').map(kind => <option key={kind} value={kind}>{t(`assistant.kinds.${kind}`)}</option>)}
-        </select>}
+        <TextInput autoFocus value={sectionQuery} onChange={e => setSectionQuery(e.target.value)} aria-label={t('assistant.findSections')} placeholder={t('assistant.findSections')} /></>
+        : <NNSelect ariaLabel={t('assistant.objectType')} value={type} onChange={setType}
+          options={[{ value: '', label: t('assistant.allObjects') }, ...ASSISTANT_OBJECT_KINDS.filter(kind => kind !== 'source_passage').map(kind => ({ value: kind, label: t(`assistant.kinds.${kind}`) }))]} />}
       <NNBtn size="sm" variant="ghost" icon="x" ariaLabel={t('actions.close')} onClick={() => void layer.close()} />
     </div>
     {selectedMaterials}
     {error ? <div role="alert">{t('assistant.searchFailed')} <NNBtn size="sm" onClick={() => setRevision(v => v + 1)}>{t('review.retry')}</NNBtn></div>
       : <div role="listbox" aria-busy={busy} aria-label={t('assistant.results')} className="nn-scroll" style={placement?{maxHeight:Math.max(60,Number(placement.maxHeight)-52-(selectedMaterials?128:0))}:undefined}>
         {items.map((item,i) => <div key={assistantRefKey(item.ref)} className="reomi-assistant-picker-row" data-active={i === index || undefined}>
-          <button role="option" aria-selected={i === index} onMouseDown={e => e.preventDefault()} onMouseEnter={() => setIndex(i)} onClick={() => onPick(item)}>
+          <Button variant="bare" role="option" aria-selected={i === index} onMouseDown={e => e.preventDefault()} onMouseEnter={() => setIndex(i)} onClick={() => onPick(item)}>
             <NNIcon name={icons[item.ref.kind]} size={15} /><span><strong>{item.label}</strong><small>{t(`assistant.kinds.${item.ref.kind}`)}{item.parent ? ` · ${item.parent.label}` : ''}</small></span>
-          </button>
+          </Button>
           {allowPassages && item.ref.kind === 'source' && <NNBtn size="sm" variant="ghost" icon="chevr" ariaLabel={t('assistant.sections')} title={t('assistant.sections')} onClick={() => { setSource(item); setSectionQuery(''); }} />}
         </div>)}
         {!items.length && <p>{t(busy ? 'states.loading' : 'assistant.noResults')}</p>}

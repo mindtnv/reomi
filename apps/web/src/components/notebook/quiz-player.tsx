@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 // QuizPlayer («Блокноты 2.0» N3, Р8) — the in-studio quiz runner. Opened from the
 // studio when a ready artifact is `type='quiz'` (instead of the markdown viewer).
@@ -390,7 +391,7 @@ const QuizQuestionView = ({
           {(q.options ?? []).map((opt, i) => {
             const selected = response?.kind === 'mcq' && response.value === i;
             return (
-              <button
+              <Button variant="bare"
                 key={i}
                 type="button"
                 className={`nn-quiz-option${selected ? ' selected' : ''}`}
@@ -398,7 +399,7 @@ const QuizQuestionView = ({
               >
                 <span className={`nn-quiz-radio${selected ? ' on' : ''}`} />
                 <span style={{ flex: 1, textAlign: 'left' }}>{opt}</span>
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -409,7 +410,7 @@ const QuizQuestionView = ({
           {[true, false].map((val) => {
             const selected = response?.kind === 'tf' && response.value === val;
             return (
-              <button
+              <Button variant="bare"
                 key={String(val)}
                 type="button"
                 className={`nn-quiz-tf${selected ? ' selected' : ''}`}
@@ -417,7 +418,7 @@ const QuizQuestionView = ({
               >
                 <NNIcon name={val ? 'check' : 'x'} size={18} color={selected ? 'var(--lime-400)' : 'var(--text-muted)'} />
                 {val ? t('notebooks.quiz.tfTrue') : t('notebooks.quiz.tfFalse')}
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -445,22 +446,22 @@ const QuizQuestionView = ({
                 </span>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
-                <button
+                <Button variant="bare"
                   type="button"
                   className={`nn-quiz-selfgrade ok${response?.kind === 'open' && response.selfCorrect ? ' selected' : ''}`}
                   onClick={() => onAnswer({ kind: 'open', selfCorrect: true })}
                 >
                   <NNIcon name="check" size={16} color="var(--lime-400)" />
                   {t('notebooks.quiz.selfCorrect')}
-                </button>
-                <button
+                </Button>
+                <Button variant="bare"
                   type="button"
                   className={`nn-quiz-selfgrade bad${response?.kind === 'open' && !response.selfCorrect ? ' selected' : ''}`}
                   onClick={() => onAnswer({ kind: 'open', selfCorrect: false })}
                 >
                   <NNIcon name="x" size={16} color="var(--rose-400)" />
                   {t('notebooks.quiz.selfIncorrect')}
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -573,14 +574,14 @@ const QuizResult = ({
                     </span>
                   )}
                   {q.sourceChunkId && (
-                    <button
+                    <Button variant="bare"
                       type="button"
                       className="nn-quiz-source-link"
                       onClick={() => onOpenCitation(q.sourceChunkId!, sourceIds)}
                     >
                       <NNIcon name="doc" size={11} color="var(--sky-400)" />
                       {t('notebooks.quiz.inSource')}
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>

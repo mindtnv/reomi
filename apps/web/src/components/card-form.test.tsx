@@ -354,8 +354,9 @@ test('conversion keeping the card id replaces the editor fields and type, not on
   } : { noteIds: [row.noteId], cards: [{ ...row, noteType: target, note: { ...row.note, fieldValues: { Question: 'Mapped question', Answer: 'Mapped answer' } } }] })) as unknown as typeof fetch);
   await render({ card: cardFromApi({ ...row, noteType: source }), onSaved: (card) => { saved = card; } });
   await act(async () => button('noteTypes.convert.open').click());
-  const select = document.querySelector('[aria-label="noteTypes.convert.target"]') as HTMLSelectElement;
-  await act(async () => { select.value = target.id; select.dispatchEvent(new Event('change', { bubbles: true })); });
+  const select = document.querySelector('[aria-label="noteTypes.convert.target"]') as HTMLButtonElement;
+  await act(async () => select.click());
+  await act(async () => Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find((option) => option.textContent?.includes('Mapped type'))!.click());
   const modalButton = (text: string) => Array.from(document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).find((button) => button.textContent?.includes(text))!;
   await act(async () => modalButton('noteTypes.kind.preview').click());
   await act(async () => modalButton('noteTypes.convert.apply').click());

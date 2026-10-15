@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 #73 */
+import { Button, Checkbox, TextInput } from '@/components/design-system/primitives';
+
 
 import { useAssistantOverlayFocus } from '@/lib/assistant-overlay-focus';
 import { AssistantPopup } from './assistant-popup';
@@ -18,7 +19,6 @@ import { ThreadRail } from './thread-rail';
 import { SlashMenu } from './mention-popover';
 import { ChatUnavailable } from './chat-unavailable';
 import { NNBtn, NNIcon, NNLoadError, NNSkeleton } from '@/components/ui';
-import { Checkbox } from '@/components/design-system/primitives';
 import { useAppNavigation } from '@/components/navigation';
 import { useDialog } from '@/components/dialog';
 import { raiseToast } from '@/components/toasts';
@@ -63,7 +63,7 @@ export function AssistantThreads({ compact = false, onSelected }: { compact?: bo
     {a.filter.id && <NNBtn size="sm" variant="ghost" icon="x" ariaLabel={t('assistant.allConversations')} onClick={() => a.setFilter({ q: a.filter.q })} />}
   </>;
   return <div className="reomi-assistant-threads" style={compact ? undefined : { width: railWidth }}>
-    {filtering&&<div className="reomi-assistant-filter-search"><input ref={filterInput} autoFocus value={filterQuery} onChange={e=>setFilterQuery(e.target.value)} placeholder={t('assistant.filterContext')} aria-label={t('assistant.filterContext')}/>
+    {filtering&&<div className="reomi-assistant-filter-search"><TextInput ref={filterInput} autoFocus value={filterQuery} onChange={e=>setFilterQuery(e.target.value)} placeholder={t('assistant.filterContext')} aria-label={t('assistant.filterContext')}/>
       <ContextPicker ownerId={snapshot.ownerId} query={filterQuery} anchorRef={filterInput} allowPassages={false} onClose={()=>setFiltering(false)} onPick={object=>{a.setFilter({q:a.filter.q,kind:object.ref.kind,id:object.ref.id,label:object.label});setFiltering(false);}}/>
     </div>}
     {a.threadsError && <div role="alert">{t('assistant.threadsFailed')} <NNBtn size="sm" onClick={a.refreshThreads}>{t('review.retry')}</NNBtn></div>}
@@ -75,7 +75,7 @@ export function AssistantThreads({ compact = false, onSelected }: { compact?: bo
       onTogglePin={(id,pinned) => void a.patchConversation(id,{pinned}).catch(() => raiseToast({ kind: 'error', title: t('chat.errors.generic') }))}
       onDelete={id => { void (async () => { if (await confirm({ title: t('chat.threads.delete'), message: t('chat.threads.deleteConfirm'), danger: true })) await a.deleteConversation(id); })().catch(() => raiseToast({ kind: 'error', title: t('chat.errors.generic') })); }} t={t} />
     {Object.values(snapshot.sessions).filter(s => !s.conversationId && (s.draft.trim() || s.attachments.length || s.queue.length)).map(s =>
-      <button className="reomi-assistant-draft-item" key={s.key} onClick={() => { a.controller.select(s.key); onSelected?.(); }}>{t('assistant.draft')} · {s.draft.slice(0,60) || s.pins[0]?.label}</button>)}
+      <Button variant="bare" className="reomi-assistant-draft-item" key={s.key} onClick={() => { a.controller.select(s.key); onSelected?.(); }}>{t('assistant.draft')} · {s.draft.slice(0,60) || s.pins[0]?.label}</Button>)}
   </div>;
 }
 
@@ -97,16 +97,16 @@ export function AssistantObjectChip({ object, onRemove, onPin, onScope }: { obje
     } catch { raiseToast({ kind: 'error', title: t('assistant.contextFailed') }); }
   };
   return <span className="reomi-assistant-object-chip" data-unavailable={unavailable || undefined}>
-    <button type="button" disabled={unavailable} onClick={() => void open()} title={object.excerpt ?? object.label}>
+    <Button variant="bare" type="button" disabled={unavailable} onClick={() => void open()} title={object.excerpt ?? object.label}>
       <NNIcon name={object.ref.kind === 'card' ? 'cards' : object.ref.kind === 'conversation' ? 'chat' : 'doc'} size={12} />
       <span>{object.ref.kind === 'source_passage' ? `${t('assistant.kinds.source_passage')}${object.ref.locator.page ? ` · ${t('notebooks.marks.pageGroup', { n: object.ref.locator.page })}` : ''} · ${object.label}` : object.label}</span>{unavailable && <small>{t('assistant.unavailable')}</small>}
-    </button>
-    <button type="button" aria-label={t('assistant.inspectContext')} title={t('assistant.inspectContext')} onClick={event=>{
+    </Button>
+    <Button variant="bare" type="button" aria-label={t('assistant.inspectContext')} title={t('assistant.inspectContext')} onClick={event=>{
       const bounds=event.currentTarget.getBoundingClientRect();setInspect(inspect?null:{left:Math.max(12,Math.min(bounds.left,window.innerWidth-340)),top:Math.max(12,Math.min(bounds.bottom+6,window.innerHeight-280))});
-    }}><NNIcon name="info" size={12}/></button>
+    }}><NNIcon name="info" size={12}/></Button>
     {onScope && object.ref.kind === 'notebook' && <NotebookScopePicker object={object} onApply={onScope} />}
-    {onPin && <button type="button" onClick={onPin} aria-label={t('assistant.pinContext')} title={t('assistant.pinContext')}><NNIcon name="pin" size={12} /></button>}
-    {onRemove && <button type="button" onClick={onRemove} aria-label={t('assistant.removeContext')} title={t('assistant.removeContext')}><NNIcon name="x" size={12} /></button>}
+    {onPin && <Button variant="bare" type="button" onClick={onPin} aria-label={t('assistant.pinContext')} title={t('assistant.pinContext')}><NNIcon name="pin" size={12} /></Button>}
+    {onRemove && <Button variant="bare" type="button" onClick={onRemove} aria-label={t('assistant.removeContext')} title={t('assistant.removeContext')}><NNIcon name="x" size={12} /></Button>}
     {inspect&&createPortal(<div ref={inspection} tabIndex={-1} className="reomi-assistant-object-details" role="dialog" data-assistant-overlay aria-label={t('assistant.inspectContext')} style={inspect}
       >
       <NNBtn size="sm" variant="ghost" icon="x" ariaLabel={t('actions.close')} onClick={()=>void inspectionLayer.close()}/>
@@ -286,9 +286,9 @@ function AssistantConversationView({ sessionKey, locale }: { sessionKey: string;
         <h2>{t(session.pins.some(object => object.ref.kind === 'card') ? 'assistant.cardStartTitle' : 'assistant.startTitle')}</h2>
         <p>{t(session.pins.length || session.refs.length ? 'assistant.contextStartDescription' : 'assistant.startDescription')}</p>
         <div className="reomi-assistant-suggestions">{(session.pins.length || session.refs.length ? ['explain','example','test'] : ['explore','review']).map(action =>
-          <button key={action} type="button" onClick={() => { a.controller.setDraft(sessionKey,t(`assistant.prompts.${action}`)); textarea.current?.focus(); }}>
+          <Button variant="bare" key={action} type="button" onClick={() => { a.controller.setDraft(sessionKey,t(`assistant.prompts.${action}`)); textarea.current?.focus(); }}>
             <span>{t(`assistant.suggestions.${action}`)}</span><NNIcon name="chevr" size={14}/>
-          </button>)}</div>
+          </Button>)}</div>
       </div> : session.messages.map((message,index) => <React.Fragment key={message.id}>
         {needsDaySeparator(session.messages[index-1]?.createdAt,message.createdAt) && <div className="reomi-chat-date">{formatDayLabel(message.createdAt!,locale,t)}</div>}
         <MessageRow message={message} phase={message.streaming && ['thinking','calling_tool','answering'].includes(session.phase) ? session.phase as 'thinking' | 'calling_tool' | 'answering' : null}
@@ -329,7 +329,7 @@ function AssistantConversationView({ sessionKey, locale }: { sessionKey: string;
         {!compact && <div className="reomi-assistant-composer-context">{mentionChips}</div>}
         {session.attachments.length > 0 && <div className="reomi-assistant-attachments">{session.attachments.map((attachment,index) => <span key={index}>
           {attachment.kind === 'image' && <img alt={attachment.name ?? ''} src={resolveMediaSrc(`/m/${attachment.mediaId}`)}/>}{attachment.name}
-          <button aria-label={t('actions.delete')} onClick={() => a.controller.removeAttachment(sessionKey,attachment)}>×</button>
+          <Button variant="bare" aria-label={t('actions.delete')} onClick={() => a.controller.removeAttachment(sessionKey,attachment)}>×</Button>
         </span>)}</div>}
         <textarea ref={textarea} readOnly={a.pageOpening} data-assistant-composer value={session.draft} maxLength={8000} rows={snapshot.presentation === 'floating' ? 1 : 2} placeholder={t('assistant.placeholder')}
           aria-label={t('assistant.message')} onChange={e => { a.controller.setDraft(sessionKey,e.target.value); caret.current=e.target.selectionStart; setTrigger(detectComposerTrigger(e.target.value,e.target.selectionStart)); setSlashIndex(0); }}
@@ -348,7 +348,7 @@ function AssistantConversationView({ sessionKey, locale }: { sessionKey: string;
           }}/>
         {!compact && <div className="reomi-assistant-composer-scope"><Checkbox className="reomi-assistant-policy" title={t('assistant.onlyMaterialsHint')} aria-description={t('assistant.onlyMaterialsHint')} checked={session.policy === 'strict'} disabled={contextBusy || !contextSupported} onChange={checked => void changePins(session.pins, checked ? 'strict' : 'focus')}>{t('assistant.onlyMaterials')}</Checkbox></div>}
         <div className="reomi-assistant-composer-actions">
-          <input ref={files} type="file" multiple hidden accept="image/*,.txt,.md,.markdown,.csv,.json,.log" onChange={e => { if (e.target.files) void addFiles([...e.target.files]); e.target.value=''; }}/>
+          <TextInput ref={files} type="file" multiple hidden accept="image/*,.txt,.md,.markdown,.csv,.json,.log" onChange={e => { if (e.target.files) void addFiles([...e.target.files]); e.target.value=''; }}/>
           <NNBtn variant="ghost" size="sm" icon="plus" ariaLabel={t('chat.composer.attach')} disabled={disabled} onClick={() => files.current?.click()}/>
           <NNBtn variant="ghost" size="sm" disabled={disabled} ariaLabel={t('assistant.addContext')} title={t('assistant.addMaterialHint',{count:mergeAssistantSnapshots(session.pins,session.refs).length})} onClick={() => { textarea.current?.focus(); caret.current=session.draft.length; setTrigger({ kind:'mention',query:'',start:session.draft.length }); }}>@</NNBtn>
           <span style={{flex:1}}/>

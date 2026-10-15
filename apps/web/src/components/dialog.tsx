@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { TextInput, Button } from '@/components/design-system/primitives';
+
 
 import React, {
   createContext,
@@ -439,7 +440,7 @@ function DialogHost({ dialog, onClose }: { dialog: BasicDialog; onClose: () => v
                   {dialog.opts.label}
                 </div>
               )}
-              <input
+              <TextInput
                 ref={inputRef}
                 type={dialog.opts.inputType ?? 'text'}
                 value={value}
@@ -474,7 +475,7 @@ function DialogHost({ dialog, onClose }: { dialog: BasicDialog; onClose: () => v
                   <span style={{ position: 'absolute', left: 10, display: 'flex', pointerEvents: 'none' }}>
                     <NNIcon name="search" size={14} color="var(--text-dim)" />
                   </span>
-                  <input
+                  <TextInput
                     ref={selectSearchRef}
                     value={selectQuery}
                     onChange={(e) => setSelectQuery(e.target.value)}
@@ -514,7 +515,7 @@ function DialogHost({ dialog, onClose }: { dialog: BasicDialog; onClose: () => v
                   filteredSelectOptions.map((opt, i) => {
                     const selected = opt.value === selectValue;
                     return (
-                      <button
+                      <Button variant="bare"
                         key={i}
                         type="button"
                         aria-pressed={selected}
@@ -569,7 +570,7 @@ function DialogHost({ dialog, onClose }: { dialog: BasicDialog; onClose: () => v
                             }}
                           />
                         )}
-                      </button>
+                      </Button>
                     );
                   })
                 )}

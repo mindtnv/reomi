@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { TextInput } from '@/components/design-system/primitives';
+
 import { useEffect, useRef, useState } from 'react';
 import { useNN } from '@/lib/store';
 import { useT } from '@/lib/i18n';
@@ -30,7 +31,7 @@ export function InlineDeckCreate({ onCreated, disabled = false }: { onCreated(id
     if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); void create(); }
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); if (!busy) setOpen(false); }
   }}>
-    <input autoFocus className="reomi-input" aria-label={t('decks.name')} maxLength={100} value={name}
+    <TextInput autoFocus className="reomi-input" aria-label={t('decks.name')} maxLength={100} value={name}
       disabled={busy || disabled} onChange={event => setName(event.target.value)} placeholder={t('decks.namePlaceholder')} />
     <div style={{ display: 'flex', gap: 6 }}>
       <NNBtn type="button" size="sm" variant="primary" loading={busy} disabled={busy || disabled || !name.trim()} onClick={() => void create()}>{t('actions.create')}</NNBtn>

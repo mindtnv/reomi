@@ -1,6 +1,8 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { TextInput, Button } from '@/components/design-system/primitives';
+import { NNSelect } from '@/components/nn-select';
+
 
 import { withDraftKeys, withoutDraftKey, adoptTypeIdentities } from '@/lib/type-draft-identities';
 import { newUuidV7, normalizeFieldName, validFieldNames, validateTemplates, typedAnswerField, renameFieldValues, renameTemplateFields } from '@reomi/shared';
@@ -235,7 +237,7 @@ const FieldRow = ({
   const t = useT();
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <input
+      <TextInput
         value={field.name}
         onChange={(e) => onRename(e.target.value)}
         placeholder={t('noteTypes.fields.namePlaceholder')}
@@ -315,7 +317,7 @@ const TemplateEditor = ({
   return (
     <NNCard style={{ background: 'var(--surface-2, var(--surface))' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <input
+        <TextInput
           value={template.name}
           onChange={(e) => onChange({ name: e.target.value })}
           placeholder={t('noteTypes.templates.namePlaceholder')}
@@ -338,7 +340,7 @@ const TemplateEditor = ({
             {t('noteTypes.templates.availableFields')}:
           </span>
           {fieldNames.map((name) => (
-            <button
+            <Button variant="bare"
               key={name}
               type="button"
               onClick={() => insertField(name)}
@@ -355,7 +357,7 @@ const TemplateEditor = ({
               }}
             >
               {`{{${name}}}`}
-            </button>
+            </Button>
           ))}
         </div>
       )}
@@ -754,7 +756,7 @@ const NoteTypeForm = ({
           {/* Name */}
           <div>
             <div style={labelStyle}><span>{t('noteTypes.editor.nameLabel')}</span></div>
-            <input
+            <TextInput
               aria-label={t('noteTypes.editor.nameLabel')}
               value={draft.name}
               onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
@@ -789,12 +791,14 @@ const NoteTypeForm = ({
           </div>
 
           {editing?.kind === 'typein' && <label>{t('noteTypes.answerField')}
-            <select aria-label={t('noteTypes.answerField')} style={inputStyle}
-              value={draft.fields.findIndex((field) => field.typeinAnswer)}
-              onChange={(event) => setDraft((previous) => ({ ...previous, fields: previous.fields.map((field, index) => ({ ...field, typeinAnswer: index === Number(event.target.value) })) }))}>
-              <option value={-1} disabled>{t('noteTypes.errors.answerRequired')}</option>
-              {draft.fields.map((field, index) => <option key={field.id ?? index} value={index}>{field.name}</option>)}
-            </select>
+            <NNSelect ariaLabel={t('noteTypes.answerField')} style={inputStyle}
+              value={String(draft.fields.findIndex((field) => field.typeinAnswer))}
+              onChange={(value) => setDraft((previous) => ({ ...previous, fields: previous.fields.map((field, index) => ({ ...field, typeinAnswer: index === Number(value) })) }))}
+              options={[
+                { value: '-1', label: t('noteTypes.errors.answerRequired'), disabled: true },
+                ...draft.fields.map((field, index) => ({ value: String(index), label: field.name })),
+              ]}
+            />
           </label>}
 
           {/* Templates */}
@@ -862,7 +866,7 @@ const NoteTypeForm = ({
                     <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 80, fontFamily: 'var(--font-mono, ui-monospace, monospace)' }}>
                       {name}
                     </span>
-                    <input
+                    <TextInput
                       aria-label={`${t('noteTypes.preview.sampleLabel')}: ${name}`}
                       value={sample[name] ?? name}
                       onChange={(e) => setSample((s) => ({ ...s, [name]: e.target.value }))}
@@ -946,12 +950,12 @@ const NoteTypeKindForm = ({ editing, onDone }: { editing: NoteType; onDone: () =
     <p className="reomi-flow-intro">{t('noteTypes.kind.intro')}</p>
     <SaveFeedback status={recovery.snapshot.status} errorCode={recovery.snapshot.error} onRetry={() => void apply()} />
     <fieldset disabled={busy} style={{ border: 0, padding: 0, display: 'grid', gap: 16 }}>
-      <label>{t('noteTypes.kind.mode')}<select aria-label={t('noteTypes.kind.mode')} style={inputStyle} value={kind} onChange={(event) => setKind(event.target.value as RenderKind)}>
-        {(['basic', 'custom', 'typein', 'cloze'] as const).map((value) => <option value={value} key={value}>{label(value)}</option>)}
-      </select></label>
-      {kind === 'typein' && <label>{t('noteTypes.answerField')}<select aria-label={t('noteTypes.answerField')} style={inputStyle} value={answerFieldId} onChange={(event) => setAnswerFieldId(event.target.value)}>
-        {editing.fields.map((field) => <option value={field.id} key={field.id}>{field.name}</option>)}
-      </select></label>}
+      <label>{t('noteTypes.kind.mode')}<NNSelect ariaLabel={t('noteTypes.kind.mode')} style={inputStyle} value={kind} onChange={setKind}
+        options={(['basic', 'custom', 'typein', 'cloze'] as const).map((value) => ({ value, label: label(value) }))} />
+      </label>
+      {kind === 'typein' && <label>{t('noteTypes.answerField')}<NNSelect ariaLabel={t('noteTypes.answerField')} style={inputStyle} value={answerFieldId} onChange={setAnswerFieldId}
+        options={editing.fields.flatMap((field) => field.id ? [{ value: field.id, label: field.name }] : [])} />
+      </label>}
       <p>{kind === 'cloze' ? t('noteTypes.kind.cloze') : t('noteTypes.kind.scopeHint')}</p>
       <NNBtn variant="primary" disabled={kind === editing.kind} onClick={apply}>{busy ? t('noteTypes.actions.saving') : t('noteTypes.kind.preview')}</NNBtn>
     </fieldset>

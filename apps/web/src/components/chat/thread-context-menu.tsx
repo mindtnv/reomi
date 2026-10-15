@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTransientLayer } from '@/lib/use-transient-layer';
 import { createPortal } from 'react-dom';
@@ -40,7 +41,7 @@ export function ThreadContextMenu({ x, y, label, actions, anchor, onClose }: {
       const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
       buttons[next]?.focus();
     }}>
-    {actions.map(action => <button key={action.label} type="button" role="menuitem" data-danger={action.danger || undefined}
-      onClick={() => { void layer.close().then(closed => { if (closed) action.run(); }); }}><NNIcon name={action.icon} size={16} /><span>{action.label}</span></button>)}
+    {actions.map(action => <Button variant="bare" key={action.label} type="button" role="menuitem" data-danger={action.danger || undefined}
+      onClick={() => { void layer.close().then(closed => { if (closed) action.run(); }); }}><NNIcon name={action.icon} size={16} /><span>{action.label}</span></Button>)}
   </div>, document.body);
 }

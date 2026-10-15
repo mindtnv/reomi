@@ -214,9 +214,10 @@ describe('organized deck workspace', () => {
     await render(<NNDecks />);
     await act(async () => container.querySelector('[data-deck-id="deck"]')!.dispatchEvent(new KeyboardEvent('keydown',{key:'F10',shiftKey:true,bubbles:true})));
     await act(async () => Array.from(document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')).find(b=>b.textContent==='Move deck')!.click());
-    const destination = container.querySelector<HTMLSelectElement>('dialog[open] select[aria-label="Destination"]')!;
-    expect(Array.from(destination.options).map(o=>o.value)).toEqual(['','target']);
-    await act(async () => { destination.value='target'; destination.dispatchEvent(new Event('change',{bubbles:true})); });
+    const destination = container.querySelector<HTMLButtonElement>('dialog[open] [aria-label="Destination"]')!;
+    await act(async () => destination.click());
+    expect([...document.querySelectorAll('[role="option"]')].map(option => option.textContent?.trim())).toEqual(['All decks', 'Target']);
+    await act(async () => [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(option => option.textContent?.trim() === 'Target')!.click());
     await act(async () => container.querySelector<HTMLButtonElement>('dialog[open] button[type="submit"]')!.click());
     expect(writes).toEqual([{targetId:'target',placement:'inside'}]);
     expect(useNN.getState().decks.find(d=>d.id==='deck')?.parentId).toBe('target');

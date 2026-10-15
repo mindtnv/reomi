@@ -1,6 +1,5 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
 
 import { restoreLayerFocus, LayerParent, useTransientLayer } from '@/lib/use-transient-layer';
 
@@ -17,7 +16,7 @@ import {
 } from '@reomi/shared';
 import { NNBtn, NNBadge, NNTag, NNIcon, NNLoadError, NNSkeleton } from '@/components/ui';
 import type { BadgeTone } from '@/components/ui';
-import { TextInput } from '@/components/design-system/primitives';
+import { TextInput, Button } from '@/components/design-system/primitives';
 import { CardActionsMenu, type CardMenuAction } from '@/components/card-actions-menu';
 import { ResizeHandle } from '@/components/design-system/resize-handle';
 import { CARD_FILTERS, boundedPanelWidth, readCardFiltersWidth } from '@/lib/panel-width';
@@ -912,7 +911,7 @@ export const NNCardsBrowser = () => {
               {visibleColumns.map((col) => {
                 const active = col.sort && col.sort === sortField;
                 return (
-                  <button
+                  <Button variant="bare"
                     key={col.id}
                     type="button"
                     onClick={() => col.sort && onSortClick(col.sort)}
@@ -934,7 +933,7 @@ export const NNCardsBrowser = () => {
                   >
                     {t(col.labelKey)}
                     {active && <span aria-hidden style={{ fontSize: 9 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -1040,7 +1039,7 @@ export const NNCardsBrowser = () => {
                     }}
                   >
                     <span onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center' }}>
-                      <input
+                      <TextInput
                         type="checkbox"
                         aria-label={t('cards.actions.selectCard', { title: truncate(q, 60) })}
                         disabled={actionsUnavailable}
@@ -1049,12 +1048,12 @@ export const NNCardsBrowser = () => {
                         style={{ cursor: 'pointer' }}
                       />
                     </span>
-                    <button type="button" className="reomi-card-row-actions" aria-haspopup="menu"
+                    <Button variant="bare" type="button" className="reomi-card-row-actions" aria-haspopup="menu"
                       aria-label={t('cards.actions.forCard', { title: truncate(q, 60) })}
                       title={t('cards.actions.open')} disabled={actionsUnavailable}
                       onClick={event => { event.stopPropagation(); openActions(event.currentTarget, undefined, card.id); }}>
                       <NNIcon name="dots" size={16} />
-                    </button>
+                    </Button>
                     {visibleColumns.map((col) => (
                       <span
                         key={col.id}
@@ -1221,14 +1220,14 @@ const Sidebar = ({
 
   return (
     <div className="reomi-cards-filter-list">
-      <button type="button" onClick={onAll} className="reomi-filter-all" aria-pressed={!activeQuery.trim()}>
+      <Button variant="bare" type="button" onClick={onAll} className="reomi-filter-all" aria-pressed={!activeQuery.trim()}>
         <NNIcon name="stack" size={14} />
         <span>{t('cards.sidebar.allCards')}</span>
-      </button>
+      </Button>
 
       <div style={sectionLabelStyle}>{t('cards.sidebar.decks')}</div>
       {rows.map((node) => (
-        <button
+        <Button variant="bare"
           key={node.deck.id}
           type="button"
           onClick={() => onDeck(node.deck.name)}
@@ -1245,7 +1244,7 @@ const Sidebar = ({
             }}
           />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.deck.name}</span>
-        </button>
+        </Button>
       ))}
 
       <div style={sectionLabelStyle}>{t('cards.sidebar.states')}</div>
@@ -1253,14 +1252,14 @@ const Sidebar = ({
         {STATE_CHIPS.map((chip) => {
           const active = activeQuery.split(/\s+/).includes(chip.value);
           return (
-            <button
+            <Button variant="bare"
               key={chip.value}
               type="button"
               onClick={() => onChip(chip.value)}
               style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
             >
               <NNBadge tone={active ? 'lime' : 'neutral'} size="sm">{t(chip.labelKey)}</NNBadge>
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -1270,10 +1269,10 @@ const Sidebar = ({
         <div style={{ ...itemStyle, color: 'var(--text-dim)', cursor: 'default' }}>{t('cards.sidebar.noTags')}</div>
       ) : (
         tags.map((tag) => (
-          <button key={tag} type="button" onClick={() => onTag(tag)} style={itemStyle}>
+          <Button variant="bare" key={tag} type="button" onClick={() => onTag(tag)} style={itemStyle}>
             <NNIcon name="tag" size={13} color="var(--sky-400)" />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tag}</span>
-          </button>
+          </Button>
         ))
       )}
     </div>

@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
@@ -12,7 +13,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
             <p style={{ margin: 0, color: '#9096a3', lineHeight: 1.5 }}>
               Повтори попытку. Текущая страница не будет перезагружена без твоего действия.
             </p>
-            <button
+            <Button variant="bare"
               type="button"
               onClick={reset}
               style={{
@@ -29,7 +30,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
               }}
             >
               Повторить
-            </button>
+            </Button>
           </section>
         </main>
       </body>

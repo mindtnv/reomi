@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 // Feature #1 — «провал → источник». A lightweight reviewer surface, fed by the
 // SAME `useCardSources` hook the SourceLinksPanel uses, but tuned for the in-flow
@@ -82,7 +83,7 @@ export const SourcePeekChip = ({
   if (!item) return null;
   const href = libraryHref(item);
   return (
-    <button
+    <Button variant="bare"
       type="button"
       disabled={!href}
       onClick={() => { const current=navigation.current;if(href)void openFresh(item,onOpen,()=>navigation.current===current); }}
@@ -114,7 +115,7 @@ export const SourcePeekChip = ({
       >
         {originLabel(item, t)}
       </span>
-    </button>
+    </Button>
   );
 };
 

@@ -24,6 +24,25 @@ test('a busy action cannot be submitted twice and exposes its loading label', as
   expect(host.querySelector('.reomi-button-content')?.textContent).toBe('Save');
 });
 
+test('a bare button keeps the caller class and does not invent a tooltip or wrapper', async () => {
+  await act(async () => root.render(<Button variant="bare" className="nn-toast-action" data-tooltip="Keep" aria-pressed>Undo</Button>));
+  const button = host.querySelector('button')!;
+  expect(button.className).toBe('nn-toast-action');
+  expect(button.getAttribute('data-tooltip')).toBe('Keep');
+  expect(button.getAttribute('data-variant')).toBeNull();
+  expect(button.getAttribute('aria-pressed')).toBe('true');
+  expect(host.querySelector('.reomi-button-content')).toBeNull();
+  expect(button.textContent).toBe('Undo');
+});
+
+test('file and range inputs stay free of the text-field class', async () => {
+  await act(async () => root.render(<><TextInput type="file" /><TextInput type="range" /><TextInput type="checkbox" /></>));
+  const [file, range, checkbox] = host.querySelectorAll('input');
+  expect(file.className).toBe('');
+  expect(range.className).toBe('');
+  expect(checkbox.classList.contains('reomi-input')).toBe(true);
+});
+
 test('field label, help and validation error reference the actual input', async () => {
   await act(async () => root.render(<Field label="Title" description="Your topic" error="Required"><TextInput id="topic" aria-describedby="external-help" /></Field>));
   const input = host.querySelector('input')!;

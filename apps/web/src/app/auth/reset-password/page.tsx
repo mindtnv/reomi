@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { TextInput } from '@/components/design-system/primitives';
+
 
 import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -104,7 +105,7 @@ function ResetPasswordForm() {
             <span style={{ fontSize: 12, color: 'var(--text-muted)', letterSpacing: 0.3 }}>
               Новый пароль
             </span>
-            <input
+            <TextInput
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -116,7 +117,7 @@ function ResetPasswordForm() {
             <span style={{ fontSize: 12, color: 'var(--text-muted)', letterSpacing: 0.3 }}>
               Повтори пароль
             </span>
-            <input
+            <TextInput
               type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}

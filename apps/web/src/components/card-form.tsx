@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button, TextInput } from '@/components/design-system/primitives';
+
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAppNavigation } from '@/components/navigation';
@@ -321,7 +322,7 @@ const RichField = ({
     onActivate: () => void,
     disabled?: boolean,
   ): React.ReactNode => (
-    <button
+    <Button variant="bare"
       key={key}
       type="button"
       title={title}
@@ -348,7 +349,7 @@ const RichField = ({
       }}
     >
       {content}
-    </button>
+    </Button>
   );
 
   return (
@@ -372,7 +373,7 @@ const RichField = ({
             {t('editor.media.uploading')}
           </span>
         )}
-        <input
+        <TextInput
           ref={fileInputRef}
           type="file"
           accept={ALLOWED_IMAGE_TYPES.join(',')}
@@ -954,7 +955,7 @@ const CardFormEditor = ({
             <div className="reomi-editor-label" style={labelStyle}>
               <span>{t('editor.noteTypeLabel')}</span>
               <div style={{ flex: 1 }} />
-              <button
+              <Button variant="bare"
                 type="button"
                 onClick={() => router.push('/note-types')}
                 style={{
@@ -970,7 +971,7 @@ const CardFormEditor = ({
                 }}
               >
                 {t('editor.manageNoteTypes')}
-              </button>
+              </Button>
             </div>
             <NNSelect
               value={noteTypeId}
@@ -1037,7 +1038,7 @@ const CardFormEditor = ({
         {/* Tags */}
         <div style={{ marginTop: 16 }}>
           <div className="reomi-editor-label" style={labelStyle}><span>{t('editor.tagsLinks')}</span></div>
-          <input
+          <TextInput
             value={tagsText}
             disabled={saving || deleting}
             aria-label={t('editor.tagsLinks')}

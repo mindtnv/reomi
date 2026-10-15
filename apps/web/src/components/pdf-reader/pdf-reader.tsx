@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 import { useNavigationScroll, NavigationRestoreNotice } from '@/lib/use-navigation-scroll';
 import { NNIcon } from '@/components/ui';
@@ -1054,9 +1055,9 @@ export const PdfReader = forwardRef<PdfReaderHandle, PdfReaderProps>(
           <p className="nn-empty-state-hint">
             {t('notebooks.reader.loadError')}
           </p>
-          <button type="button" onClick={() => onMode('text')} style={modeFallbackBtn}>
+          <Button variant="bare" type="button" onClick={() => onMode('text')} style={modeFallbackBtn}>
             {t('notebooks.reader.openText')}
-          </button>
+          </Button>
         </div>
       );
     }
@@ -1248,12 +1249,12 @@ export const PdfReader = forwardRef<PdfReaderHandle, PdfReaderProps>(
                             const r = m.rects[0];
                             if (!r) return null;
                             return (
-                              <button type="button" key={`pin-${m.id}`} className="reomi-pdf-note-pin"
+                              <Button variant="bare" type="button" key={`pin-${m.id}`} className="reomi-pdf-note-pin"
                                 aria-label={`${t('notebooks.marks.note')}: ${m.note ?? m.quote}`}
                                 style={{ left: Math.max(2, r.x * w - 28), top: r.y * h }}
                                 onClick={() => { handleMarkClick(m); setMarksPanelOpen(true); }}>
                                 <NNIcon name="edit" size={14}/><span>{m.note ?? m.quote}</span>
-                              </button>
+                              </Button>
                             );
                           })}
                           {/* W4 — card marker chip (lime card icon) at first rect's line for 'card' marks */}

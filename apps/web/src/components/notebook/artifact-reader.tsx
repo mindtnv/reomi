@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 // ArtifactReader («Блокноты 2.0» — full-window studio document reader). The
 // generated studio document was unreadable in the 340px dock («микро окно»), so
@@ -436,7 +437,7 @@ const ReadyMarkdown = ({
       {footnotes.length > 0 && (
         <div className="nn-studio-footnotes">
           {footnotes.map((f) => (
-            <button
+            <Button variant="bare"
               key={f.chunkId}
               type="button"
               className="nn-studio-footnote"
@@ -445,7 +446,7 @@ const ReadyMarkdown = ({
             >
               <NNIcon name="doc" size={10} color="var(--sky-400)" />
               {f.n}
-            </button>
+            </Button>
           ))}
         </div>
       )}

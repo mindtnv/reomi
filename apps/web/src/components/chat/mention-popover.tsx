@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 // MentionPopover + SlashMenu (D1/D2) — composer popovers, anchored above the
 // textarea (PickerMenu's visual idiom: absolute, --shadow-lg, nn-scroll) but
@@ -95,7 +96,7 @@ const PopoverList = ({
                 {item.section}
               </span>
             )}
-            <button
+            <Button variant="bare"
               type="button"
               role="option"
               aria-selected={i === activeIndex}
@@ -149,7 +150,7 @@ const PopoverList = ({
                   {item.sublabel}
                 </span>
               )}
-            </button>
+            </Button>
           </React.Fragment>
         );
       })

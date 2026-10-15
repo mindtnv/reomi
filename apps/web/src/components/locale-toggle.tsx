@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 import React from 'react';
 import { useLocale, Locale } from '@/lib/i18n';
@@ -28,7 +29,7 @@ export const LocaleToggle = ({ size = 'md' }: { size?: 'sm' | 'md' }) => {
       {LOCALES.map((l) => {
         const active = locale === l.code;
         return (
-          <button
+          <Button variant="bare"
             key={l.code}
             type="button"
             onClick={() => setLocale(l.code)}
@@ -48,7 +49,7 @@ export const LocaleToggle = ({ size = 'md' }: { size?: 'sm' | 'md' }) => {
             }}
           >
             {l.label}
-          </button>
+          </Button>
         );
       })}
     </div>

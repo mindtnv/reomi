@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
@@ -33,9 +34,9 @@ export function AccountMenu({ name, onSignOut }: { name: string; onSignOut: () =
           <NNIcon name="settings" size={17} />{t('nav.settings')}
         </AppLink>
         <div className="nn-account-divider" />
-        <button type="button" onClick={() => { close(); void onSignOut(); }}>
+        <Button variant="bare" type="button" onClick={() => { close(); void onSignOut(); }}>
           <NNIcon name="logout" size={17} />{t('auth.signOut')}
-        </button>
+        </Button>
       </nav>
     </details>
   );

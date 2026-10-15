@@ -1,6 +1,5 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
 
 import { restoreLayerFocus } from '@/lib/use-transient-layer';
 
@@ -9,7 +8,8 @@ import { useSearchParams } from 'next/navigation';
 import type { DeckPlacement } from '@reomi/shared';
 import { AppLink, useAppNavigation, useNavigationWorkspace, useWorkspaceState, useWorkspaceSet } from '@/components/navigation';
 import { Modal } from '@/components/design-system/modal';
-import { TextInput, Field, PageSurface } from '@/components/design-system/primitives';
+import { TextInput, Field, PageSurface, Button } from '@/components/design-system/primitives';
+import { NNSelect } from '@/components/nn-select';
 import { NNAppPage } from '@/components/app-page';
 import { NNIcon, NNBtn } from '@/components/ui';
 import { CardActionsMenu, type CardMenuAction } from '@/components/card-actions-menu';
@@ -276,12 +276,12 @@ export const NNDecks = () => {
       <Modal open={Boolean(movingId)} title={t('decks.move.title')} closeLabel={t('actions.close')} busy={busy || moveAction.busy} onClose={() => setMovingId(null)}>
         <form onSubmit={event => { event.preventDefault(); if (movingId) void performMove(movingId, moveTarget || null, placement); }}>
           <div className="reomi-modal-body"><p>{decks.find(d => d.id === movingId)?.name}</p>
-            <Field label={t('decks.move.destination')}><select className="reomi-input" aria-label={t('decks.move.destination')} value={moveTarget} disabled={busy} onChange={event => { setMoveTarget(event.target.value); if (!event.target.value) setPlacement('inside'); }}>
-              <option value="">{t('decks.move.root')}</option>{moveTarget && !decks.some(deck => deck.id === moveTarget) && <option value={moveTarget} disabled>{t('navigation.itemUnavailable')}</option>}{moveOptions.map(n => <option key={n.deck.id} value={n.deck.id}>{deckPathLabel(decks,n.deck.id)}</option>)}
-            </select></Field>
-            <Field label={t('decks.move.placement')}><select className="reomi-input" aria-label={t('decks.move.placement')} value={placement} disabled={busy || !moveTarget} onChange={event => setPlacement(event.target.value as DeckPlacement)}>
-              {(['inside','before','after'] as const).map(value => <option key={value} value={value}>{t(`decks.move.${value}`)}</option>)}
-            </select></Field><p className="reomi-modal-description">{t('decks.move.subtree')}</p>
+            <Field label={t('decks.move.destination')}><NNSelect ariaLabel={t('decks.move.destination')} value={moveTarget} disabled={busy} onChange={value => { setMoveTarget(value); if (!value) setPlacement('inside'); }}
+              options={[{ value: '', label: t('decks.move.root') }, ...(moveTarget && !decks.some(deck => deck.id === moveTarget) ? [{ value: moveTarget, label: t('navigation.itemUnavailable'), disabled: true }] : []), ...moveOptions.map(n => ({ value: n.deck.id, label: deckPathLabel(decks, n.deck.id) }))]} />
+            </Field>
+            <Field label={t('decks.move.placement')}><NNSelect ariaLabel={t('decks.move.placement')} value={placement} disabled={busy || !moveTarget} onChange={value => setPlacement(value)}
+              options={(['inside','before','after'] as const).map(value => ({ value, label: t(`decks.move.${value}`) }))} />
+            </Field><p className="reomi-modal-description">{t('decks.move.subtree')}</p>
             <SaveFeedback status={moveAction.snapshot.status} errorCode={moveAction.snapshot.error} onRetry={() => { const account = mirrorAccountGeneration(); void moveAction.retry().then(accepted => acceptMove(accepted, account)); }} />
             {moveAction.snapshot.status === 'conflict' && <NNBtn size="sm" onClick={() => { setHierarchyRevision(null); setRefreshRevision(value => value + 1); moveAction.controller.resolveConflict(); }}>{t('actionsRecovery.current')}</NNBtn>}
             {moveError && <p role="alert">{moveError}</p>}
@@ -338,18 +338,18 @@ export const NNDecks = () => {
                   if (event.key === 'ArrowRight' && hasChildren) { event.preventDefault(); if (isCollapsed) toggleCollapsed(d.id); else items?.[index+1]?.focus(); }
                   if (event.key === 'ArrowLeft') { event.preventDefault(); if (hasChildren && !isCollapsed) toggleCollapsed(d.id); else { const parentIndex=rows.findIndex(n=>n.deck.id===d.parentId); if(parentIndex>=0) items?.[parentIndex]?.focus(); } }
                 }}>
-                <button type="button" className="reomi-deck-drag-handle" onPointerDown={event => startDrag(event,d.id)} disabled={busy || filterActive}
+                <Button variant="bare" type="button" className="reomi-deck-drag-handle" onPointerDown={event => startDrag(event,d.id)} disabled={busy || filterActive}
                   aria-label={t('decks.move.drag')} title={t('decks.move.drag')}
                   onClick={event => { event.stopPropagation(); if (consumeClick()) return; setMovingId(d.id); setMoveTarget(''); setPlacement('inside'); setMoveError(''); }}
                   >
                   <span aria-hidden="true">⠿</span>
-                </button>
+                </Button>
                 <div className="reomi-deck-name" style={{ paddingLeft: Math.min(node.depth,6) * (isMobile ? 12 : 16) }}>
-                  <button type="button" className="reomi-deck-disclosure" aria-label={t(isCollapsed ? 'decks.expand' : 'decks.collapse')}
+                  <Button variant="bare" type="button" className="reomi-deck-disclosure" aria-label={t(isCollapsed ? 'decks.expand' : 'decks.collapse')}
                     aria-hidden={!hasChildren || undefined} tabIndex={hasChildren ? 0 : -1} style={{ visibility: hasChildren ? 'visible' : 'hidden', transform: !isCollapsed ? 'rotate(90deg)' : undefined }}
-                    onClick={event => { event.stopPropagation(); toggleCollapsed(d.id); }}><NNIcon name="chevr" size={13}/></button>
-                  <button type="button" className="reomi-deck-row-icon" style={{ color: deckColorValue(d.color) }} aria-label={`${t('decks.appearance.title')}: ${d.name}`}
-                    onClick={event => { event.stopPropagation(); openAppearance(d); }}><NNIcon name={deckIconName(d.icon)} size={19}/></button>
+                    onClick={event => { event.stopPropagation(); toggleCollapsed(d.id); }}><NNIcon name="chevr" size={13}/></Button>
+                  <Button variant="bare" type="button" className="reomi-deck-row-icon" style={{ color: deckColorValue(d.color) }} aria-label={`${t('decks.appearance.title')}: ${d.name}`}
+                    onClick={event => { event.stopPropagation(); openAppearance(d); }}><NNIcon name={deckIconName(d.icon)} size={19}/></Button>
                   <div className="reomi-deck-name-copy"><strong title={deckPathLabel(decks,d.id)}>{d.name}</strong><small>{counts ? t('decks.totalCards',{n:counts.total}) : '—'}{hasChildren ? ` · ${t('decks.subCount',{n:decks.filter(child=>child.parentId===d.id).length})}` : ''}</small></div>
                 </div>
                 <div className="reomi-deck-row-stats">
@@ -360,8 +360,8 @@ export const NNDecks = () => {
                   aria-label={t('decks.review')} title={t('decks.reviewCount',{n:counts.totalAvailable})}>
                   <NNIcon name="review" size={13}/>{counts.totalAvailable}
                 </AppLink> : <span className="reomi-deck-due" title={counts ? t('decks.details.caughtUp') : t('cards.loading')}><NNIcon name="review" size={13}/>{counts ? 0 : '—'}</span>}
-                <button type="button" className="reomi-deck-more" aria-label={`${t('decks.deckMenu')}: ${d.name}`} aria-haspopup="menu" disabled={busy}
-                  onClick={event=>{event.stopPropagation();openMenu(d.id,event.currentTarget);}}><NNIcon name="dots" size={16}/></button>
+                <Button variant="bare" type="button" className="reomi-deck-more" aria-label={`${t('decks.deckMenu')}: ${d.name}`} aria-haspopup="menu" disabled={busy}
+                  onClick={event=>{event.stopPropagation();openMenu(d.id,event.currentTarget);}}><NNIcon name="dots" size={16}/></Button>
               </div>;
             })}
           </div>}

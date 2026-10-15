@@ -52,29 +52,15 @@ interface NNSelectProps<T extends string> {
   /** Shown in the popover when options is empty (e.g. "no decks yet"). */
   emptyText?: string;
   id?: string;
+  className?: string;
+  style?: React.CSSProperties;
+  'aria-describedby'?: string;
+  'aria-invalid'?: boolean | 'true' | 'false' | 'grammar' | 'spelling';
+  ref?: React.Ref<HTMLButtonElement>;
 }
 
 // Show the sticky search box only once the list is long enough to warrant it.
 const SEARCH_MIN_OPTIONS = 6;
-
-const triggerStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 12px',
-  borderRadius: 'var(--r-md)',
-  background: 'var(--surface)',
-  border: '1px solid var(--border)',
-  color: 'var(--text)',
-  fontFamily: 'var(--font-sans)',
-  fontSize: 14,
-  boxSizing: 'border-box',
-  cursor: 'pointer',
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  gap: 8,
-  textAlign: 'left',
-  outline: 'none',
-};
 
 export function NNSelect<T extends string>({
   value,
@@ -86,6 +72,11 @@ export function NNSelect<T extends string>({
   ariaLabel,
   emptyText,
   id,
+  className,
+  style,
+  'aria-describedby': describedBy,
+  'aria-invalid': invalid,
+  ref,
 }: NNSelectProps<T>): React.JSX.Element {
   const t = useT();
   const reactId = useId();
@@ -469,13 +460,20 @@ export function NNSelect<T extends string>({
   return (
     <>
       <button
-        ref={triggerRef}
+        ref={(node) => {
+          triggerRef.current = node;
+          if (typeof ref === 'function') ref(node);
+          else if (ref) ref.current = node;
+        }}
         type="button"
         id={id}
+        className={['reomi-select', className].filter(Boolean).join(' ')}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
+        aria-describedby={describedBy}
+        aria-invalid={invalid}
         aria-controls={open ? listboxId : undefined}
         onClick={() => (open ? closeMenu() : openMenu())}
         onFocus={() => setFocused(true)}
@@ -490,17 +488,10 @@ export function NNSelect<T extends string>({
           }
         }}
         style={{
-          ...triggerStyle,
-          border: open
-            ? '1px solid var(--accent-500)'
-            : '1px solid var(--border)',
-          boxShadow: open
-            ? 'var(--glow-accent)'
-            : focused
-              ? 'var(--glow-violet)'
-              : undefined,
-          opacity: disabled ? 0.6 : 1,
-          cursor: disabled ? 'not-allowed' : 'pointer',
+          ...style,
+          ...(open ? { border: '1px solid var(--accent-500)', boxShadow: 'var(--glow-accent)' } : {}),
+          ...(!open && focused ? { boxShadow: 'var(--glow-violet)' } : {}),
+          ...(disabled ? { opacity: 0.6, cursor: 'not-allowed' } : {}),
         }}
       >
         <span

@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 import React, { CSSProperties, ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
@@ -117,14 +118,14 @@ export const NNSidebar = ({
             <span className="nn-sidebar-logo-compact"><NNLogo showText={false} /></span>
           </>
         ) : !wcoActive ? <NNLogo showText={!collapsed} /> : null}
-        {!fullWidth && <button
+        {!fullWidth && <Button variant="bare"
           type="button"
           className="nn-topbar-icon-button nn-sidebar-toggle"
           onClick={toggleSidebar}
           aria-label={t('chrome.toggleSidebar')}
           aria-expanded="true"
           data-tooltip={`${t('chrome.toggleSidebar')} (⌘B)`}
-        ><NNIcon name="panel" size={18} /></button>}
+        ><NNIcon name="panel" size={18} /></Button>}
       </div>
 
 
@@ -198,7 +199,7 @@ export const NNTopbar = ({
     >
       <div className="nn-topbar-leading">
         {sidebarCollapsed && (
-        <button
+        <Button variant="bare"
           type="button"
           aria-label={t('chrome.toggleSidebar')}
           aria-expanded={!sidebarCollapsed}
@@ -207,23 +208,23 @@ export const NNTopbar = ({
           className="nn-topbar-icon-button nn-topbar-desktop-only"
         >
           <NNIcon name="panel" size={20} strokeWidth={1.75} />
-        </button>
+        </Button>
         )}
-        <button
+        <Button variant="bare"
           type="button"
           aria-label={t('topbar.menuLabel')}
           onClick={() => window.dispatchEvent(new CustomEvent('nn:open-drawer'))}
           className="nn-topbar-icon-button nn-topbar-mobile-only"
         >
           <NNIcon name="menu" size={20} strokeWidth={1.75} />
-        </button>
+        </Button>
         <div className="nn-topbar-title-group">
           <h1 className="nn-topbar-title">{title}</h1>
           {subtitle && <span className="nn-topbar-subtitle">{subtitle.replace(/^·\s*/, '')}</span>}
         </div>
       </div>
       <div className="nn-topbar-actions">
-        <button
+        <Button variant="bare"
           type="button"
           aria-label={t('topbar.searchLabel')}
           data-tooltip={t('topbar.searchPlaceholder')}
@@ -233,7 +234,7 @@ export const NNTopbar = ({
           <NNIcon name="search" size={18} strokeWidth={1.75} />
           <span className="nn-topbar-search-label">{t('topbar.searchLabel')}</span>
           <kbd className="nn-topbar-search-shortcut" aria-hidden="true">⌘ K</kbd>
-        </button>
+        </Button>
         <ThemeToggle />
         {actions && <div className="nn-topbar-page-actions">{actions}</div>}
       </div>

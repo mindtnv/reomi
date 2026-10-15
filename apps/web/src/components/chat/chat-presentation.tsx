@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { TextInput, Button } from '@/components/design-system/primitives';
+
 
 // Shared transcript, citation, approval and picker presentation. No stream ownership.
 import { useTransientLayer } from '@/lib/use-transient-layer';
@@ -375,7 +376,7 @@ export const MessageRow = ({
         {editing ? (
           // Inline editable field (reuses the thread inline-rename pattern). Enter
           // confirms (edit-and-rerun), Esc cancels.
-          <input
+          <TextInput
             autoFocus
             value={editDraft}
             readOnly={submittingEdit}
@@ -433,7 +434,7 @@ export const MessageRow = ({
               </span>
             )}
             {canEdit && onEdit && (
-              <button
+              <Button variant="bare"
                 type="button"
                 aria-label={t('chat.message.edit')}
                 title={t('chat.message.edit')}
@@ -450,7 +451,7 @@ export const MessageRow = ({
                 }}
               >
                 <NNIcon name="edit" size={14} />
-              </button>
+              </Button>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
               {/* Attachments — image previews + file chips, above the text. */}
@@ -528,7 +529,7 @@ export const MessageRow = ({
               {(message.mentions ?? []).length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'flex-end' }}>
                   {message.mentions!.map((m) => (
-                    <button
+                    <Button variant="bare"
                       key={m.cardId}
                       type="button"
                       onClick={() => onOpenCard?.(m.cardId)}
@@ -559,7 +560,7 @@ export const MessageRow = ({
                       >
                         {(resolveCard(m.cardId)?.renderFrontText || m.front || '').trim() || m.front}
                       </span>
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
@@ -686,7 +687,7 @@ export const MessageRow = ({
             borderTop: '1px dashed var(--border-2)',
           }}
         >
-          <button
+          <Button variant="bare"
             type="button"
             onClick={() => setSourcesOpen((v) => !v)}
             aria-expanded={sourcesOpen}
@@ -723,7 +724,7 @@ export const MessageRow = ({
             >
               <NNIcon name="chevl" size={12} color="var(--lime-400)" />
             </span>
-          </button>
+          </Button>
           {sourcesOpen &&
             message.citations.map((cit, ci) =>
               isSourceCitation(cit) ? (
@@ -887,7 +888,7 @@ export const NotebookChatEmpty = ({
           {questions.slice(0, 4).map((q, i) => {
             const s = EMPTY_SUGGESTION_STYLES[i % EMPTY_SUGGESTION_STYLES.length];
             return (
-              <button
+              <Button variant="bare"
                 key={q}
                 type="button"
                 className="nn-nb-sug"
@@ -898,12 +899,12 @@ export const NotebookChatEmpty = ({
                   <NNIcon name={s.icon} size={13} color={`var(--${s.tone}-400)`} />
                 </span>
                 <span style={{ fontSize: 12.5, lineHeight: 1.45, color: 'var(--text-muted)' }}>{q}</span>
-              </button>
+              </Button>
             );
           })}
         </div>
         {onRefresh && (
-          <button
+          <Button variant="bare"
             type="button"
             className="nn-nb-refresh"
             disabled={refreshing}
@@ -930,7 +931,7 @@ export const NotebookChatEmpty = ({
               <NNIcon name="sync" size={12} />
             </span>
             {t('notebooks.chat.refreshSuggestions')}
-          </button>
+          </Button>
         )}
       </div>
     )}
@@ -950,7 +951,7 @@ const ActionBtn = ({
   label: string;
   onClick: () => void;
 }) => (
-  <button
+  <Button variant="bare"
     type="button"
     className="nn-nb-action"
     aria-label={label}
@@ -975,7 +976,7 @@ const ActionBtn = ({
     }}
   >
     <NNIcon name={icon} size={13} />
-  </button>
+  </Button>
 );
 
 // ── Numbered source chip (NBSourceChip) ──────────────────────────────────────
@@ -998,7 +999,7 @@ const NumberedSourceChip = ({
   const loc = citationLocation(citation, t);
   const tone = citationCoverTone(citation.sourceId);
   return (
-    <button
+    <Button variant="bare"
       type="button"
       className="nn-nb-srcchip"
       disabled={!clickable}
@@ -1047,7 +1048,7 @@ const NumberedSourceChip = ({
         <span style={{ color: 'var(--text)', fontWeight: 500 }}>{title}</span>
         {loc ? ` · ${loc}` : ''}
       </span>
-    </button>
+    </Button>
   );
 };
 
@@ -1081,7 +1082,7 @@ const CitationCard = ({ citation, card, deckName, onOpenCard, t }: CitationCardP
         <span />
       )}
       {onOpenCard && (
-        <button
+        <Button variant="bare"
           type="button"
           aria-label={t('chat.message.openCard')}
           title={t('chat.message.openCard')}
@@ -1103,7 +1104,7 @@ const CitationCard = ({ citation, card, deckName, onOpenCard, t }: CitationCardP
         >
           <NNIcon name="link" size={12} color="var(--lime-400)" />
           {t('chat.message.openCard')}
-        </button>
+        </Button>
       )}
     </div>
     {card && card.noteType ? (
@@ -1154,7 +1155,7 @@ interface SourceCitationChipProps {
 const SourceCitationChip = ({ citation, onClick, t }: SourceCitationChipProps) => {
   const clickable = !!onClick;
   return (
-    <button
+    <Button variant="bare"
       type="button"
       disabled={!clickable}
       onClick={() => onClick?.(citation)}
@@ -1212,7 +1213,7 @@ const SourceCitationChip = ({ citation, onClick, t }: SourceCitationChipProps) =
           {citation.snippet}
         </span>
       )}
-    </button>
+    </Button>
   );
 };
 
@@ -1252,7 +1253,7 @@ const ReasoningBlock = ({ reasoning, live, t }: ReasoningBlockProps) => {
         paddingLeft: 12,
       }}
     >
-      <button
+      <Button variant="bare"
         type="button"
         onClick={() => setManualOpen(!open)}
         aria-expanded={open}
@@ -1296,7 +1297,7 @@ const ReasoningBlock = ({ reasoning, live, t }: ReasoningBlockProps) => {
         >
           <NNIcon name="chevd" size={12} color="var(--text-dim)" />
         </span>
-      </button>
+      </Button>
       {open && (
         <div
           ref={tailRef}
@@ -1409,7 +1410,7 @@ const ToolActivityStep = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {/* Compact row header — NOT an NNCard. Click toggles the body. */}
-      <button
+      <Button variant="bare"
         type="button"
         onClick={() => hasBody && setOpen((v) => !v)}
         aria-expanded={hasBody ? bodyOpen : undefined}
@@ -1487,7 +1488,7 @@ const ToolActivityStep = ({
             </span>
           )}
         </span>
-      </button>
+      </Button>
 
       {/* Step body — NNCard is reserved for the BODY (AC1.4). */}
       {hasBody && bodyOpen && (
@@ -1600,7 +1601,7 @@ const PostApplySummary = ({ summary, deckNameById, onOpenCard, onOpenDeckCards, 
     }
   };
   return (
-    <button
+    <Button variant="bare"
       type="button"
       onClick={open}
       disabled={!canOpen}
@@ -1627,7 +1628,7 @@ const PostApplySummary = ({ summary, deckNameById, onOpenCard, onOpenDeckCards, 
           · {t('chat.message.openCard')}
         </span>
       )}
-    </button>
+    </Button>
   );
 };
 
@@ -1729,7 +1730,7 @@ const ToolActivityGroup = ({
   return (
     <div className="reomi-chat-activity" data-live={live || undefined} data-open={open} data-settled={!live && !anyAwaiting || undefined}>
       {/* Header — the single collapse toggle for the whole work block. */}
-      <button
+      <Button variant="bare"
         type="button"
         onClick={() => setManualOpen(!open)}
         aria-expanded={open}
@@ -1779,7 +1780,7 @@ const ToolActivityGroup = ({
         >
           <NNIcon name="chevd" size={12} color="var(--text-dim)" />
         </span>
-      </button>
+      </Button>
 
       {/* Collapsed body = each step enumerated (the summarizeSteps grouping only
           drives the header copy; the expanded list shows EACH step — AC2.2). */}
@@ -2187,7 +2188,7 @@ const ConfirmControls = ({ toolCall, onConfirm, t }: ConfirmControlsProps) => {
       {wizard && !decided && phase === 'review' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {cards.map((card, i) => (
-            <button
+            <Button variant="bare"
               key={i}
               type="button"
               onClick={() => jumpTo(i)}
@@ -2225,7 +2226,7 @@ const ConfirmControls = ({ toolCall, onConfirm, t }: ConfirmControlsProps) => {
               >
                 {t('chat.confirm.cardN', { n: i + 1 })} · {excerptOf(card.fieldValues)}
               </span>
-            </button>
+            </Button>
           ))}
         </div>
       )}
@@ -2434,17 +2435,17 @@ function CompactToolResult({ text, toolName, t }: { text: string; toolName: stri
       const title = typeof item.title === 'string' ? item.title : item.name;
       const path = typeof item.id !== 'string' ? null : toolName === 'list_library' ? `/library/${encodeURIComponent(item.id)}` : toolName === 'list_notebooks' ? `/notebooks/${encodeURIComponent(item.id)}` : deckRows.length ? `/cards?q=${encodeURIComponent(`deck:"${title}"`)}` : null;
       return <div className="reomi-tool-result-row" key={item.id ?? index}>
-        {path ? <button type="button" onClick={() => router.push(path)}>{title}</button> : <span>{title}</span>}
+        {path ? <Button variant="bare" type="button" onClick={() => router.push(path)}>{title}</Button> : <span>{title}</span>}
         {deckRows.length > 0 && <span className="reomi-tool-result-numbers">{t('chat.activity.cardsCount', { count: item.total })}<small>{t('chat.activity.dueCount', { count: item.due })}</small></span>}
         {item.kind && <small>{String(item.kind).toUpperCase()}</small>}
       </div>;
     })}
-    {items.length > 3 && <button type="button" className="reomi-tool-more" onClick={() => setExpanded(value => !value)}>{t(expanded ? 'chat.activity.collapseResults' : 'chat.activity.moreResults', { count: items.length - 3 })}</button>}
+    {items.length > 3 && <Button variant="bare" type="button" className="reomi-tool-more" onClick={() => setExpanded(value => !value)}>{t(expanded ? 'chat.activity.collapseResults' : 'chat.activity.moreResults', { count: items.length - 3 })}</Button>}
   </div>;
   const printable = rawItems.some(item => typeof item.text === 'string') ? rawItems.filter(item => typeof item.text === 'string').map(item => item.text).join('\n\n') : text;
   const result = compactToolText(printable);
   return <div className="reomi-tool-result"><WebSearchResultText text={expanded ? result.full : result.preview} />
-    {result.truncated && <button type="button" className="reomi-tool-more" onClick={() => setExpanded(value => !value)}>{t(expanded ? 'chat.activity.collapseResults' : 'chat.tool.resultDetails')}</button>}
+    {result.truncated && <Button variant="bare" type="button" className="reomi-tool-more" onClick={() => setExpanded(value => !value)}>{t(expanded ? 'chat.activity.collapseResults' : 'chat.tool.resultDetails')}</Button>}
   </div>;
 }
 
@@ -2496,7 +2497,7 @@ const PickerMenu = ({
       {/* Codex-style compact pill (S6 / AC6.1): leading glyph + value + chevron,
           --r-pill rounded. Cosmetic only — the menu/selection/persistence below
           are unchanged. Hand-rolled (inline + CSS vars, Principle 4). */}
-      <button
+      <Button variant="bare"
         type="button"
         onClick={() => setOpen((v) => !v)}
         title={triggerLabel}
@@ -2516,7 +2517,7 @@ const PickerMenu = ({
           {valueLabel}
         </span>
         <NNIcon name="chevd" size={12} color="var(--text-dim)" />
-      </button>
+      </Button>
       {open && (
         <div
           role="menu"
@@ -2543,7 +2544,7 @@ const PickerMenu = ({
           {options.map((opt) => {
             const isSelected = opt.id === selectedId;
             return (
-              <button
+              <Button variant="bare"
                 key={opt.id ?? '__all__'}
                 type="button"
                 role="menuitemradio"
@@ -2575,7 +2576,7 @@ const PickerMenu = ({
                   {opt.label}
                 </span>
                 {isSelected && <NNIcon name="check" size={13} color="var(--lime-400)" />}
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -2623,10 +2624,10 @@ interface ResearchToggleProps {
 }
 
 export const ResearchToggle = ({ active, onToggle, t }: ResearchToggleProps) => (
-  <button type="button" onClick={onToggle} className="reomi-composer-research"
+  <Button variant="bare" type="button" onClick={onToggle} className="reomi-composer-research"
     title={t('chat.composer.researchHint')} aria-label={t('chat.composer.research')} aria-pressed={active}>
     <NNIcon name="doc" size={16} />
-  </button>
+  </Button>
 );
 
 // ── Deck-scope picker (S7 / AC3.7) ───────────────────────────────────────────

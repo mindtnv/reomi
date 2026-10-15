@@ -139,9 +139,10 @@ test('type-in authors can explicitly select an answer field', async () => {
     saved = body; return Response.json({ ...type, ...body });
   }) as typeof fetch;
   await render();
-  const select = host.querySelector('[aria-label="noteTypes.answerField"]') as HTMLSelectElement;
-  expect(select.value).toBe('1');
-  await act(async () => { select.value = '0'; select.dispatchEvent(new Event('change', { bubbles: true })); });
+  const select = host.querySelector('[aria-label="noteTypes.answerField"]') as HTMLButtonElement;
+  expect(select.textContent).toContain('A');
+  await act(async () => select.click());
+  await act(async () => Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find((option) => option.textContent === 'Q')!.click());
   await act(async () => button('noteTypes.actions.save').click());
   expect(saved.fields.filter((field: any) => field.typeinAnswer).map((field: any) => field.name)).toEqual(['Q']);
 });
@@ -163,8 +164,9 @@ test('mode conversion previews separately and applies only the exact confirmed i
   const modeDialog = document.querySelector('[aria-labelledby="note-type-mode-title"]')!;
   expect(modeDialog.textContent).toContain('noteTypes.kind.intro');
   expect(host.textContent).toContain('noteTypes.list.title');
-  const mode = modeDialog.querySelector('select')!;
-  await act(async () => { mode.value = 'typein'; mode.dispatchEvent(new Event('change', { bubbles: true })); });
+  const mode = modeDialog.querySelector('[aria-label="noteTypes.kind.mode"]') as HTMLButtonElement;
+  await act(async () => mode.click());
+  await act(async () => Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find((option) => option.textContent === 'editor.variants.type')!.click());
   await act(async () => Array.from(modeDialog.querySelectorAll('button')).find(button => button.textContent?.includes('noteTypes.kind.preview'))!.click());
   expect(writes).toHaveLength(1);
   expect(writes[0].body).toMatchObject({ kind: 'typein', answerFieldId: 'a', expectedUpdatedAt: type.updatedAt });
