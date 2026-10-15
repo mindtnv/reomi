@@ -15,6 +15,7 @@ import { resolveMediaSrc } from '@/lib/media-url';
 import { useEmptyRedirect } from '@/lib/use-empty-redirect';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useT, useDateLocale } from '@/lib/i18n';
+import { utcDayKey } from '@/lib/study-date';
 
 export const NNHome = () => {
   const t = useT();
@@ -53,7 +54,7 @@ export const NNHome = () => {
         const today = new Date().toISOString().slice(0, 10);
         setRecallPct(overview.answerSuccessPct);
         setLastReviewAt(overview.lastReviewedAt ? new Date(overview.lastReviewedAt).getTime() : null);
-        setTodayDurationMs(overview.series.find((point) => point.day === today)?.durationMs ?? 0);
+        setTodayDurationMs(overview.series.find((point) => utcDayKey(point.day) === today)?.durationMs ?? 0);
       } catch {
         if (cancelled) return;
         setRecallPct(null);

@@ -11,6 +11,7 @@ import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useT } from '@/lib/i18n';
 import { useSessionResource } from '@/lib/session-resource';
 import { retentionStroke, retentionY, type RetentionPoint } from '@/lib/retention-chart';
+import { utcDayKey } from '@/lib/study-date';
 
 // Server payloads of the /stats endpoints (see apps/api/src/modules/stats.ts).
 // Forecast buckets are SPARSE (only non-empty days) — the chart zero-fills.
@@ -66,9 +67,11 @@ interface StatsData {
   intervalRetention: IntervalRetentionData;
 }
 
-function utcDayLabel(day: string): string {
-  const [year, month, date] = day.split('-').map(Number);
-  return format(new Date(year!, (month ?? 1) - 1, date ?? 1), 'MMM d');
+function utcDayLabel(day: unknown): string {
+  const key = utcDayKey(day);
+  const [year, month, date] = key.split('-').map(Number);
+  if (!year || !month || !date) return key;
+  return format(new Date(year, month - 1, date), 'MMM d');
 }
 
 const FORECAST_DAYS = 30;
@@ -93,10 +96,12 @@ export const NNStats = () => {
       ok(await (api as any).stats.forecast.get({ query: { days: String(FORECAST_DAYS) } })),
       ok(await (api as any).stats.retention.get({ query: {} })),
     ]);
+    const overview = overviewRaw as LearningOverview;
+    const forecast = forecastRaw as ForecastData;
     return {
-      overview: overviewRaw as LearningOverview,
+      overview: { ...overview, series: overview.series.map((point) => ({ ...point, day: utcDayKey(point.day) })) },
       decks: ((decksRaw as { decks: DeckLearningRow[] }).decks ?? []),
-      forecast: forecastRaw as ForecastData,
+      forecast: { ...forecast, buckets: forecast.buckets.map((bucket) => ({ ...bucket, day: utcDayKey(bucket.day) })) },
       intervalRetention: retentionRaw as IntervalRetentionData,
     };
   }, []);
@@ -189,8 +194,8 @@ export const NNStats = () => {
     const counts = hourBuckets.counts;
     if (!counts.some((value) => value > 0)) return null;
     const index = counts.indexOf(Math.max(...counts));
-    const fmt = (hour: number) => `${((hour + 11) % 12) + 1}${hour < 12 ? 'am' : 'pm'}`;
-    return { label: `${fmt(index)}–${fmt((index + 2) % 24)}`, index };
+    // The percentage is this single UTC hour, so the label is that hour too.
+    return { label: `${((index + 11) % 12) + 1}${index < 12 ? 'am' : 'pm'}`, index };
   }, [hourBuckets]);
 
   const peakRetention = useMemo(() => {
@@ -442,7 +447,7 @@ export const NNStats = () => {
               <div style={{ display: 'flex', fontSize: 12, marginBottom: 4 }}>
                 <span style={{ color: 'var(--text)', flex: 1 }}>{g.l}</span>
                 <span className="mono" style={{ color: `var(--${g.c}-400)` }}>
-                  {g.total ? Math.round((g.n / g.total) * 100) : 0}%
+                  {g.total ? `${Math.round((g.n / g.total) * 100)}%` : '—'}
                 </span>
                 <span style={{ width: 48, textAlign: 'right', color: 'var(--text-dim)' }} className="mono">
                   {g.n}
