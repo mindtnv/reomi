@@ -4,6 +4,32 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
+run_playwright() {
+  local secret_file playwright_status scan_status
+  secret_file="$(mktemp)"
+  export E2E_SECRET_FILE="$secret_file"
+  export PLAYWRIGHT_NO_COPY_PROMPT=1
+  if [[ -n "${CI:-}" && "${E2E_PASSWORD:-}" =~ [^[:space:]] ]]; then
+    echo "::add-mask::${E2E_PASSWORD}"
+  fi
+  set +e
+  bunx playwright test
+  playwright_status=$?
+  set -e
+  scan_status=0
+  if [[ ! -s "$secret_file" ]]; then
+    echo "smoke did not record a password for the artifact scan" >&2
+    scan_status=1
+  else
+    bun e2e/secret-scan.ts || scan_status=$?
+  fi
+  rm -f "$secret_file"
+  if [[ "$scan_status" -ne 0 ]]; then
+    exit "$scan_status"
+  fi
+  exit "$playwright_status"
+}
+
 if [[ "${E2E_TARGET:-}" == "prod" ]]; then
   if [[ ! "${E2E_EMAIL:-}" =~ [^[:space:]] || ! "${E2E_PASSWORD:-}" =~ [^[:space:]] ]]; then
     echo "::warning::E2E_EMAIL or E2E_PASSWORD is unset. Skipping production smoke."
@@ -17,7 +43,7 @@ if [[ "${E2E_TARGET:-}" == "prod" ]]; then
   else
     bunx playwright install chromium
   fi
-  exec bunx playwright test
+  run_playwright
 fi
 
 port_busy() {
@@ -106,4 +132,4 @@ fi
 
 bash "$root/scripts/verify-reomi-doctor.sh"
 export E2E_EVIDENCE_DIR="$evidence"
-bunx playwright test
+run_playwright

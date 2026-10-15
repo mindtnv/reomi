@@ -1,6 +1,8 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { clearPasswordFields } from './clear-secrets';
+import { rememberSecret } from './secret-scan';
 import { smokeTarget } from './smoke-target';
 
 const evidenceDir = process.env.E2E_EVIDENCE_DIR ?? join(process.cwd(), 'e2e', 'artifacts');
@@ -15,6 +17,7 @@ async function signIn(page: Page, email: string, password: string) {
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Пароль').fill(password);
   await page.getByRole('button', { name: 'Войти', exact: true }).click();
+  await clearPasswordFields(page);
   await expect(page.getByLabel(/^Account:/)).toBeVisible();
 }
 
@@ -45,8 +48,13 @@ async function deleteCreatedDeck(page: Page, deckName: string) {
   await expect(row).toHaveCount(0);
 }
 
+test.afterEach(async ({ page }) => {
+  await clearPasswordFields(page);
+});
+
 test('sign in, create a deck, review a card, and open statistics', async ({ page }) => {
   const target = smokeTarget(process.env);
+  rememberSecret(target.password);
   let walked = false;
   let walkError: unknown;
   try {
@@ -57,6 +65,7 @@ test('sign in, create a deck, review a card, and open statistics', async ({ page
         await page.getByLabel('Email').fill(target.email);
         await page.getByLabel('Пароль').fill(target.password);
         await page.getByRole('button', { name: 'Зарегистрироваться' }).click();
+        await clearPasswordFields(page);
         await expect(page.getByRole('heading', { name: 'A quiet garden.' })).toBeVisible();
         await shot(page, '01-garden');
       });

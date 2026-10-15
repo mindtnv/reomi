@@ -30,6 +30,7 @@ Preconditions:
 ## Gotchas
 
 - The account control is a disclosure labelled `Account: <name>`. Chromium exposes it as a generic, so a button role does not find it. Use the label.
+- A failed sign-in snapshot includes the password field value. Clear that field before the assertion that proves sign-in. Traces stay off. The walk fails if the password appears in the artifact directories.
 - The auth form stays Russian when the rest of the UI is English.
 - `127.0.0.1` does not match `WEB_ORIGIN`, so the session cookie is dropped.
 - Sign-up allows 5 attempts per hour per IP. Sign-in allows 5 per minute. A second local loop can lock the walk.

@@ -169,6 +169,15 @@ describe('repository contracts', () => {
 
     const ci = readRepoFile('.github/workflows/ci.yml');
     expect(ci).toMatch(/^ {8}run: bun run e2e$/m);
+    expect(ci).toContain('path: e2e/artifacts/*.png');
+    expect(ci).not.toContain('test-results');
+    expect(ci).not.toContain('playwright-report');
+
+    const playwright = readRepoFile('playwright.config.ts');
+    expect(playwright).toContain("trace: 'off'");
+    expect(playwright).toContain('PLAYWRIGHT_NO_COPY_PROMPT');
+    expect(readRepoFile('scripts/verify-reomi.sh')).toContain('bun e2e/secret-scan.ts');
+    expect(readRepoFile('e2e/smoke.e2e.ts')).toContain('clearPasswordFields');
 
     const deploy = readRepoFile('.github/workflows/deploy.yml');
     const marker = deploy.indexOf('\n  e2e-prod:\n');
@@ -176,6 +185,8 @@ describe('repository contracts', () => {
     const job = deploy.slice(marker);
     expect(job).toContain('needs: [deploy]');
     expect(job).toMatch(/^ {8}run: bun run e2e:prod$/m);
+    expect(job).toContain('::add-mask::');
+    expect(job).not.toContain('upload-artifact');
     expect(job).not.toContain('COOLIFY');
     expect(job).not.toContain('docker_registry_image_tag');
 

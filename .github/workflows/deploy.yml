@@ -299,6 +299,14 @@ jobs:
       - name: Install deps
         run: bun install --frozen-lockfile
 
+      - name: Mask production password
+        env:
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+        run: |
+          if [ -n "${E2E_PASSWORD}" ]; then
+            echo "::add-mask::${E2E_PASSWORD}"
+          fi
+
       - name: Production smoke
         env:
           E2E_EMAIL: ${{ secrets.E2E_EMAIL }}

@@ -186,7 +186,4 @@ jobs:
         with:
           name: e2e-artifacts
           if-no-files-found: ignore
-          path: |
-            e2e/artifacts
-            test-results
-            playwright-report
+          path: e2e/artifacts/*.png

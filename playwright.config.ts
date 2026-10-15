@@ -1,5 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
+process.env.PLAYWRIGHT_NO_COPY_PROMPT = '1';
+
 const prod = process.env.E2E_TARGET === 'prod';
 
 export default defineConfig({
@@ -17,8 +19,8 @@ export default defineConfig({
     viewport: { width: 1280, height: 800 },
     actionTimeout: 30_000,
     navigationTimeout: 90_000,
-    trace: prod ? 'off' : 'retain-on-failure',
-    video: prod ? 'off' : 'off',
+    trace: 'off',
+    video: 'off',
     screenshot: 'only-on-failure',
   },
 });
