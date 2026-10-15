@@ -3,7 +3,10 @@ import { db, media } from '@neuronexus/db';
 import { newUuidV7 } from '@neuronexus/shared';
 import { buildApp } from '../src/app.ts';
 import { env } from '../src/env.ts';
-import { __setMediaObjectReaderForTests } from '../src/storage.ts';
+import {
+  __setMediaObjectLengthForTests,
+  __setMediaObjectReaderForTests,
+} from '../src/storage.ts';
 import { callApp, resetTestDb, seedBasicCard, signUpAndCookie, uniqueEmail } from './helpers.ts';
 import { s3RoundTrip } from './s3-test-gate.ts';
 
@@ -46,14 +49,18 @@ const OWNED_BYTES = new Uint8Array([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x09, 0x09, 0x09,
 ]);
 
-async function insertMedia(userId: string, verified: boolean): Promise<string> {
+async function insertMedia(
+  userId: string,
+  verified: boolean,
+  size = OWNED_BYTES.byteLength,
+): Promise<string> {
   const id = newUuidV7();
   await db.insert(media).values({
     id,
     userId,
     s3Key: `media/${id}`,
     mime: 'image/png',
-    size: OWNED_BYTES.byteLength,
+    size,
     verified,
   });
   return id;
@@ -79,10 +86,12 @@ describe('media', () => {
   beforeEach(async () => {
     await resetTestDb();
     __setMediaObjectReaderForTests(null);
+    __setMediaObjectLengthForTests(null);
   });
 
   afterEach(() => {
     __setMediaObjectReaderForTests(null);
+    __setMediaObjectLengthForTests(null);
   });
 
   test('POST /media/presign returns mediaId, token, and upload policy', async () => {
@@ -168,6 +177,13 @@ describe('media', () => {
     expect(row.s3Key).toBe(`media/${presign.mediaId}`);
     expect(row.mime).toBe('image/png');
     expect(row.size).toBe(PNG_1X1.length);
+
+    // Presigned POST still writes while anonymous GetObject stays closed.
+    const anonymousObject = await fetch(
+      `${env.S3_PUBLIC_BASE_URL}/media/${presign.mediaId}`,
+    );
+    expect(anonymousObject.status).not.toBe(200);
+    expect([401, 403, 404]).toContain(anonymousObject.status);
 
     // Idempotent: a second finalize returns the same row, not a duplicate.
     const again = await callApp(app, 'POST', `/media/${presign.mediaId}/finalize`, {
@@ -320,6 +336,12 @@ describe('media', () => {
     const foreignId = await insertMedia(stranger.userId, true);
     const pendingId = await insertMedia(owner.userId, false);
     const reads: string[] = [];
+    const lengths: string[] = [];
+    __setMediaObjectLengthForTests(async (key) => {
+      lengths.push(key);
+      if (key === `media/${ownedId}` || key === `media/${foreignId}`) return OWNED_BYTES.byteLength;
+      return undefined;
+    });
     __setMediaObjectReaderForTests(async (key) => {
       reads.push(key);
       if (key === `media/${ownedId}` || key === `media/${foreignId}`) return OWNED_BYTES;
@@ -356,6 +378,7 @@ describe('media', () => {
     expect(allowed.headers.get('etag')).toBe(`"${ownedId}"`);
     expect(allowed.headers.get('location')).toBeNull();
     expect(reads).toEqual([`media/${ownedId}`]);
+    expect(lengths).toEqual([`media/${ownedId}`]);
 
     const ownerSeesForeign = await fetchContent(foreignId, owner.cookie);
     expect(ownerSeesForeign.status).toBe(404);
@@ -374,11 +397,47 @@ describe('media', () => {
     });
     expect(weak.status).toBe(304);
     expect(reads).toEqual([`media/${ownedId}`]);
+    expect(lengths).toEqual([`media/${ownedId}`]);
+  });
+
+  test('private read refuses an over-cap declared size before storage', async () => {
+    const owner = await signUpAndCookie(app, uniqueEmail('huge-row'));
+    const id = await insertMedia(owner.userId, true, env.MAX_MEDIA_BYTES + 1);
+    const calls: string[] = [];
+    __setMediaObjectLengthForTests(async (key) => {
+      calls.push(`head:${key}`);
+      return OWNED_BYTES.byteLength;
+    });
+    __setMediaObjectReaderForTests(async (key) => {
+      calls.push(`get:${key}`);
+      return OWNED_BYTES;
+    });
+    const res = await fetchContent(id, owner.cookie);
+    expect(res.status).toBe(404);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(calls).toEqual([]);
+  });
+
+  test('private read refuses an over-cap object length before buffering', async () => {
+    const owner = await signUpAndCookie(app, uniqueEmail('huge-object'));
+    const id = await insertMedia(owner.userId, true, 32);
+    const reads: string[] = [];
+    __setMediaObjectLengthForTests(async () => env.MAX_MEDIA_BYTES + 1);
+    __setMediaObjectReaderForTests(async (key) => {
+      reads.push(key);
+      return OWNED_BYTES;
+    });
+    const res = await fetchContent(id, owner.cookie);
+    expect(res.status).toBe(404);
+    expect(await new Response(res.bytes).json()).toEqual({ error: 'not_found' });
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(reads).toEqual([]);
   });
 
   test('private read hides a storage failure as not_found', async () => {
     const owner = await signUpAndCookie(app, uniqueEmail('gone'));
     const id = await insertMedia(owner.userId, true);
+    __setMediaObjectLengthForTests(async () => OWNED_BYTES.byteLength);
     __setMediaObjectReaderForTests(async () => {
       throw new Error('storage down');
     });
@@ -421,6 +480,9 @@ describe('media', () => {
     expect(strangerExport).not.toContain(ownedId);
     expect(strangerExport).not.toContain(env.S3_PUBLIC_BASE_URL);
 
+    __setMediaObjectLengthForTests(async (key) =>
+      key === `media/${ownedId}` ? OWNED_BYTES.byteLength : undefined,
+    );
     __setMediaObjectReaderForTests(async (key) => (key === `media/${ownedId}` ? OWNED_BYTES : null));
     const asStranger = await fetchContent(ownedId, stranger.cookie);
     expect(asStranger.status).toBe(404);

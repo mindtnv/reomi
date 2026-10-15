@@ -51,6 +51,8 @@ describe('repository contracts', () => {
       'docker.io/pgsty/mc:RELEASE.2026-09-16T00-00-00Z@sha256:cfc83108c3abb371f8fb84d99c1fdc88f8c237e022409b0081fb7c0a3be634dd',
     );
     expect(compose).not.toContain('quay.io/minio/');
+    expect(compose).toContain('mc anonymous set none');
+    expect(compose).not.toContain('mc anonymous set download');
 
     for (const path of ['.github/workflows/ci.yml', '.github/workflows/deploy.yml']) {
       const workflow = readRepoFile(path);

@@ -37,7 +37,14 @@ import { MAX_MEDIA_BYTES, MEDIA_MIME_ALLOWLIST, newUuidV7 } from '@neuronexus/sh
 import { authPlugin } from '../auth-plugin.ts';
 import { requestLogFromContext } from '../logger.ts';
 import { env } from '../env.ts';
-import { deleteObject, headSize, presignUpload, readMediaObject, sniffMagic } from '../storage.ts';
+import {
+  deleteObject,
+  headSize,
+  mediaObjectByteLength,
+  presignUpload,
+  readMediaObject,
+  sniffMagic,
+} from '../storage.ts';
 
 /**
  * How long a browser may reuse an authorized image without rechecking the
@@ -304,12 +311,15 @@ export const mediaModule = new Elysia({ prefix: '/media' })
         .select({
           id: media.id,
           mime: media.mime,
+          size: media.size,
           verified: media.verified,
         })
         .from(media)
         .where(and(eq(media.id, mediaId), eq(media.userId, user.id)))
         .limit(1);
-      if (!row?.verified) return notFoundMedia();
+      // Declared size is checked before any storage call. A poisoned row cannot
+      // force a buffer of an object above the upload ceiling.
+      if (!row?.verified || row.size < 1 || row.size > MAX_BYTES) return notFoundMedia();
 
       const etag = mediaEtag(mediaId);
       const cacheHeaders = {
@@ -323,8 +333,14 @@ export const mediaModule = new Elysia({ prefix: '/media' })
         return new Response(null, { status: 304, headers: cacheHeaders });
       }
 
-      const bytes = await readMediaObject(keyFor(mediaId));
-      if (!bytes) return notFoundMedia();
+      const key = keyFor(mediaId);
+      const length = await mediaObjectByteLength(key);
+      // HEAD ContentLength is the bound that matters: the stored size can be
+      // smaller than the object that would actually be buffered.
+      if (length === undefined || length < 1 || length > MAX_BYTES) return notFoundMedia();
+
+      const bytes = await readMediaObject(key);
+      if (!bytes || bytes.byteLength > MAX_BYTES) return notFoundMedia();
       return new Response(imageBytes(bytes), {
         status: 200,
         headers: privateImageHeaders(etag, row.mime, bytes.byteLength),

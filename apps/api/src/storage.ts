@@ -150,17 +150,37 @@ export function publicUrl(key: string): string {
 }
 
 type MediaObjectReader = (key: string) => Promise<Uint8Array | null>;
+type MediaObjectLength = (key: string) => Promise<number | undefined>;
 
 let mediaObjectReader: MediaObjectReader | null = null;
+let mediaObjectLength: MediaObjectLength | null = null;
 
 /** Test seam. Production reads the server-derived key from S3. */
 export function __setMediaObjectReaderForTests(reader: MediaObjectReader | null): void {
   mediaObjectReader = reader;
 }
 
+/** Test seam for the HEAD size check. Production uses object ContentLength. */
+export function __setMediaObjectLengthForTests(reader: MediaObjectLength | null): void {
+  mediaObjectLength = reader;
+}
+
 /**
- * Full object bytes for an authorized media read. Missing objects and storage
- * failures become `null` so the route can answer 404 without leaking the cause.
+ * Object size from HEAD, before any body is buffered. Missing objects and
+ * storage failures become `undefined` so the caller can refuse the read.
+ */
+export async function mediaObjectByteLength(key: string): Promise<number | undefined> {
+  try {
+    return mediaObjectLength ? await mediaObjectLength(key) : await headSize(key);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Full object bytes for an authorized media read. The caller must already have
+ * rejected an over-cap ContentLength. Missing objects and storage failures
+ * become `null` so the route can answer 404 without leaking the cause.
  */
 export async function readMediaObject(key: string): Promise<Uint8Array | null> {
   try {
