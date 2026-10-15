@@ -9,7 +9,12 @@ import { cards, db, notebooks, sources as sourcesTable } from '@reomi/db';
 import { buildApp } from '../src/app.ts';
 import { __resetAiClientForTests, __setAiClientForTests } from '../src/ai/openai-client.ts';
 import { __setDnsLookupForTests, __setPageFetchForTests } from '../src/ai/page-reader.ts';
-import { capStoredToolResult } from '../src/ai/tool-result-cap.ts';
+import {
+  capStoredToolResult,
+  TOPIC_PLAN_KEPT_URL_CHARS,
+  TOPIC_PLAN_STORED_MAX_CHARS,
+} from '../src/ai/tool-result-cap.ts';
+import { env } from '../src/env.ts';
 import { buildToolRegistry, type ToolResult } from '../src/ai/tools.ts';
 import { topicPlanCardRows } from '../../web/src/lib/topic-plan-card.ts';
 import { rootLogger } from '../src/logger.ts';
@@ -341,6 +346,46 @@ describe('propose_topic_plan', () => {
     expect(topicPlanCardRows(stored)?.map((row) => row.outcome)).toEqual(
       modules.map((module) => module.outcome),
     );
+  });
+
+  test('urls at the kept length stay on the stored plan', () => {
+    const modules = Array.from({ length: 8 }, (_, index) => ({
+      title: `${index}${'T'.repeat(119)}`,
+      outcome: `${index}${'O'.repeat(399)}`,
+      prerequisiteIndexes: index === 0 ? [] : [index - 1],
+      urls: [0, 1, 2, 3].map((urlIndex) => {
+        const prefix = `https://example.com/${index}/${urlIndex}/`;
+        return prefix + 'u'.repeat(TOPIC_PLAN_KEPT_URL_CHARS - prefix.length);
+      }),
+    }));
+    const stored = capStoredToolResult(
+      'propose_topic_plan',
+      JSON.stringify({ goal: 'G'.repeat(200), level: 'L'.repeat(80), modules }),
+    );
+    expect(topicPlanCardRows(stored)?.map((row) => row.urls)).toEqual(modules.map((module) => module.urls));
+  });
+
+  test('a plan whose URLs exceed the stored cap still yields every module', () => {
+    const modules = Array.from({ length: 8 }, (_, index) => ({
+      title: `${index}${'T'.repeat(119)}`,
+      outcome: `${index}${'O'.repeat(399)}`,
+      prerequisiteIndexes: [] as number[],
+      urls: [0, 1, 2, 3].map(
+        (urlIndex) => `https://example.com/${index}/${urlIndex}/${'u'.repeat(2000)}`,
+      ),
+    }));
+    const text = JSON.stringify({ goal: 'G'.repeat(200), level: 'L'.repeat(80), modules });
+    const stored = capStoredToolResult('propose_topic_plan', text);
+    const rows = topicPlanCardRows(stored);
+    expect(rows?.map((row) => row.title)).toEqual(modules.map((module) => module.title));
+    expect(rows?.map((row) => row.outcome)).toEqual(modules.map((module) => module.outcome));
+    expect(stored.includes('[truncated]')).toBe(false);
+    expect(stored.length).toBeLessThanOrEqual(TOPIC_PLAN_STORED_MAX_CHARS);
+  });
+
+  test('other tool results still stop at the shared cap', () => {
+    const stored = capStoredToolResult('search_cards', 'a'.repeat(env.ai.TOOL_RESULT_MAX_CHARS + 50));
+    expect(stored).toBe(`${'a'.repeat(env.ai.TOOL_RESULT_MAX_CHARS)}\n…[truncated]`);
   });
 
   test('the welcome screen still offers only deck, library, and chat', async () => {

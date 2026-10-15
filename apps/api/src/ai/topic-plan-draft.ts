@@ -10,11 +10,13 @@ import { normalizePlanUrl } from '../modules/topic-plan.ts';
 
 export const GOAL_MAX = 200;
 export const LEVEL_MAX = 80;
-const TITLE_MAX = 120;
-const OUTCOME_MAX = 400;
+export const TITLE_MAX = 120;
+export const OUTCOME_MAX = 400;
 const MODULE_MIN = 4;
-const MODULE_MAX = 8;
-const URL_MAX = 4;
+export const MODULE_MAX = 8;
+export const REVISION_MIN = 1;
+export const REVISION_MAX = 12;
+export const URL_MAX = 4;
 const URL_CANDIDATES = 8;
 
 export interface DraftModule {

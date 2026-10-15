@@ -7,14 +7,12 @@ import { isChatEnabled } from './openai-client.ts';
 import {
   GOAL_MAX,
   LEVEL_MAX,
+  REVISION_MAX,
+  REVISION_MIN,
   completePlanDraft,
   probePlanModules,
   readPlanModules,
 } from './topic-plan-draft.ts';
-
-// The user can shrink the card before confirming it. Zero and thirteen stay errors.
-const REVISION_MIN = 1;
-const REVISION_MAX = 12;
 
 const invalid: ToolResult = { ok: false, error: 'invalid_plan' };
 
