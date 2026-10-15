@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { and, count, eq } from 'drizzle-orm';
 import { db, notebooks, notebookSources, sources, type Source } from '@reomi/db';
-import { insertInlineSource, enqueueInlineSource, MAX_INLINE_TEXT } from '../modules/sources-shared.ts';
+import { insertInlineSource, enqueueInlineSource, MAX_INLINE_TEXT, SourceInputError } from '../modules/sources-shared.ts';
 import { env, embeddingEnabled } from '../env.ts';
 import { McpToolError, type KnowledgeTool } from './types.ts';
 
@@ -30,7 +30,12 @@ export function sourceTools(): KnowledgeTool[] {
       async execute(ctx, args) {
         if (!ctx.tx) throw new Error('transaction_required');
         const input = kind === 'text' ? { kind, title: String(args.title), text: String(args.text) } : { kind, title: String(args.title), url: String(args.url) };
-        return insertInlineSource(ctx.tx, ctx.userId, input, args.notebookId as string | undefined);
+        try {
+          return await insertInlineSource(ctx.tx, ctx.userId, input, args.notebookId as string | undefined);
+        } catch (err) {
+          if (err instanceof SourceInputError) throw new McpToolError(err.code);
+          throw err;
+        }
       },
       afterCommit(ctx, args, result) {
         const input = kind === 'text' ? { kind, title: String(args.title), text: String(args.text) } : { kind, title: String(args.title), url: String(args.url) };

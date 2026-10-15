@@ -33,6 +33,7 @@ const library = {
     kindEpub: 'EPUB',
     kindUrl: 'URL',
     kindText: 'Text',
+    kindYoutube: 'YouTube',
     // Reading-status filter chips.
     readingAll: 'Any status',
     readingUnread: 'Unread',
@@ -205,6 +206,8 @@ const library = {
     fetch_failed: 'Could not fetch this URL.',
     unsupported_mime: 'Unsupported file type.',
     empty_source: 'No readable text found.',
+    no_subtitles: 'This video has no subtitles in the content language, Russian, or English.',
+    video_unavailable: 'This video is private, deleted, or unavailable.',
   },
 
   // ── Workspace integration (attach picker + detach in the notebook) ────────────

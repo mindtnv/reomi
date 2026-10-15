@@ -988,7 +988,8 @@ export const SourceRow = ({
   );
 };
 
-export function sourceIcon(kind: Source['kind']): 'doc' | 'link' {
+export function sourceIcon(kind: Source['kind']): 'doc' | 'link' | 'play' {
+  if (kind === 'youtube') return 'play';
   return kind === 'url' ? 'link' : 'doc';
 }
 

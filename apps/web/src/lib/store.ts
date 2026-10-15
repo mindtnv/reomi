@@ -1529,9 +1529,13 @@ export const useNN = create<State>()((set, get) => ({
   },
 
   async addLibraryUrl(title, url, notebookId) {
-    return (await ok(
-      await (api as any).library.items.post({ kind: 'url', title, url, ...(notebookId ? { notebookId } : {}) }),
-    )) as LibraryItem;
+    const res = await (api as any).library.items.post({ kind: 'url', title, url, ...(notebookId ? { notebookId } : {}) });
+    const value = res.error?.value as { error?: string; existingSourceId?: string } | undefined;
+    if (res.error?.status === 409 && value?.error === 'duplicate_source' && value.existingSourceId) {
+      throw new DuplicateSourceError(value.existingSourceId);
+    }
+    if (res.error?.status === 409 && value?.error === 'library_full') throw new LibraryFullError();
+    return (await ok(res)) as LibraryItem;
   },
 
   async addLibraryText(title, text, notebookId) {

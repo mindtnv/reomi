@@ -102,6 +102,7 @@ import {
   countLibraryItems,
   countNotebookSources,
   createInlineSource,
+  SourceInputError,
   deleteSourceCompletely,
   finalizeUploadSource,
   isFkViolation,
@@ -622,15 +623,23 @@ export const notebooksModule = new Elysia({ prefix: '/notebooks' })
       }
 
       // ── url / text: inline create + attach in one tx ──────────────────────────
-      const row = await createInlineSource(
-        user.id,
-        body.kind === 'url'
-          ? { kind: 'url', title: body.title, url: body.url }
-          : { kind: 'text', title: body.title, text: body.text },
-        params.id,
-        log,
-      );
-      return row;
+      try {
+        return await createInlineSource(
+          user.id,
+          body.kind === 'url'
+            ? { kind: 'url', title: body.title, url: body.url }
+            : { kind: 'text', title: body.title, text: body.text },
+          params.id,
+          log,
+        );
+      } catch (err) {
+        if (err instanceof SourceInputError) {
+          return status(err.status, err.existingSourceId
+            ? { error: err.code, existingSourceId: err.existingSourceId }
+            : { error: err.code });
+        }
+        throw err;
+      }
     },
     {
       auth: true,

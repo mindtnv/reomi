@@ -1,6 +1,6 @@
 import type { SourceTextSelection } from './source-text-selection';
 /** Immutable, bounded evidence kept even when live source/chunk links detach. */
-interface CardEvidenceOrigin { version: 1; sourceId: string; sourceTitle: string; quote: string; page?: number }
+interface CardEvidenceOrigin { version: 1; sourceId: string; sourceTitle: string; quote: string; page?: number; startSeconds?: number }
 export interface ChunkCardEvidenceSnapshot extends CardEvidenceOrigin {
   kind?: 'chunk';
   chunkId: string;

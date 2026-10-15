@@ -1054,6 +1054,7 @@ function toSourceCitation(
     sourceId: string;
     position: number;
     page?: number;
+    startSeconds?: number;
     sourceTitle: string;
     text: string;
   },
@@ -1065,6 +1066,7 @@ function toSourceCitation(
     ...(notebookId ? { notebookId } : {}),
     position: c.position,
     page: c.page,
+    ...(c.startSeconds != null ? { startSeconds: c.startSeconds } : {}),
     sourceTitle: c.sourceTitle,
     snippet: c.text.slice(0, SRC_SNIPPET_LEN),
   };

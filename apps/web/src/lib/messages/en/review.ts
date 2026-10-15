@@ -74,11 +74,13 @@ const m = {
   peek: {
     from: 'from: “{title}”',
     fromPage: 'from: “{title}”, p. {n}',
+    fromTime: 'from: “{title}”, {time}',
     fromUntitled: 'from a source',
     title: 'Where this card came from',
     expand: 'Show full passage',
     loading: 'Loading the passage…',
     openInLibrary: 'Open in the library',
+    openVideo: 'Open the video',
     dismiss: 'Got it, next',
   },
   loading: {
