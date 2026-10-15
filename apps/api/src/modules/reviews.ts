@@ -17,6 +17,7 @@ import {
   isLeech,
   MAX_REVIEW_DURATION_MS,
   nextDailyCounts,
+  plantStageFromStreak,
   stateLabel,
   State,
   todayISO,
@@ -87,12 +88,9 @@ async function gradeReview(user:{id:string;name?:string|null}, body:GradeInput, 
 
     const now = new Date(Math.max(Date.now(), card.updatedAt.getTime() + 1, (existingProfile?.updatedAt.getTime() ?? 0) + 1));
 
-    // Pre-grade snapshot (Principle 4 / B5). Captures the EXACT mutate-set
-    // BEFORE the FSRS step + rollup touch the card / profile, so undo can
-    // restore byte-identically. Dates → ISO strings for JSONB; rebuilt via
-    // `new Date(...)` in the undo handler. For `source:'filtered'` grades
-    // the daily counters aren't mutated, so their pre-values == post-values
-    // and restore is a no-op — correct by construction.
+    // Pre-grade snapshot, taken before the FSRS step and the rollup.
+    // Dates are ISO strings for JSONB. A filtered grade does not move the
+    // daily counters, so restoring them is a no-op.
     const undoSnapshot: UndoSnapshot = {
       card: {
         due: card.due.toISOString(),
@@ -120,6 +118,11 @@ async function gradeReview(user:{id:string;name?:string|null}, body:GradeInput, 
             xp: existingProfile.xp,
             level: existingProfile.level,
             plantStage: existingProfile.plantStage,
+            name: existingProfile.name,
+            dailyGoalMinutes: existingProfile.dailyGoalMinutes,
+            desiredRetention: existingProfile.desiredRetention,
+            plantSpecies: existingProfile.plantSpecies,
+            agentInstructions: existingProfile.agentInstructions,
             newIntroducedToday: existingProfile.newIntroducedToday,
             reviewsDoneToday: existingProfile.reviewsDoneToday,
             dailyCountsDate: existingProfile.dailyCountsDate,
@@ -307,6 +310,32 @@ const DEFAULT_REVIEWS_PAGE = 100;
 const MAX_REVIEWS_PAGE = 500;
 const REVIEW_CURSOR_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function profileEditOwnsUpdatedAt(
+  locked: {
+    updatedAt: Date;
+    plantStage: number;
+    streakDays: number;
+    name: string;
+    dailyGoalMinutes: number;
+    desiredRetention: number | null;
+    plantSpecies: string;
+    agentInstructions: string | null;
+  },
+  snap: NonNullable<UndoSnapshot['profile']>,
+  reviewedAt: Date,
+): boolean {
+  if (locked.updatedAt.getTime() !== reviewedAt.getTime()) return true;
+  if (locked.plantStage !== plantStageFromStreak(locked.streakDays)) return true;
+  if (snap.name === undefined) return false;
+  return (
+    locked.name !== snap.name ||
+    locked.dailyGoalMinutes !== snap.dailyGoalMinutes ||
+    locked.desiredRetention !== (snap.desiredRetention ?? null) ||
+    locked.plantSpecies !== snap.plantSpecies ||
+    locked.agentInstructions !== (snap.agentInstructions ?? null)
+  );
+}
+
 function parseReviewCursor(raw: string): { at: Date; id: string } | null {
   const split = raw.lastIndexOf('_');
   if (split <= 0) return null;
@@ -417,16 +446,24 @@ export const reviewsModule = new Elysia({ prefix: '/reviews' })
       .from(reviews).where(and(eq(reviews.userId,user.id),inArray(reviews.id,ids)));
     return {items};
   },{auth:true,query:t.Object({ids:t.String({minLength:1,maxLength:3700})})})
-  // Undo the user's most recent grade. Atomically restores the card + profile
-  // to the exact pre-grade state from the snapshot stored on the review row,
-  // then deletes that row (A5a-i / B5 / M-misc). Restores EXACTLY the grade's
-  // mutate-set incl. `updatedAt` → undo is "as if the grade never happened".
   .post(
     '/undo',
     async ({ user, body, status }) => {
       return await db.transaction(async (tx) => {
-        await tx.select({ id: profile.userId }).from(profile)
-          .where(eq(profile.userId, user.id)).for('update');
+        const [lockedProfile] = await tx
+          .select({
+            plantStage: profile.plantStage,
+            streakDays: profile.streakDays,
+            updatedAt: profile.updatedAt,
+            name: profile.name,
+            dailyGoalMinutes: profile.dailyGoalMinutes,
+            desiredRetention: profile.desiredRetention,
+            plantSpecies: profile.plantSpecies,
+            agentInstructions: profile.agentInstructions,
+          })
+          .from(profile)
+          .where(eq(profile.userId, user.id))
+          .for('update');
         // Most recent undoable review. Tie-break on `id DESC` so two grades in
         // the same `reviewedAt` instant undo the genuinely-last one first.
         const [review] = await tx
@@ -482,9 +519,21 @@ export const reviewsModule = new Elysia({ prefix: '/reviews' })
           .where(eq(cards.id, review.cardId))
           .returning();
 
-        // Restore the profile if the grade rolled one up.
+        // Restore the study ledger. plantStage comes back from the snapshot
+        // unless a later edit left a stage that is not the current streak
+        // formula. updatedAt comes back from the snapshot only while the grade
+        // is still the last writer, including when an edit shares reviewedAt.
         let restoredProfile = null;
         if (snapshot.profile) {
+          const plantStage =
+            lockedProfile &&
+            lockedProfile.plantStage !== plantStageFromStreak(lockedProfile.streakDays)
+              ? lockedProfile.plantStage
+              : snapshot.profile.plantStage;
+          const updatedAt =
+            lockedProfile && profileEditOwnsUpdatedAt(lockedProfile, snapshot.profile, review.reviewedAt)
+              ? lockedProfile.updatedAt
+              : new Date(snapshot.profile.updatedAt);
           const [saved] = await tx
             .update(profile)
             .set({
@@ -497,11 +546,11 @@ export const reviewsModule = new Elysia({ prefix: '/reviews' })
               dailyGoalMetDate: snapshot.profile.dailyGoalMetDate,
               xp: snapshot.profile.xp,
               level: snapshot.profile.level,
-              plantStage: snapshot.profile.plantStage,
+              plantStage,
               newIntroducedToday: snapshot.profile.newIntroducedToday,
               reviewsDoneToday: snapshot.profile.reviewsDoneToday,
               dailyCountsDate: snapshot.profile.dailyCountsDate,
-              updatedAt: new Date(snapshot.profile.updatedAt),
+              updatedAt,
             })
             .where(eq(profile.userId, user.id))
             .returning();

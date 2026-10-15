@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { eq, sql } from 'drizzle-orm';
 import { cards, db, deckOptionsPreset, decks, profile, reviews } from '@reomi/db';
+import { plantStageFromStreak, todayISO } from '@reomi/shared';
 import { buildApp } from '../src/app.ts';
 import { callApp, resetTestDb, seedBasicCard, signUpAndCookie, uniqueEmail } from './helpers.ts';
 
@@ -321,6 +322,257 @@ describe('reviews — undo', () => {
     // The review row was NOT deleted (undo blocked, not consumed).
     const rows = await db.select().from(reviews).where(eq(reviews.cardId, cardId));
     expect(rows.length).toBe(1);
+  });
+
+  test('grade, profile edit, undo keeps the edit and rolls back only the latest study contribution', async () => {
+    const { cookie, userId, cardId, deckId } = await setupCard();
+    const second = await seedBasicCard(app, cookie, { deckId, front: 'die Katze', back: 'the cat' });
+
+    const first = await callApp(app, 'POST', '/reviews', {
+      cookie,
+      body: { cardId, rating: 3, durationMs: 1000 },
+    });
+    expect(first.status).toBe(200);
+    const afterFirst = await first.json<{ profile: { xp: number }; review: { id: string } }>();
+    expect(afterFirst.profile.xp).toBe(10);
+
+    const secondGrade = await callApp(app, 'POST', '/reviews', {
+      cookie,
+      body: { cardId: second.id, rating: 3, durationMs: 1000 },
+    });
+    expect(secondGrade.status).toBe(200);
+    const afterSecond = await secondGrade.json<{ profile: { xp: number }; review: { id: string } }>();
+    expect(afterSecond.profile.xp).toBe(20);
+
+    const edited = await callApp(app, 'PATCH', '/profile', {
+      cookie,
+      body: { name: 'Ada', plantStage: 4, plantSpecies: 'cactus', dailyGoalMinutes: 40 },
+    });
+    expect(edited.status).toBe(200);
+    const patch = await edited.json<{
+      name: string;
+      plantStage: number;
+      plantSpecies: string;
+      dailyGoalMinutes: number;
+      updatedAt: string;
+      xp: number;
+    }>();
+    expect(patch).toMatchObject({
+      name: 'Ada',
+      plantStage: 4,
+      plantSpecies: 'cactus',
+      dailyGoalMinutes: 40,
+      xp: 20,
+    });
+
+    const undo = await callApp(app, 'POST', '/reviews/undo', {
+      cookie,
+      body: { reviewId: afterSecond.review.id },
+    });
+    expect(undo.status).toBe(200);
+    const undone = await undo.json<{
+      reviewId: string;
+      card: { id: string; reps: number; state: string };
+      profile: {
+        xp: number;
+        streakDays: number;
+        newIntroducedToday: number;
+        name: string;
+        plantStage: number;
+        plantSpecies: string;
+        dailyGoalMinutes: number;
+        updatedAt: string;
+      };
+    }>();
+    expect(undone.reviewId).toBe(afterSecond.review.id);
+    expect(undone.card.id).toBe(second.id);
+    expect(undone.card.reps).toBe(0);
+    expect(undone.card.state).toBe('new');
+    expect(undone.profile.xp).toBe(10);
+    expect(undone.profile.streakDays).toBe(1);
+    expect(undone.profile.newIntroducedToday).toBe(1);
+    expect(undone.profile.name).toBe('Ada');
+    expect(undone.profile.plantStage).toBe(4);
+    expect(undone.profile.plantSpecies).toBe('cactus');
+    expect(undone.profile.dailyGoalMinutes).toBe(40);
+    expect(undone.profile.updatedAt).toBe(patch.updatedAt);
+
+    const stored = await rawProfile(userId);
+    expect(stored.xp).toBe(10);
+    expect(stored.plantStage).toBe(4);
+    expect(stored.plantSpecies).toBe('cactus');
+    expect(stored.name).toBe('Ada');
+    expect(stored.dailyGoalMinutes).toBe(40);
+    expect(stored.updatedAt.toISOString()).toBe(new Date(patch.updatedAt).toISOString());
+    expect((await rawCard(cardId)).reps).toBe(1);
+    expect((await rawCard(second.id)).reps).toBe(0);
+
+    const undoFirst = await callApp(app, 'POST', '/reviews/undo', {
+      cookie,
+      body: { reviewId: afterFirst.review.id },
+    });
+    expect(undoFirst.status).toBe(200);
+    const fully = await undoFirst.json<{
+      profile: {
+        xp: number;
+        streakDays: number;
+        newIntroducedToday: number;
+        plantStage: number;
+        plantSpecies: string;
+        name: string;
+        dailyGoalMinutes: number;
+      };
+      card: { id: string; reps: number; state: string };
+    }>();
+    expect(fully.card.id).toBe(cardId);
+    expect(fully.card.reps).toBe(0);
+    expect(fully.card.state).toBe('new');
+    expect(fully.profile.xp).toBe(0);
+    expect(fully.profile.streakDays).toBe(0);
+    expect(fully.profile.newIntroducedToday).toBe(0);
+    expect(fully.profile.plantStage).toBe(4);
+    expect(fully.profile.plantSpecies).toBe('cactus');
+    expect(fully.profile.name).toBe('Ada');
+    expect(fully.profile.dailyGoalMinutes).toBe(40);
+  });
+
+  test('a later profile edit keeps its stamp while undo still restores a derived plant stage', async () => {
+    const { cookie, userId, cardId } = await setupCard();
+    const today = todayISO();
+    const yesterday = todayISO(new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000));
+    await db
+      .update(profile)
+      .set({ streakDays: 6, plantStage: 0, lastReviewDate: yesterday })
+      .where(eq(profile.userId, userId));
+
+    const grade = await callApp(app, 'POST', '/reviews', {
+      cookie,
+      body: { cardId, rating: 3, durationMs: 1000 },
+    });
+    expect(grade.status).toBe(200);
+    const graded = await grade.json<{ profile: { streakDays: number; plantStage: number; xp: number } }>();
+    expect(graded.profile.streakDays).toBe(7);
+    expect(graded.profile.plantStage).toBe(1);
+    expect(graded.profile.xp).toBe(10);
+
+    const edited = await callApp(app, 'PATCH', '/profile', {
+      cookie,
+      body: { name: 'Ada' },
+    });
+    expect(edited.status).toBe(200);
+    const patch = await edited.json<{ name: string; plantStage: number; updatedAt: string }>();
+    expect(patch.name).toBe('Ada');
+    expect(patch.plantStage).toBe(1);
+
+    const undo = await callApp(app, 'POST', '/reviews/undo', { cookie });
+    expect(undo.status).toBe(200);
+    const undone = await undo.json<{
+      profile: { name: string; plantStage: number; streakDays: number; xp: number; updatedAt: string };
+    }>();
+    expect(undone.profile.name).toBe('Ada');
+    expect(undone.profile.plantStage).toBe(0);
+    expect(undone.profile.streakDays).toBe(6);
+    expect(undone.profile.xp).toBe(0);
+    expect(undone.profile.updatedAt).toBe(patch.updatedAt);
+
+    const stored = await rawProfile(userId);
+    expect(stored.name).toBe('Ada');
+    expect(stored.plantStage).toBe(0);
+    expect(stored.streakDays).toBe(6);
+    expect(stored.xp).toBe(0);
+    expect(stored.updatedAt.toISOString()).toBe(new Date(patch.updatedAt).toISOString());
+  });
+
+  test('undo restores the snapshot plant stage when the restored streak formula differs', async () => {
+    const { cookie, userId, cardId } = await setupCard();
+    const today = todayISO();
+    const yesterday = todayISO(new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000));
+    await db
+      .update(profile)
+      .set({ streakDays: 13, plantStage: 4, lastReviewDate: yesterday })
+      .where(eq(profile.userId, userId));
+
+    const grade = await callApp(app, 'POST', '/reviews', {
+      cookie,
+      body: { cardId, rating: 3, durationMs: 1000 },
+    });
+    expect(grade.status).toBe(200);
+    const graded = await grade.json<{ profile: { streakDays: number; plantStage: number; xp: number } }>();
+    expect(graded.profile.streakDays).toBe(14);
+    expect(graded.profile.plantStage).toBe(2);
+    expect(graded.profile.xp).toBe(10);
+
+    const [review] = await db.select().from(reviews).where(eq(reviews.userId, userId));
+    expect(review?.undoSnapshot?.profile?.streakDays).toBe(13);
+    expect(review?.undoSnapshot?.profile?.plantStage).toBe(4);
+    expect(plantStageFromStreak(13)).toBe(1);
+
+    const edited = await callApp(app, 'PATCH', '/profile', {
+      cookie,
+      body: { name: 'Ada' },
+    });
+    expect(edited.status).toBe(200);
+    const patch = await edited.json<{ name: string; plantStage: number }>();
+    expect(patch.plantStage).toBe(2);
+
+    const undo = await callApp(app, 'POST', '/reviews/undo', { cookie });
+    expect(undo.status).toBe(200);
+    const undone = await undo.json<{
+      profile: { name: string; plantStage: number; streakDays: number; xp: number };
+    }>();
+    expect(undone.profile.name).toBe('Ada');
+    expect(undone.profile.streakDays).toBe(13);
+    expect(undone.profile.xp).toBe(0);
+    expect(undone.profile.plantStage).toBe(review?.undoSnapshot?.profile?.plantStage);
+    expect(undone.profile.plantStage).toBe(4);
+
+    const stored = await rawProfile(userId);
+    expect(stored.plantStage).toBe(4);
+    expect(stored.streakDays).toBe(13);
+    expect(stored.xp).toBe(0);
+  });
+
+  test('a profile edit stamped on the same millisecond as reviewedAt keeps that stamp', async () => {
+    const { cookie, userId, cardId } = await setupCard();
+    const before = await rawProfile(userId);
+
+    const grade = await callApp(app, 'POST', '/reviews', {
+      cookie,
+      body: { cardId, rating: 3, durationMs: 1000 },
+    });
+    expect(grade.status).toBe(200);
+
+    const [review] = await db.select().from(reviews).where(eq(reviews.userId, userId));
+    expect(review!.reviewedAt.getTime()).not.toBe(before.updatedAt.getTime());
+
+    const edited = await callApp(app, 'PATCH', '/profile', {
+      cookie,
+      body: { name: 'Ada', dailyGoalMinutes: 40 },
+    });
+    expect(edited.status).toBe(200);
+
+    await db.update(profile).set({ updatedAt: review!.reviewedAt }).where(eq(profile.userId, userId));
+    const tied = await rawProfile(userId);
+    expect(tied.updatedAt.getTime()).toBe(review!.reviewedAt.getTime());
+    expect(tied.name).toBe('Ada');
+    expect(tied.dailyGoalMinutes).toBe(40);
+
+    const undo = await callApp(app, 'POST', '/reviews/undo', { cookie });
+    expect(undo.status).toBe(200);
+    const undone = await undo.json<{
+      profile: { name: string; dailyGoalMinutes: number; xp: number; updatedAt: string };
+    }>();
+    expect(undone.profile.name).toBe('Ada');
+    expect(undone.profile.dailyGoalMinutes).toBe(40);
+    expect(undone.profile.xp).toBe(0);
+    expect(new Date(undone.profile.updatedAt).getTime()).toBe(review!.reviewedAt.getTime());
+
+    const stored = await rawProfile(userId);
+    expect(stored.name).toBe('Ada');
+    expect(stored.dailyGoalMinutes).toBe(40);
+    expect(stored.xp).toBe(0);
+    expect(stored.updatedAt.getTime()).toBe(review!.reviewedAt.getTime());
+    expect(stored.updatedAt.getTime()).not.toBe(before.updatedAt.getTime());
   });
 
   test('only the LAST grade is undone — earlier grade survives a single undo', async () => {
