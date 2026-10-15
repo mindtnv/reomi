@@ -1,3 +1,5 @@
+import { resolveEmailFrom } from './password-reset.ts';
+
 // Minimal email-sending layer. Two implementations:
 //   - `ConsoleEmailProvider` — prints the email body to stdout (dev / CI).
 //   - `ResendEmailProvider`  — posts to the Resend REST API (prod).
@@ -66,7 +68,7 @@ let cached: EmailProvider | null = null;
 export function getEmailProvider(): EmailProvider {
   if (cached) return cached;
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM ?? 'NeuroNexus <noreply@neuronexus.app>';
+  const from = resolveEmailFrom(process.env.EMAIL_FROM);
   cached =
     apiKey && process.env.NODE_ENV !== 'test'
       ? new ResendEmailProvider(apiKey, from)

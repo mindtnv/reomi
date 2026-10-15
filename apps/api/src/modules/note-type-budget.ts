@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
-import type { CardTemplate, FieldValues } from '@neuronexus/shared';
-import type { Db } from '@neuronexus/db';
+import type { CardTemplate, FieldValues } from '@reomi/shared';
+import type { Db } from '@reomi/db';
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 export const NOTE_TYPE_BUDGET = { notes: 1000, cards: 2000, sourceBytes: 2 * 1024 * 1024, durationMs: 5000 } as const;

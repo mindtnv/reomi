@@ -1,3 +1,4 @@
+import { readBrowserValue, writeBrowserValue, type MigratingStorage } from './storage-migration';
 export interface AssistantWindowRect { x: number; y: number; width: number; height: number }
 export interface AssistantViewport { width: number; height: number; insetTop?: number }
 export const ASSISTANT_WINDOW_KEY = 'nn:assistant:window';
@@ -18,13 +19,13 @@ export function moveAssistantWindow(rect: AssistantWindowRect, dx: number, dy: n
 export function resizeAssistantWindow(rect: AssistantWindowRect, dx: number, dy: number, viewport: AssistantViewport) {
   return clampAssistantWindow({ ...rect,width:rect.width+dx,height:rect.height+dy },viewport);
 }
-export function readAssistantWindow(storage: Pick<Storage,'getItem'>, viewport: AssistantViewport): AssistantWindowRect {
+export function readAssistantWindow(storage: MigratingStorage, viewport: AssistantViewport): AssistantWindowRect {
   try {
-    const saved = JSON.parse(storage.getItem(ASSISTANT_WINDOW_KEY) ?? 'null');
+    const saved = JSON.parse(readBrowserValue(storage, ASSISTANT_WINDOW_KEY) ?? 'null');
     if (saved?.version === 1 && ['x','y','width','height'].every(key => typeof saved[key] === 'number' && Number.isFinite(saved[key]))) return clampAssistantWindow(saved,viewport);
   } catch {}
   return defaultAssistantWindow(viewport);
 }
 export function saveAssistantWindow(rect: AssistantWindowRect) {
-  try { localStorage.setItem(ASSISTANT_WINDOW_KEY,JSON.stringify({ version:1,...rect })); } catch {}
+  try { writeBrowserValue(localStorage, ASSISTANT_WINDOW_KEY, JSON.stringify({ version:1,...rect })); } catch {}
 }

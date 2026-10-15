@@ -13,7 +13,7 @@
 // own tiny terminal-set check; the pure helper is exported for unit tests.
 
 import { useEffect, useRef, useState } from 'react';
-import { ARTIFACT_STATUSES, type ArtifactStatus } from '@neuronexus/shared';
+import { ARTIFACT_STATUSES, type ArtifactStatus } from '@reomi/shared';
 import { followOperationRefresh } from './operation-observer';
 import { useOperations } from '@/components/operations-provider';
 

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppNavigation } from '@/components/navigation';
-import { parseCardQuery, CardQueryError } from '@neuronexus/shared';
+import { parseCardQuery, CardQueryError } from '@reomi/shared';
 import { NNBtn, NNBadge, NNIcon, NNPageSkeleton } from '@/components/ui';
 import { useNN } from '@/lib/store';
 import { useT } from '@/lib/i18n';

@@ -2,7 +2,7 @@
 //
 // These let the Browse sidebar (decks / tags / state chips) insert, replace, or
 // toggle a single token in the user's query without re-parsing the whole grammar
-// (the AST lives in @neuronexus/shared; this is a UI-side text manipulation).
+// (the AST lives in @reomi/shared; this is a UI-side text manipulation).
 //
 // Splitting is whitespace-based but quote-aware: a `deck:"My Deck"` token (with a
 // space inside quotes) is kept whole. Pure-TS, unit-testable, no React deps.

@@ -21,6 +21,7 @@ import { drag } from 'd3-drag';
 import { select } from 'd3-selection';
 
 import { NNIcon, NNBtn, NNBadge, NNSkeleton } from '@/components/ui';
+import { readBrowserValue, writeBrowserValue } from '@/lib/storage-migration';
 import { useEmptyRedirect } from '@/lib/use-empty-redirect';
 import { useNN } from '@/lib/store';
 import { api, ok } from '@/lib/api';
@@ -110,7 +111,7 @@ export const NNGraphForce = () => {
 
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem('nn:graph:edges');
+      const stored = readBrowserValue(window.localStorage, 'nn:graph:edges');
       if (stored === 'tags' || stored === 'semantic') setEdgePref(stored);
     } catch {
       // localStorage unavailable — keep the default.
@@ -141,7 +142,7 @@ export const NNGraphForce = () => {
   const pickEdgeSource = useCallback((src: 'semantic' | 'tags') => {
     setEdgePref(src);
     try {
-      window.localStorage.setItem('nn:graph:edges', src);
+      writeBrowserValue(window.localStorage, 'nn:graph:edges', src);
     } catch {
       // best-effort persistence only
     }

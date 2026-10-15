@@ -1,4 +1,4 @@
-import { isSourceTextReadable } from '@neuronexus/shared';
+import { isSourceTextReadable } from '@reomi/shared';
 type SourceState = { id: string; status: string; errorCode?: string | null };
 export function restoreNotebookSourceScope(sources: readonly SourceState[], saved: unknown): Set<string> {
   const readable = sources.filter(source => isSourceTextReadable(source.status, source.errorCode)).map(source => source.id);

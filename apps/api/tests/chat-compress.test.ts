@@ -13,7 +13,7 @@
 // Rows are seeded via direct db.insert (fast) with explicit createdAt spacing.
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { conversations, db, messages as messagesTable, sources } from '@neuronexus/db';
+import { conversations, db, messages as messagesTable, sources } from '@reomi/db';
 import { eq } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import {

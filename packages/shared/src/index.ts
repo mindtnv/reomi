@@ -1,5 +1,5 @@
 // Shared types + helpers between apps/web and apps/api.
-// Domain types are re-exported from @neuronexus/db when they are inferred from the
+// Domain types are re-exported from @reomi/db when they are inferred from the
 // Drizzle schema; everything else (pure value types, enums, constants) lives here.
 
 export * from './fsrs.ts';

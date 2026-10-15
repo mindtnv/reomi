@@ -6,14 +6,14 @@
 // batched query for the prompt context block.
 
 import { inArray } from 'drizzle-orm';
-import { db, decks, type Citation } from '@neuronexus/db';
+import { db, decks, type Citation } from '@reomi/db';
 import {
   CARD_TOKEN_RE,
   SRC_TOKEN_RE,
   isSourceCitation,
   type RagChunk,
   type SourceCitation,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import type { RankedChunk } from './retrieve.ts';
 
 /** Snippet length stored on each Citation (for the client's hover/preview). */

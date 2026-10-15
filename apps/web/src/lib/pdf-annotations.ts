@@ -10,7 +10,7 @@ import type {
   PageAnnotations,
   SourceMarkColor,
   SourceMarkKind,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import { api, apiErrorFromResponse, ok } from '@/lib/api';
 import { CooldownError } from '@/lib/store';
 import type { QuickCardResult, SourceMark, SuggestCardResult } from '@/lib/types';
@@ -149,8 +149,8 @@ export async function deleteMark(sourceId: string, markId: string): Promise<void
 // ── Quick card + AI formulate (M5) ────────────────────────────────────────────
 
 export interface QuickCardInput {
-  pdfSelection?: import('@neuronexus/shared').PdfCardSelection;
-  textSelection?: import('@neuronexus/shared').SourceTextSelection;
+  pdfSelection?: import('@reomi/shared').PdfCardSelection;
+  textSelection?: import('@reomi/shared').SourceTextSelection;
   deckId: string;
   front: string;
   back: string;

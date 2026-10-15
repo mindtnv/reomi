@@ -17,8 +17,8 @@
 // a text placeholder — the turn always proceeds.
 
 import { and, eq, inArray } from 'drizzle-orm';
-import { db, media as mediaTable } from '@neuronexus/db';
-import type { MessageAttachment, MessageAttachmentInput } from '@neuronexus/shared';
+import { db, media as mediaTable } from '@reomi/db';
+import type { MessageAttachment, MessageAttachmentInput } from '@reomi/shared';
 import { getObjectBytes } from '../storage.ts';
 import { env } from '../env.ts';
 import type { AgentContentPart } from './openai-client.ts';

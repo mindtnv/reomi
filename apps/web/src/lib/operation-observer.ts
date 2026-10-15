@@ -1,4 +1,4 @@
-import { OPERATION_GROUPS, type OperationGroup, type OperationItem, type OperationsFeed } from '@neuronexus/shared';
+import { OPERATION_GROUPS, type OperationGroup, type OperationItem, type OperationsFeed } from '@reomi/shared';
 
 export type OperationCursors = Partial<Record<`${OperationGroup}Cursor`, string>>;
 export interface OperationSnapshot {

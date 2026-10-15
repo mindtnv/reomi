@@ -33,7 +33,7 @@ let originalFetch: typeof fetch;
 beforeEach(() => {
   ensureTestDom();
   (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
-  localStorage.setItem('nn:locale', 'en');
+  localStorage.removeItem('reomi:locale'); localStorage.setItem('nn:locale', 'en');
   clearSessionResourceCache();
   clearStudyResult('result-user'); navigations.length = 0;
   originalFetch = globalThis.fetch;

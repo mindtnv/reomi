@@ -28,8 +28,8 @@ import {
   sourceChunks,
   sources,
   type Source,
-} from '@neuronexus/db';
-import { chunkSource, type SourceUnit } from '@neuronexus/shared';
+} from '@reomi/db';
+import { chunkSource, type SourceUnit } from '@reomi/shared';
 import { env, notebooksEnabled } from '../env.ts';
 import {
   rootLogger,

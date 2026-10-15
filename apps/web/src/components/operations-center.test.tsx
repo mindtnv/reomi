@@ -5,7 +5,7 @@ import { PathnameContext, SearchParamsContext } from 'next/dist/shared/lib/hooks
 import { AppNavigationProvider, useNavigationGuard } from './navigation';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import type { Root } from 'react-dom/client';
-import type { OperationsFeed } from '@neuronexus/shared';
+import type { OperationsFeed } from '@reomi/shared';
 ensureTestDom();
 const { createRoot } = await import('react-dom/client');
 const { OperationsProvider } = await import('./operations-provider');

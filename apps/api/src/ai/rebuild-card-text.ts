@@ -1,8 +1,8 @@
 // Repair disposable search columns without rewriting note source or schedules.
 // bun --env-file=../../.env src/ai/rebuild-card-text.ts <userId> [--reindex]
 import { and, asc, eq, gt, sql } from 'drizzle-orm';
-import { cards, closeDb, db, notes, noteTypes } from '@neuronexus/db';
-import { generateCards, isLegacyClozeCard } from '@neuronexus/shared';
+import { cards, closeDb, db, notes, noteTypes } from '@reomi/db';
+import { generateCards, isLegacyClozeCard } from '@reomi/shared';
 import { defFromRow } from '../modules/note-types';
 import { assertEmbeddingDim, indexCards } from './index-queue';
 import { rootLogger, safeError } from '../logger';

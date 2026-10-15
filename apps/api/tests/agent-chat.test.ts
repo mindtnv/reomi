@@ -13,9 +13,9 @@
 // Same in-process / injection harness as chat.test.ts (NODE_ENV=test forces the
 // real AI flags off; the injected fakes flip `isChatEnabled()` on).
 
-import { newUuidV7 } from '@neuronexus/shared';
+import { newUuidV7 } from '@reomi/shared';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { db, messages as messagesTable } from '@neuronexus/db';
+import { db, messages as messagesTable } from '@reomi/db';
 import { asc, eq } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import {

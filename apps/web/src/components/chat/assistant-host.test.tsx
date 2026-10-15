@@ -39,6 +39,8 @@ beforeEach(()=>{
   legacy=false;models=[];pageCard=null;pageKind='card';
   Object.defineProperty(window,'innerWidth',{value:1200,writable:true,configurable:true});Object.defineProperty(window,'innerHeight',{value:900,writable:true,configurable:true});
   localStorage.removeItem('nn:assistant:drafts:v1:alice');localStorage.removeItem('nn:assistant:drafts:v1:bob');
+  localStorage.removeItem('reomi:assistant:drafts:v1:alice');localStorage.removeItem('reomi:assistant:drafts:v1:bob');
+  localStorage.removeItem('reomi:assistant:window');localStorage.removeItem('reomi:chat:rail-width');
   previousFetch=globalThis.fetch;globalThis.fetch=(async()=>Response.json({items:[],nextCursor:null})) as unknown as typeof fetch;
   useNN.setState({profile:{userId:'alice'} as any,cards:[],decks:[]});
   host=document.createElement('div');document.body.appendChild(host);root=createRoot(host);
@@ -223,6 +225,7 @@ test('installed-window titlebar geometry constrains restored and moved assistant
   let height = 32;
   const overlay = Object.assign(new EventTarget(), { visible: true, getTitlebarAreaRect: () => ({ x: 70, y: 0, width: 1100, height }) });
   Object.defineProperty(navigator, 'windowControlsOverlay', { configurable: true, value: overlay });
+  localStorage.removeItem('reomi:assistant:window');
   localStorage.setItem('nn:assistant:window', JSON.stringify({ version: 1, x: 12, y: 12, width: 440, height: 620 }));
   try {
     await render(); await act(async () => button('assistant.open').click());
@@ -232,6 +235,7 @@ test('installed-window titlebar geometry constrains restored and moved assistant
     expect(dialog.style.top).toBe('60px');
   } finally {
     if (descriptor) Object.defineProperty(navigator, 'windowControlsOverlay', descriptor); else delete (navigator as any).windowControlsOverlay;
+    localStorage.removeItem('reomi:assistant:window');
     if (saved === null) localStorage.removeItem('nn:assistant:window'); else localStorage.setItem('nn:assistant:window', saved);
   }
 });
@@ -331,6 +335,7 @@ test('a chat deep link waits for the account instead of loading an unauthenticat
 test('chat rail and wrapper resize together even with a long draft, with headers inside their columns', async () => {
   const saved = localStorage.getItem('nn:chat:rail-width');
   localStorage.removeItem('nn:chat:rail-width');
+  localStorage.removeItem('reomi:chat:rail-width');
   try {
     await render(true);
     await act(async () => controller.newConversation([{ ref: { kind: 'card', id: '01900000-0000-7000-8000-000000000001' }, label: 'A very long material title '.repeat(12), available: true }]));
@@ -345,12 +350,12 @@ test('chat rail and wrapper resize together even with a long draft, with headers
     expect(host.querySelector('.reomi-assistant-main > .reomi-assistant-page-toolbar')).not.toBeNull();
     expect(wrapper.querySelector('.reomi-thread-rail-header')).not.toBeNull();
     expect(wrapper.querySelector('.reomi-assistant-thread-filters')).toBeNull();
-  } finally { if (saved === null) localStorage.removeItem('nn:chat:rail-width'); else localStorage.setItem('nn:chat:rail-width', saved); }
+  } finally { localStorage.removeItem('reomi:chat:rail-width'); if (saved === null) localStorage.removeItem('nn:chat:rail-width'); else localStorage.setItem('nn:chat:rail-width', saved); }
 });
 
 
 test('initial window placement uses the real viewport, not the provisional hydration bounds', async () => {
-  const saved = localStorage.getItem('nn:assistant:window'); localStorage.removeItem('nn:assistant:window');
+  const saved = localStorage.getItem('nn:assistant:window'); localStorage.removeItem('nn:assistant:window'); localStorage.removeItem('reomi:assistant:window');
   window.innerWidth = 1728; window.innerHeight = 998;
   try {
     await render(); await act(async () => button('assistant.open').click());

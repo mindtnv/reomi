@@ -1,4 +1,4 @@
-import type { User } from '@neuronexus/db';
+import type { User } from '@reomi/db';
 
 // Identity is associated with the Request object, never with a header that a
 // remote caller could forge. Only the curated MCP and authenticated chat GET bridges create entries.

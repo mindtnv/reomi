@@ -14,7 +14,7 @@
 // scrolls untouched.
 
 import React, { useCallback, useEffect, useRef } from 'react';
-import type { InkStroke } from '@neuronexus/shared';
+import type { InkStroke } from '@reomi/shared';
 import {
   canvasToNorm,
   eraserHitsStroke,

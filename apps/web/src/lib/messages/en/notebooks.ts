@@ -3,7 +3,7 @@
 // by the server ingest worker, so the screen polls GET /sources/:id while the
 // status is non-terminal and renders a status badge + indexed/total progress.
 //
-// `status.*` maps the machine `errorCode` (from @neuronexus/shared
+// `status.*` maps the machine `errorCode` (from @reomi/shared
 // INGEST_ERROR_CODES) onto human prose — every error code MUST have an entry in
 // BOTH locales (enforced by i18n-parity.test.ts).
 

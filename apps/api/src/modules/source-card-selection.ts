@@ -1,8 +1,8 @@
 import { evidenceExcerpt } from '../ai/legacy-evidence';
 import { createHash } from 'node:crypto';
 import { and, eq, inArray, ne } from 'drizzle-orm';
-import { db, sources, sourceChunks } from '@neuronexus/db';
-import { ASSISTANT_CONTEXT_LIMITS, parseSourceTextSelection, type CardEvidenceSnapshot } from '@neuronexus/shared';
+import { db, sources, sourceChunks } from '@reomi/db';
+import { ASSISTANT_CONTEXT_LIMITS, parseSourceTextSelection, type CardEvidenceSnapshot } from '@reomi/shared';
 import { cardEvidenceFingerprint } from '../ai/card-evidence';
 import { StudyError } from './study-notes';
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

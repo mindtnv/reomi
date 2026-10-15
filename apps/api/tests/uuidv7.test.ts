@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { db } from '@neuronexus/db/client';
+import { db } from '@reomi/db/client';
 import { sql } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers.ts';

@@ -20,7 +20,7 @@
 
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { sql } from 'drizzle-orm';
-import { db, kbChunk, notebooks, sources } from '@neuronexus/db';
+import { db, kbChunk, notebooks, sources } from '@reomi/db';
 import { buildApp } from '../src/app.ts';
 import { retrieve } from '../src/ai/retrieve.ts';
 import { similarCards } from '../src/ai/similar.ts';

@@ -1,7 +1,7 @@
 schema: spec-driven
 
 context: |
-  NeuroNexus is a Bun-workspaces TypeScript monorepo: Elysia API, Next.js/React web,
+  Reomi is a Bun-workspaces TypeScript monorepo: Elysia API, Next.js/React web,
   Drizzle ORM, PostgreSQL 18 with pgvector, and Better Auth. PostgreSQL is the
   server of truth. Domain writes are user-scoped; agent mutations require a
   validate -> dry-run preview -> explicit confirmation workflow. Persistent IDs

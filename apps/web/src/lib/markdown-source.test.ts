@@ -1,6 +1,6 @@
 import { ensureTestDom } from './test-dom-setup';
 import { beforeAll, describe, expect, test } from 'bun:test';
-import { BASIC_NOTE_TYPE, CLOZE_NOTE_TYPE } from '@neuronexus/shared';
+import { BASIC_NOTE_TYPE, CLOZE_NOTE_TYPE } from '@reomi/shared';
 import { sanitizeFieldValues } from '../../../api/src/sanitize';
 ensureTestDom();
 const { renderCardHtml, renderCardHtmlWithMermaid, resanitize } = await import('./render-card');

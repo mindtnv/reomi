@@ -16,7 +16,7 @@
 
 import { legacyChunkEvidence } from './legacy-evidence';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { cardSources, sourceChunks, sources, type Db } from '@neuronexus/db';
+import { cardSources, sourceChunks, sources, type Db } from '@reomi/db';
 import { env } from '../env.ts';
 
 /** A Drizzle transaction handle (the arg passed to `db.transaction`). */

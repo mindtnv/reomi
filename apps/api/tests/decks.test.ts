@@ -186,7 +186,7 @@ describe('ordered deck moves', () => {
 });
 
 test('all thirty deck colors persist through authenticated create and edit', async () => {
-  const { DECK_COLORS }=await import('@neuronexus/shared');
+  const { DECK_COLORS }=await import('@reomi/shared');
   const { cookie }=await signUpAndCookie(app,uniqueEmail());
   const created=await callApp(app,'POST','/decks',{cookie,body:{name:'Color palette',color:'coral',icon:'flask'}});
   expect(created.status).toBe(200);

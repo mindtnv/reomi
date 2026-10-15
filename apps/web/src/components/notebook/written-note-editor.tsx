@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { NOTE_CONTENT_MAX, NOTE_TITLE_MAX } from '@neuronexus/shared';
+import { NOTE_CONTENT_MAX, NOTE_TITLE_MAX } from '@reomi/shared';
 import { RecoverableSave } from '@/lib/recoverable-save';
 import { getUiActionReceipt, saveUiAction } from '@/lib/ui-actions-api';
 import { draftFingerprint } from '@/lib/editor-drafts';

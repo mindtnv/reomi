@@ -13,7 +13,7 @@
 
 import { Elysia, t } from 'elysia';
 import { eq } from 'drizzle-orm';
-import { db, decks } from '@neuronexus/db';
+import { db, decks } from '@reomi/db';
 import { authPlugin } from '../auth-plugin.ts';
 import { internalReadDeckScope } from '../mcp/internal-read.ts';
 import { descendantIds } from './cards.ts';

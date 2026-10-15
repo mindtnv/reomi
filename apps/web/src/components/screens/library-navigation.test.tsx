@@ -47,7 +47,7 @@ test('reload initializes the remembered library view before requesting its colle
   expect(collectionQueries.some(q=>q?.sort==='added'&&!q.q)).toBe(false);
 });
 test('reset clears remembered browsing state and keeps appearance preferences',async()=>{
-  localStorage.setItem('nn:lib:view','list');savedView();await render();
+  localStorage.removeItem('reomi:lib:view'); localStorage.setItem('nn:lib:view','list');savedView();await render();
   const reset=host.querySelector('button[aria-label="navigation.reset"]') as HTMLButtonElement;
   expect(reset).not.toBeNull();
   await act(async()=>reset.click());

@@ -26,7 +26,7 @@ beforeEach(() => {
 });
 afterEach(async () => {
   await act(async () => root.unmount()); host.remove(); useNN.getState().reset();
-  for (let i = localStorage.length - 1; i >= 0; i--) { const key = localStorage.key(i)!; if (key.startsWith('nn:editor-draft:')) localStorage.removeItem(key); }
+  for (let i = localStorage.length - 1; i >= 0; i--) { const key = localStorage.key(i)!; if (key.startsWith('nn:editor-draft:') || key.startsWith('reomi:editor-draft:')) localStorage.removeItem(key); }
   delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
 });
 afterAll(() => { try { GlobalRegistrator.unregister(); } catch {} });

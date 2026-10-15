@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { db, decks, sources, notebookSources, conversations, conversationContexts, messages } from '@neuronexus/db';
+import { db, decks, sources, notebookSources, conversations, conversationContexts, messages } from '@reomi/db';
 import { eq } from 'drizzle-orm';
-import { newUuidV7 } from '@neuronexus/shared';
+import { newUuidV7 } from '@reomi/shared';
 import { buildApp } from '../src/app';
 import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers';
 import { __setAiClientForTests, __resetAiClientForTests, type AgentChatMessage } from '../src/ai/openai-client';
@@ -241,7 +241,7 @@ describe('durable conversation context', () => {
 });
 
 test('typed continuation cannot widen an unresolved legacy notebook selection to all sources',async()=>{
-  await resetTestDb();const {notebooks}=await import('@neuronexus/db');
+  await resetTestDb();const {notebooks}=await import('@reomi/db');
   const {cookie,userId}=await signUpAndCookie(app,uniqueEmail());
   const [notebook]=await db.insert(notebooks).values({userId,title:'Legacy notebook'}).returning();
   const thread=await(await callApp(app,'POST','/chat/conversations',{cookie,body:{notebookId:notebook!.id}})).json<any>();

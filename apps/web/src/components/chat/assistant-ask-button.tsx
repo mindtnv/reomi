@@ -1,5 +1,5 @@
 'use client';
-import type { AssistantObjectRef } from '@neuronexus/shared';
+import type { AssistantObjectRef } from '@reomi/shared';
 import { useT } from '@/lib/i18n';
 import { NNBtn } from '../ui';
 import { askAssistant } from './assistant-provider';

@@ -18,7 +18,7 @@
 // provider (`__setWebSearchProviderForTests`) — the 'slow' query resolves last.
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { db, ensureBuiltins, messages as messagesTable, cards as cardsTable } from '@neuronexus/db';
+import { db, ensureBuiltins, messages as messagesTable, cards as cardsTable } from '@reomi/db';
 import { asc, eq } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import {

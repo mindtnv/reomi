@@ -1,5 +1,6 @@
-import { MAX_REVIEW_DURATION_MS, xpForRating } from '@neuronexus/shared';
+import { MAX_REVIEW_DURATION_MS, xpForRating } from '@reomi/shared';
 import type { Rating } from './types';
+import { readBrowserValue, removeBrowserValue, writeBrowserValue, type MigratingStorage } from './storage-migration';
 
 export interface StudyResult {
   version: 1;
@@ -15,7 +16,7 @@ export interface StudyResult {
   reviewHref: string;
 }
 
-type ResultStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+type ResultStorage = MigratingStorage;
 let inMemory: StudyResult | null = null;
 const key = (userId: string) => `nn:lastSession:${userId}`;
 const natural = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
@@ -38,19 +39,19 @@ function valid(value: unknown, userId: string): value is StudyResult {
 export function saveStudyResult(result: StudyResult, storage?: ResultStorage): void {
   if (!valid(result, result.userId)) return;
   inMemory = result;
-  try { (storage ?? localStorage).setItem(key(result.userId), JSON.stringify(result)); } catch {}
+  try { writeBrowserValue(storage ?? localStorage, key(result.userId), JSON.stringify(result)); } catch {}
 }
 
 export function readStudyResult(userId: string | undefined, storage?: ResultStorage): StudyResult | null {
   if (!userId) return null;
   if (inMemory?.userId === userId) return inMemory;
   try {
-    const value: unknown = JSON.parse((storage ?? localStorage).getItem(key(userId)) ?? 'null');
+    const value: unknown = JSON.parse(readBrowserValue(storage ?? localStorage, key(userId)) ?? 'null');
     return valid(value, userId) ? value : null;
   } catch { return null; }
 }
 
 export function clearStudyResult(userId: string, storage?: ResultStorage): void {
   if (inMemory?.userId === userId) inMemory = null;
-  try { (storage ?? localStorage).removeItem(key(userId)); } catch {}
+  try { removeBrowserValue(storage ?? localStorage, key(userId)); } catch {}
 }

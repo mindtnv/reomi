@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { cards, db, decks, reviews, sources, sourceChunks, user } from '@neuronexus/db';
+import { cards, db, decks, reviews, sources, sourceChunks, user } from '@reomi/db';
 import { eq } from 'drizzle-orm';
-import { newUuidV7, type AssistantContextSnapshot } from '@neuronexus/shared';
+import { newUuidV7, type AssistantContextSnapshot } from '@reomi/shared';
 import { buildToolRegistry, type ToolContext } from '../src/ai/tools';
 import { rootLogger } from '../src/logger';
 import { callApp, resetTestDb, seedBasicCard, signUpAndCookie, uniqueEmail } from './helpers';
@@ -202,7 +202,7 @@ test('standalone source reading works without notebook or embeddings and strict 
 });
 
 test('a strict notebook context reads an explicitly selected parsed source before embeddings finish', async () => {
-  const { notebooks, notebookSources } = await import('@neuronexus/db');
+  const { notebooks, notebookSources } = await import('@reomi/db');
   const app = buildApp(), { cookie, userId } = await signUpAndCookie(app, uniqueEmail());
   const [notebook] = await db.insert(notebooks).values({ userId, title: 'Parsed collection' }).returning();
   const [source] = await db.insert(sources).values({ userId, kind: 'text', title: 'Parsed source', status: 'indexing' }).returning();

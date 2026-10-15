@@ -1,4 +1,4 @@
-import { ASSISTANT_CONTEXT_LIMITS, normalizeSourceText, parseSourceTextSelection, type SourceTextSegment, type SourceTextSelection } from '@neuronexus/shared';
+import { ASSISTANT_CONTEXT_LIMITS, normalizeSourceText, parseSourceTextSelection, type SourceTextSegment, type SourceTextSelection } from '@reomi/shared';
 const ignored = 'button,script,style,.katex-mathml,[data-source-selection-ui]';
 const blocks = 'p,div,li,pre,h1,h2,h3,h4,h5,h6,blockquote,td,th,.katex-display';
 function renderedText(body: HTMLElement, legacy = false) {

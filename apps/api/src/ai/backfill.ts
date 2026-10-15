@@ -8,7 +8,7 @@
 //
 // Degrades to a no-op when embeddings are unconfigured (no OPENAI_API_KEY).
 
-import { closeDb, cards, db } from '@neuronexus/db';
+import { closeDb, cards, db } from '@reomi/db';
 import { eq } from 'drizzle-orm';
 import { rootLogger } from '../logger.ts';
 import { isEmbeddingEnabled } from './openai-client.ts';

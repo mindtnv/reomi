@@ -4,12 +4,13 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { useAssistantPageContext } from '@/components/chat/assistant-provider';
 import { ResizeHandle } from '@/components/design-system/resize-handle';
 import { REVIEW_INSPECTOR, boundedPanelWidth, readReviewInspectorWidth } from '@/lib/panel-width';
+import { currentStorageKey, writeBrowserValue } from '@/lib/storage-migration';
 import { ReviewCardInfo } from '@/components/review-card-info';
 import { deckPathLabel } from '@/lib/decks';
 import { AppLink, useAppNavigation, useNavigationWorkspace } from '@/components/navigation';
 import { useSearchParams } from 'next/navigation';
 import { NNBadge, NNBtn, NNCard, NNIcon, NNKbd, NNSkeleton, NNTag } from '@/components/ui';
-import { newUuidV7, fieldPlainText, typedAnswerField, typedAnswerTarget, previewGrades, type StudySummary } from '@neuronexus/shared';
+import { newUuidV7, fieldPlainText, typedAnswerField, typedAnswerTarget, previewGrades, type StudySummary } from '@reomi/shared';
 import { humanInterval } from '@/lib/fsrs';
 import { api, ApiError, ok } from '@/lib/api';
 import { cardFromApi, profileFromApi, reviewFromApi, mergeReviewedCard } from '@/lib/mappers';
@@ -82,7 +83,7 @@ export const NNReviewClassic = () => {
   const resizeInspector = useCallback((value: number) => {
     const width = boundedPanelWidth(value, REVIEW_INSPECTOR.min, REVIEW_INSPECTOR.max, REVIEW_INSPECTOR.default);
     setInspectorWidth(width);
-    try { localStorage.setItem(REVIEW_INSPECTOR.key, String(width)); } catch {}
+    try { writeBrowserValue(localStorage, REVIEW_INSPECTOR.key, String(width)); } catch {}
   }, []);
   const inspectorStyle = { '--review-inspector-width': `${inspectorWidth}px` } as React.CSSProperties;
   const t = useT();
@@ -299,7 +300,7 @@ export const NNReviewClassic = () => {
     const wake=()=>{if(document.hidden){answerTimer.current.heartbeat();answerTimer.current.pause();persist();return;}
       if(lockRef.current||queueRequestActive.current||scheduled!==undefined)return;
       answerTimer.current.heartbeat();needsReconciliation.current=true;scheduled=setTimeout(()=>{scheduled=undefined;refreshQueue();},0);};
-    const changed=(event:StorageEvent)=>{if(event.key===`nn:study:changed:${profile?.userId}`)wake();};
+    const changed=(event:StorageEvent)=>{const legacy=`nn:study:changed:${profile?.userId}`;if(event.key===legacy||event.key===currentStorageKey(legacy))wake();};
     window.addEventListener('focus',wake);document.addEventListener('visibilitychange',wake);window.addEventListener('storage',changed);
     return()=>{if(scheduled!==undefined)clearTimeout(scheduled);window.removeEventListener('focus',wake);document.removeEventListener('visibilitychange',wake);window.removeEventListener('storage',changed);};
   },[refreshQueue,persist]);

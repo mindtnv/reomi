@@ -7,7 +7,7 @@
 // (same approach as progress-tools.test.ts).
 
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { cards as cardsTable, db, reviews } from '@neuronexus/db';
+import { cards as cardsTable, db, reviews } from '@reomi/db';
 import { eq } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import { callApp, resetTestDb, seedBasicCard, signUpAndCookie, uniqueEmail } from './helpers.ts';

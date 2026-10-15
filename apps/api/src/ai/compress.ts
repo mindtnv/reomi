@@ -22,8 +22,8 @@
 
 import type { Logger } from 'pino';
 import { and, eq } from 'drizzle-orm';
-import { conversations, db } from '@neuronexus/db';
-import type { AssistantContextSnapshot, MessageMention } from '@neuronexus/shared';
+import { conversations, db } from '@reomi/db';
+import type { AssistantContextSnapshot, MessageMention } from '@reomi/shared';
 import { env } from '../env.ts';
 import { complete } from './openai-client.ts';
 

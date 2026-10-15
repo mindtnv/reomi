@@ -3,11 +3,11 @@ import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 import {
   db, cards, decks, notes, noteTypes, notebooks, notebookNotes, notebookArtifacts,
   notebookSources, sources, sourceChunks, conversations, type Db,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import {
   ASSISTANT_CONTEXT_LIMITS, AssistantContextError, assistantRefKey, parseAssistantContext,
   type AssistantObjectRef, type AssistantObjectSnapshot,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 
 type Reader = Pick<Db, 'select'>;
 type Descriptor = { label: string; href: string; state?: string; pdfPages?: number; parent?: AssistantObjectSnapshot['parent']; versionData: unknown };

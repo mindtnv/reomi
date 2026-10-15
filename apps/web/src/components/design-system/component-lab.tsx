@@ -11,7 +11,7 @@ import { useAppearance } from '@/lib/use-appearance';
 import { Field, ReadingText, SegmentedControl, Surface, TextArea, TextInput } from './primitives';
 import { ReviewSessionDone } from '../review-session-done';
 import { RichCard } from '../rich-card';
-import { BASIC_NOTE_TYPE } from '@neuronexus/shared';
+import { BASIC_NOTE_TYPE } from '@reomi/shared';
 import { ChatUnavailable } from '@/components/chat/chat-unavailable';
 import './lab.css';
 

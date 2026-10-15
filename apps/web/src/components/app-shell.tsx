@@ -18,6 +18,7 @@ import { OperationsProvider } from './operations-provider';
 import { LayerParent, useTransientLayer } from '@/lib/use-transient-layer';
 import { OperationsButton, OperationsHost } from './operations-center';
 import { AssistantHost } from './chat/assistant-host';
+import { readBrowserValue, writeBrowserValue } from '@/lib/storage-migration';
 
 const AppShellContent = ({ children }: { children: React.ReactNode }) => {
   const bp = useBreakpoint();
@@ -55,13 +56,13 @@ const AppShellContent = ({ children }: { children: React.ReactNode }) => {
     if (typeof window === 'undefined') return;
     const timer = window.setTimeout(() => {
       try {
-        if (window.localStorage.getItem('nn:wco:hint') === '1') return;
+        if (readBrowserValue(window.localStorage, 'nn:wco:hint') === '1') return;
         if (detectDisplayMode(window, navigator) !== 'standalone') return;
         const hasWco = (navigator as Navigator & { windowControlsOverlay?: unknown }).windowControlsOverlay != null;
         const { active } = readWindowControlsOverlay(navigator);
         if (!hasWco || active) return;
         raiseToast({ kind: 'info', titleKey: 'chrome.wcoHintTitle', descriptionKey: 'chrome.wcoHint', durationMs: 12000 });
-        window.localStorage.setItem('nn:wco:hint', '1');
+        writeBrowserValue(window.localStorage, 'nn:wco:hint', '1');
       } catch {
         // localStorage unavailable — skip the hint, never crash the shell.
       }

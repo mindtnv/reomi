@@ -24,7 +24,7 @@ let sessionSpy: ReturnType<typeof spyOn>;
 beforeEach(()=>{
   ensureTestDom(); (globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;
   sessionSpy=spyOn(auth,'useSession').mockReturnValue({data:null,isPending:false,error:null,refetch:async()=>{}} as any);
-  clearSessionResourceCache(); localStorage.setItem('nn:locale','en');
+  clearSessionResourceCache(); localStorage.removeItem('reomi:locale'); localStorage.setItem('nn:locale','en');
   originalFetch=globalThis.fetch; writes=[];
   globalThis.fetch=(async(url:any)=>Response.json(String(url).includes('/ai/status') ? {chatEnabled:true,embeddingEnabled:false,notebooksEnabled:true,webSearchEnabled:false,visionEnabled:true,chatModel:'test-model'} : null)) as typeof fetch;
   useNN.setState({profile:profileFromApi({userId:'settings-user',name:'Dev',desiredRetention:.9,dailyGoalMinutes:15}),bootstrapped:true,presets:[],decks:[],
@@ -106,6 +106,9 @@ test('personal-token form sends one request on repeated submit and retains the o
     return fallback(url,init);
   }) as typeof fetch;
   await render();await tab('connections');
+  expect(container.textContent).toContain('codex mcp add reomi');
+  expect(container.textContent).toContain('REOMI_MCP_TOKEN');
+  expect(container.textContent).not.toMatch(/nn_pat_/);
   await input('.reomi-mcp-create input','Test integration');
   const form=container.querySelector('.reomi-mcp-create')!;
   await act(async()=>{form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});

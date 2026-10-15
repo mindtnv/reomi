@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import type { User } from '@neuronexus/db';
+import type { User } from '@reomi/db';
 import { internalReadDeckScope, internalReadUser, withInternalRead } from './internal-read';
 
 test('internal context is request-local, copied, and removed after a failed read', async () => {

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { and, asc, eq, inArray, ne } from 'drizzle-orm';
-import { db, sources, sourceChunks, sourceTextMarks } from '@neuronexus/db';
+import { db, sources, sourceChunks, sourceTextMarks } from '@reomi/db';
 
 const PAGE_SIZE = 4;
 const cap = (text: string, limit: number) => {

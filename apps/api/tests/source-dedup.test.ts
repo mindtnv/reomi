@@ -19,7 +19,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { and, count, eq, sql } from 'drizzle-orm';
-import { db, sources as sourcesTable } from '@neuronexus/db';
+import { db, sources as sourcesTable } from '@reomi/db';
 import { buildApp } from '../src/app.ts';
 import {
   __resetAiClientForTests,

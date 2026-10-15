@@ -12,13 +12,14 @@ import {
   CardQueryError,
   stateLabel,
   type CardLike,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import { NNBtn, NNBadge, NNTag, NNIcon, NNLoadError, NNSkeleton } from '@/components/ui';
 import type { BadgeTone } from '@/components/ui';
 import { TextInput } from '@/components/design-system/primitives';
 import { CardActionsMenu, type CardMenuAction } from '@/components/card-actions-menu';
 import { ResizeHandle } from '@/components/design-system/resize-handle';
 import { CARD_FILTERS, boundedPanelWidth, readCardFiltersWidth } from '@/lib/panel-width';
+import { writeBrowserValue } from '@/lib/storage-migration';
 import { CardColumnPicker } from '@/components/card-column-picker';
 import { CARD_COLUMNS, defaultCardColumns, readCardColumns, saveCardColumns, cardTableMinWidth, type SortField } from '@/lib/card-columns';
 import { CardsViewSwitcher } from '@/components/cards-view-switcher';
@@ -198,7 +199,7 @@ export const NNCardsBrowser = () => {
   const resizeFilters = (value: number) => {
     const next = boundedPanelWidth(value, CARD_FILTERS.min, filtersMaxWidth, CARD_FILTERS.default);
     setFiltersPreferredWidth(next);
-    try { localStorage.setItem(CARD_FILTERS.key, String(next)); } catch {}
+    try { writeBrowserValue(localStorage, CARD_FILTERS.key, String(next)); } catch {}
   };
 
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer

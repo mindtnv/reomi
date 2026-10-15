@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia';
-import { db, decks } from '@neuronexus/db';
+import { db, decks } from '@reomi/db';
 import { eq, sql } from 'drizzle-orm';
-import { newUuidV7, DECK_COLORS, NOTE_TITLE_MAX, NOTE_CONTENT_MAX, NOTEBOOK_TITLE_MAX } from '@neuronexus/shared';
+import { newUuidV7, DECK_COLORS, NOTE_TITLE_MAX, NOTE_CONTENT_MAX, NOTEBOOK_TITLE_MAX } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin';
 import { createStudyNote } from './study-notes';
 import { getUiAction, listUiActions, performUiAction } from './ui-action-receipts';

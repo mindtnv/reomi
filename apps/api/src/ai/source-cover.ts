@@ -17,8 +17,8 @@
 // verified `media` row owned by the source's user (server-side analog of the
 // presign→finalize media flow), then returns the media id for `cover_media_id`.
 
-import { db, media } from '@neuronexus/db';
-import { newUuidV7 } from '@neuronexus/shared';
+import { db, media } from '@reomi/db';
+import { newUuidV7 } from '@reomi/shared';
 import { putObject } from '../storage.ts';
 import { assertPublicHost, validatePageUrl } from './page-reader.ts';
 

@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState, type RefObject, type PointerEvent as ReactPointerEvent } from 'react';
-import type { DeckPlacement } from '@neuronexus/shared';
+import type { DeckPlacement } from '@reomi/shared';
 import type { Deck } from './types';
 import { canBeParentOf } from './decks';
 

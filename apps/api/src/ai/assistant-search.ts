@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { sql, type SQL } from 'drizzle-orm';
-import { db } from '@neuronexus/db';
-import { ASSISTANT_OBJECT_KINDS, AssistantContextError, parseAssistantRef, type AssistantObjectKind, type AssistantObjectRef, type AssistantObjectSnapshot } from '@neuronexus/shared';
+import { db } from '@reomi/db';
+import { ASSISTANT_OBJECT_KINDS, AssistantContextError, parseAssistantRef, type AssistantObjectKind, type AssistantObjectRef, type AssistantObjectSnapshot } from '@reomi/shared';
 import { resolveAssistantRefs } from './assistant-context';
 
 export interface AssistantSearchQuery {

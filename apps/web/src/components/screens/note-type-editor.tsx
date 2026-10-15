@@ -1,7 +1,7 @@
 'use client';
 
 import { withDraftKeys, withoutDraftKey, adoptTypeIdentities } from '@/lib/type-draft-identities';
-import { newUuidV7, normalizeFieldName, validFieldNames, validateTemplates, typedAnswerField, renameFieldValues, renameTemplateFields } from '@neuronexus/shared';
+import { newUuidV7, normalizeFieldName, validFieldNames, validateTemplates, typedAnswerField, renameFieldValues, renameTemplateFields } from '@reomi/shared';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -18,7 +18,7 @@ import { useT } from '@/lib/i18n';
 import { useDialog } from '@/components/dialog';
 import { renderCardHtml } from '@/lib/render-card';
 import { RichCard } from '@/components/rich-card';
-import type { RenderKind, CardRegenerationPreview, CardTemplate, FieldValues, NoteField } from '@neuronexus/shared';
+import type { RenderKind, CardRegenerationPreview, CardTemplate, FieldValues, NoteField } from '@reomi/shared';
 import { api, ApiError, ok } from '@/lib/api';
 import { NoteTypeDeletionDialog } from '@/components/note-type-deletion';
 import { useEditorDraft } from '@/lib/use-editor-draft';

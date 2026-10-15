@@ -23,14 +23,14 @@
 
 import { Elysia, t } from 'elysia';
 import { and, desc, eq } from 'drizzle-orm';
-import { db, media } from '@neuronexus/db';
-import { MAX_MEDIA_BYTES, MEDIA_MIME_ALLOWLIST, newUuidV7 } from '@neuronexus/shared';
+import { db, media } from '@reomi/db';
+import { MAX_MEDIA_BYTES, MEDIA_MIME_ALLOWLIST, newUuidV7 } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin.ts';
 import { requestLogFromContext } from '../logger.ts';
 import { env } from '../env.ts';
 import { deleteObject, headSize, presignUpload, sniffMagic } from '../storage.ts';
 
-// Allowed image MIME types — single source of truth in @neuronexus/shared
+// Allowed image MIME types — single source of truth in @reomi/shared
 // (mirrored on the web pre-check). The server is the security boundary.
 const ALLOWED_MIME = new Set<string>(MEDIA_MIME_ALLOWLIST);
 

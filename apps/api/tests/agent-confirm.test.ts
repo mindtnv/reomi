@@ -35,7 +35,7 @@ import {
   ensureBuiltins,
   messages as messagesTable,
   notes as notesTable,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import { asc, eq } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import {
@@ -825,7 +825,7 @@ describe('knowledge tool confirmations', () => {
   afterEach(() => __resetAiClientForTests());
 
   test('notebook preview persists, applies once, and exposes current capability guidance', async () => {
-    const { notebooks } = await import('@neuronexus/db');
+    const { notebooks } = await import('@reomi/db');
     const { cookie, userId } = await signUpAndCookie(app, uniqueEmail());
     const conv = await createConversation(cookie);
     __setAiClientForTests({ chatStreamAgentic: scriptedAgentStream([writeTurn({id:'new-nb',name:'create_notebook',args:{title:'From chat'}}),answerTurn('Created')]) });
@@ -844,7 +844,7 @@ describe('knowledge tool confirmations', () => {
   });
 
   test('concurrent confirmation through two protocol aliases consumes one preview and creates one object', async () => {
-    const { notebooks } = await import('@neuronexus/db');
+    const { notebooks } = await import('@reomi/db');
     const { cookie, userId } = await signUpAndCookie(app, uniqueEmail());
     const conv = await createConversation(cookie);
     let calls = 0, entered!: () => void, finish!: () => void;
@@ -869,7 +869,7 @@ describe('knowledge tool confirmations', () => {
   });
 
   test('stale notebook approval fails without overwriting concurrent edits', async () => {
-    const { notebooks }=await import('@neuronexus/db');
+    const { notebooks }=await import('@reomi/db');
     const {cookie,userId}=await signUpAndCookie(app,uniqueEmail());
     const [nb]=await db.insert(notebooks).values({userId,title:'Before'}).returning();
     const conv=await createConversation(cookie);
@@ -882,7 +882,7 @@ describe('knowledge tool confirmations', () => {
   });
 
   test('source import waits for approval; rejection has no side effects; apply parses after commit', async () => {
-    const { sources, sourceChunks }=await import('@neuronexus/db');
+    const { sources, sourceChunks }=await import('@reomi/db');
     const { drainSourceIngest }=await import('../src/ai/source-ingest.ts');
     const {cookie,userId}=await signUpAndCookie(app,uniqueEmail());
     for (const decision of ['reject','apply'] as const) {

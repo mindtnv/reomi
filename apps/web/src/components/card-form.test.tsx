@@ -7,7 +7,7 @@ import { PathnameContext, SearchParamsContext } from 'next/dist/shared/lib/hooks
 import { AppNavigationProvider, useAppNavigation } from './navigation';
 import { readEditorDraft, writeEditorDraft, type DraftScope } from '../lib/editor-drafts';
 import { DialogProvider } from './dialog';
-import { BASIC_NOTE_TYPE, CLOZE_NOTE_TYPE } from '@neuronexus/shared';
+import { BASIC_NOTE_TYPE, CLOZE_NOTE_TYPE } from '@reomi/shared';
 import { useNN } from '../lib/store';
 import { cardFromApi, noteTypeFromApi } from '../lib/mappers';
 import { adaptRecoveryFetch } from '../lib/test-recovery-fetch';
@@ -43,7 +43,7 @@ beforeEach(() => {
 });
 afterEach(async () => {
   await act(async () => root.unmount()); container.remove();
-  for (let i = localStorage.length - 1; i >= 0; i--) { const key = localStorage.key(i)!; if (key.startsWith('nn:editor-draft:')) localStorage.removeItem(key); }
+  for (let i = localStorage.length - 1; i >= 0; i--) { const key = localStorage.key(i)!; if (key.startsWith('nn:editor-draft:') || key.startsWith('reomi:editor-draft:')) localStorage.removeItem(key); }
   globalThis.fetch = originalFetch; useNN.getState().reset();
   useNN.setState({ uploadMedia: originalUpload });
   delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
@@ -745,8 +745,8 @@ for (const action of ['addTag','removeTag'] as const) test(`${action} chooses ex
 });
 
 test('cards filter width persists, supports keyboard resizing and stays out of the mobile drawer', async () => {
-  const key='nn:cards:filters-width', previous=localStorage.getItem(key), width=window.innerWidth;
-  localStorage.removeItem(key);
+  const key='reomi:cards:filters-width', legacy='nn:cards:filters-width', previous=localStorage.getItem(key), width=window.innerWidth;
+  localStorage.removeItem(key); localStorage.removeItem(legacy);
   globalThis.fetch = adaptRecoveryFetch((async()=>Response.json({items:[row],tags:[],nextCursor:null})) as unknown as typeof fetch);
   try {
     await renderEditor(new URLSearchParams(),<NNCardsBrowser/>);
@@ -764,6 +764,7 @@ test('cards filter width persists, supports keyboard resizing and stays out of t
     expect(localStorage.getItem(key)).toBe('196');
   } finally {
     Object.defineProperty(window,'innerWidth',{value:width,configurable:true});
+    localStorage.removeItem(legacy);
     if(previous===null)localStorage.removeItem(key);else localStorage.setItem(key,previous);
   }
 });

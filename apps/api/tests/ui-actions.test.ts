@@ -1,7 +1,7 @@
 import { beforeEach, expect, test } from 'bun:test';
-import { db, sources, notebookNotes, notebooks, decks, cards, uiActionReceipts } from '@neuronexus/db';
+import { db, sources, notebookNotes, notebooks, decks, cards, uiActionReceipts } from '@reomi/db';
 import { eq } from 'drizzle-orm';
-import { newUuidV7 } from '@neuronexus/shared';
+import { newUuidV7 } from '@reomi/shared';
 import { buildApp } from '../src/app';
 import { callApp, resetTestDb, seedBasicCard, signUpAndCookie, uniqueEmail } from './helpers';
 import { cleanupUiActionReceipts } from '../src/modules/ui-action-receipts';

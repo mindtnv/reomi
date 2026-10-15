@@ -1,10 +1,10 @@
 import { cardEvidenceFingerprint, evidenceExcerpt } from './legacy-evidence';
 export { cardEvidenceFingerprint } from './legacy-evidence';
 import { and, eq, inArray, ne, sql } from 'drizzle-orm';
-import { cards, cardSources, db, sourceChunks, sources } from '@neuronexus/db';
-import { normalizeSourceText } from '@neuronexus/shared';
+import { cards, cardSources, db, sourceChunks, sources } from '@reomi/db';
+import { normalizeSourceText } from '@reomi/shared';
 import { resolveAssistantRefs } from './assistant-context';
-import type { AssistantObjectSnapshot, CardEvidenceSnapshot, ChunkCardEvidenceSnapshot } from '@neuronexus/shared';
+import type { AssistantObjectSnapshot, CardEvidenceSnapshot, ChunkCardEvidenceSnapshot } from '@reomi/shared';
 import { env } from '../env';
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 

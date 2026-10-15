@@ -1,8 +1,8 @@
 import { Elysia, t, status } from 'elysia';
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
-import { cards, db, decks, notes, noteTypes } from '@neuronexus/db';
+import { cards, db, decks, notes, noteTypes } from '@reomi/db';
 import { ClozeSyntaxError, NoteContentError, generateCards, isLegacyClozeCard, typedAnswerField,
-  type FieldValues, type NoteConversionInput, type NoteConversionPreview } from '@neuronexus/shared';
+  type FieldValues, type NoteConversionInput, type NoteConversionPreview } from '@reomi/shared';
 import type { Logger } from 'pino';
 import { requestLogFromContext } from '../logger';
 import { authPlugin } from '../auth-plugin';

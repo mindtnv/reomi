@@ -17,7 +17,7 @@ import {
   messages,
   notebookNotes,
   notebooks,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import { buildApp } from '../src/app.ts';
 import { __resetAiClientForTests } from '../src/ai/openai-client.ts';
 import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers.ts';
@@ -381,7 +381,7 @@ describe('notebook notes — scoping invariant', () => {
 
 test('shared note listing preserves the notebook page limit and legacy excerpt format',async()=>{
   await resetTestDb();
-  const {env}=await import('../src/env');const {NOTE_EXCERPT_MAX}=await import('@neuronexus/shared');
+  const {env}=await import('../src/env');const {NOTE_EXCERPT_MAX}=await import('@reomi/shared');
   const {cookie,userId}=await signUpAndCookie(app,uniqueEmail());
   const notebook=await createNotebook(cookie);
   await db.insert(notebookNotes).values(Array.from({length:env.ai.LIBRARY_PAGE+1},(_,index)=>({

@@ -11,7 +11,7 @@
 // additional pre-filter predicates alongside the `<=>` ordering.
 
 import { sql } from 'drizzle-orm';
-import { db } from '@neuronexus/db';
+import { db } from '@reomi/db';
 
 export interface RankedChunk {
   chunkId: string;

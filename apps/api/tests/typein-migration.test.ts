@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { sql } from 'drizzle-orm';
-import { db } from '@neuronexus/db';
+import { db } from '@reomi/db';
 
 const statements = readFileSync(new URL('../../../packages/db/src/migrations/0028_broad_blizzard.sql', import.meta.url), 'utf8')
   .split('--> statement-breakpoint').map((part) => part.trim()).filter(Boolean);

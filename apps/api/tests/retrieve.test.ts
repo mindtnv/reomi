@@ -20,7 +20,7 @@
 //     HNSW index, and the generated SQL always carries `user_id = $A`.
 
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
-import { db, kbChunk } from '@neuronexus/db';
+import { db, kbChunk } from '@reomi/db';
 import { and, eq } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import { __resetAiClientForTests, __setAiClientForTests } from '../src/ai/openai-client.ts';

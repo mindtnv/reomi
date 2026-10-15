@@ -1,4 +1,4 @@
-import { MAX_ASSISTANT_CONCURRENT_TURNS } from '@neuronexus/shared';
+import { MAX_ASSISTANT_CONCURRENT_TURNS } from '@reomi/shared';
 
 export type TurnAdmissionResult =
   | { ok: true; controller: AbortController }

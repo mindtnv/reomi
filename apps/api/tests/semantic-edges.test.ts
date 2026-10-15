@@ -5,7 +5,7 @@
 // work from stored data alone.
 
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { cards as cardsTable, db } from '@neuronexus/db';
+import { cards as cardsTable, db } from '@reomi/db';
 import { eq } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import {

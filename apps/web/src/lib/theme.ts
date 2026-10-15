@@ -4,7 +4,8 @@ export { PALETTE_IDS, PALETTE_VARIANTS, THEME_CSS } from './theme-catalog';
 export type { PaletteId, ThemeMode } from './theme-catalog';
 export type ThemePref = Omit<Appearance, 'palette'> & { palette: PaletteId };
 export const DEFAULT_THEME: ThemePref = { version: 2, mode: 'system', palette: 'default' };
-export const THEME_LS_KEY = 'nn:theme';
+export const THEME_LS_KEY = 'reomi:theme';
+export const THEME_LEGACY_KEY = 'nn:theme';
 export const THEME_CHANGE_EVENT = 'nn:appearance';
 export const THEME_CONFIG: ThemeRuntimeConfig = {
   key: THEME_LS_KEY, event: THEME_CHANGE_EVENT, palettes: PALETTE_IDS, legacyModes: LEGACY_MODES,

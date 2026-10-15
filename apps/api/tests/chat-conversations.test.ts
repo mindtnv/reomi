@@ -4,9 +4,9 @@
 // isChatEnabled() on).
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { db, messages as messagesTable } from '@neuronexus/db';
+import { db, messages as messagesTable } from '@reomi/db';
 import { asc, eq } from 'drizzle-orm';
-import { newUuidV7 } from '@neuronexus/shared';
+import { newUuidV7 } from '@reomi/shared';
 import { buildApp } from '../src/app.ts';
 import {
   __resetAiClientForTests,

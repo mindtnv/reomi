@@ -7,7 +7,7 @@ import { PathnameContext, SearchParamsContext } from 'next/dist/shared/lib/hooks
 import { AppNavigationProvider, useWorkspaceState } from '../navigation';
 import { NavigationJournal, NAVIGATION_HISTORY_KEY } from '../../lib/navigation-context';
 import { DialogProvider } from '../dialog';
-import { BASIC_NOTE_TYPE } from '@neuronexus/shared';
+import { BASIC_NOTE_TYPE } from '@reomi/shared';
 import { cardFromApi } from '../../lib/mappers';
 import { useNN } from '../../lib/store';
 ensureTestDom();

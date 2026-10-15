@@ -332,7 +332,7 @@ export class DirectPageReader implements PageReader {
           // 302-ing to http://169.254.169.254/ must not be followed).
           redirect: 'manual',
           headers: {
-            'user-agent': 'NeuroNexusAgent/1.0 (study assistant; +https://github.com)',
+            'user-agent': 'ReomiAgent/1.0 (study assistant; +https://github.com)',
             accept: 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5',
           },
           signal: controller.signal,

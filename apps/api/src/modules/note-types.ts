@@ -19,7 +19,7 @@ import type { ActionTx } from './ui-action-receipts';
 import { isDeepStrictEqual } from 'node:util';
 import { Elysia, t, status as reply } from 'elysia';
 import { and, asc, eq, isNull, or, sql } from 'drizzle-orm';
-import { cards, db, noteTypes, notes } from '@neuronexus/db';
+import { cards, db, noteTypes, notes } from '@reomi/db';
 import {
   generateCards,
   fieldPlainText,
@@ -40,7 +40,7 @@ import {
   type NoteField,
   type NoteTypeDef,
   type RenderKind,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import { removeNoteType } from './note-type-deletion';
 import { authPlugin } from '../auth-plugin.ts';
 import { logCorrelation, requestLogFromContext, safeError } from '../logger.ts';

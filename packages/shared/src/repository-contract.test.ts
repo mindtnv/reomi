@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 
 const repoRoot = resolve(import.meta.dir, '../../..');
 
@@ -67,6 +67,67 @@ describe('repository contracts', () => {
     expect(deploy).toBeGreaterThan(stop);
     expect(workflow).toContain('old API did not stop');
     expect(workflow).toContain('-X POST "$COOLIFY_URL/applications/$API_APP_UUID/stop?docker_cleanup=false"');
+  });
+
+  test('deploy publishes both image names and keeps the Coolify application ids', () => {
+    const workflow = readRepoFile('.github/workflows/deploy.yml');
+    for (const name of ['neuronexus-api', 'neuronexus-web', 'reomi-api', 'reomi-web']) {
+      expect(workflow).toContain(`ghcr.io/\${{ github.repository_owner }}/${name}:\${{ github.sha }}`);
+      expect(workflow).toContain(`ghcr.io/\${{ github.repository_owner }}/${name}:latest`);
+    }
+    expect(workflow).toContain('API_APP_UUID: u6kweu7gzzw9kidpuq7i0n7y');
+    expect(workflow).toContain('WEB_APP_UUID: tmc5k98iayyj0g28qr7inbaj');
+    expect(workflow.indexOf('neuronexus-api:${{ github.sha }}')).toBeLessThan(workflow.indexOf('reomi-web:${{ github.sha }}'));
+    expect(workflow).toContain('"neuronexus" in name or "reomi" in name');
+    const apiStop = workflow.indexOf('applications/$API_APP_UUID/stop');
+    const webUuidLoop = workflow.indexOf('for uuid in "$API_APP_UUID" "$WEB_APP_UUID"');
+    expect(webUuidLoop).toBeGreaterThan(apiStop);
+  });
+
+  test('workspace packages are named reomi', () => {
+    const root = JSON.parse(readRepoFile('package.json')) as { name: string };
+    expect(root.name).toBe('reomi');
+    const expected = {
+      'packages/shared/package.json': '@reomi/shared',
+      'packages/db/package.json': '@reomi/db',
+      'packages/auth/package.json': '@reomi/auth',
+      'apps/api/package.json': '@reomi/api',
+      'apps/web/package.json': '@reomi/web',
+    } as const;
+    for (const [path, name] of Object.entries(expected)) {
+      const pkg = JSON.parse(readRepoFile(path)) as { name: string };
+      expect(pkg.name, path).toBe(name);
+    }
+    expect(readRepoFile('apps/web/next.config.ts')).toContain(
+      "transpilePackages: ['@reomi/auth', '@reomi/shared', '@reomi/api']",
+    );
+    expect(readRepoFile('apps/api/src/logger.ts')).toContain("app: 'neuronexus-api'");
+    expect(readRepoFile('bun.lock')).toMatch(/"workspaces":\s*\{\s*"":\s*\{\s*"name":\s*"reomi"/);
+  });
+
+  test('imports no longer use the old package scope', () => {
+    const allowed = new Set(['packages/db/src/migrations/0007_builtin_note_types.sql']);
+    const hits: string[] = [];
+    const skip = new Set(['.git', 'node_modules', '.next', 'dist']);
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        if (skip.has(entry)) continue;
+        const path = join(dir, entry);
+        const rel = relative(repoRoot, path);
+        if (rel.startsWith('openspec/changes') || rel === 'packages/shared/src/repository-contract.test.ts') continue;
+        const stat = statSync(path);
+        if (stat.isDirectory()) {
+          walk(path);
+          continue;
+        }
+        if (!stat.isFile() || stat.size > 2_000_000) continue;
+        const text = readFileSync(path, 'utf8');
+        if (text.includes('@neuronexus/') && !allowed.has(rel)) hits.push(rel);
+      }
+    };
+    walk(repoRoot);
+    expect(hits).toEqual([]);
+    expect(readRepoFile('packages/db/src/migrations/0007_builtin_note_types.sql')).toContain('@neuronexus/shared');
   });
 
 });

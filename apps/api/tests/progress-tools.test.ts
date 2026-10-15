@@ -9,8 +9,8 @@
 // isChatEnabled() on).
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { cards as cardsTable, db, messages as messagesTable, reviews } from '@neuronexus/db';
-import { newUuidV7 } from '@neuronexus/shared';
+import { cards as cardsTable, db, messages as messagesTable, reviews } from '@reomi/db';
+import { newUuidV7 } from '@reomi/shared';
 import { asc, eq } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import {

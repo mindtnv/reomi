@@ -19,9 +19,10 @@ import {
   quizAttemptFromApi,
   reviewFromApi,
 } from './mappers';
-import type { NoteConversionInput, CardTemplate, FieldValues, NoteField, RenderKind } from '@neuronexus/shared';
+import type { NoteConversionInput, CardTemplate, FieldValues, NoteField, RenderKind } from '@reomi/shared';
 import type { Card, ConceptMapResult, Deck, DeckOptionsPreset, FilteredDeck, FilteredDeckSortOrder, HarvestCandidate, LibraryItem, LibraryItemDetail, LibrarySearchResult, Notebook, NotebookArtifact, NotebookCoverage, NotebookNote, NoteType, Profile, QuizAttempt, Rating, ReadingStatus, Review, Source, SourceChunkPage, SourceLinkedCard, SuggestSourcesResult } from './types';
-import type { NotebookArtifactType, NotebookColor, NotebookNoteKind, QuizAttemptAnswerInput, SourceKind, SourceMime } from '@neuronexus/shared';
+import type { NotebookArtifactType, NotebookColor, NotebookNoteKind, QuizAttemptAnswerInput, SourceKind, SourceMime } from '@reomi/shared';
+import { writeBrowserValue } from './storage-migration';
 
 // Server-first store. Zustand holds a cached mirror of the user's decks, cards,
 // and profile — fetched at bootstrap, mutated optimistically-ish on each API
@@ -48,7 +49,7 @@ interface State {
   reset: () => void;
 
   addDeck: (input: Omit<Deck, 'id' | 'createdAt'>) => Promise<Deck>;
-  moveDeck: (id: string, targetId: string | null, placement: import('@neuronexus/shared').DeckPlacement) => Promise<void>;
+  moveDeck: (id: string, targetId: string | null, placement: import('@reomi/shared').DeckPlacement) => Promise<void>;
   updateDeck: (id: string, patch: Partial<Omit<Deck, 'id' | 'createdAt'>>) => Promise<void>;
   deleteDeck: (id: string) => Promise<void>;
 
@@ -1001,7 +1002,7 @@ export const useNN = create<State>()((set, get) => ({
     }));
 
     if (!res.replayed && typeof window !== 'undefined' && get().profile?.userId) {
-      try { window.localStorage.setItem(`nn:study:changed:${get().profile!.userId}`, review.id); } catch { /* Optional invalidation signal. */ }
+      try { writeBrowserValue(window.localStorage, `nn:study:changed:${get().profile!.userId}`, review.id); } catch { /* Optional invalidation signal. */ }
     }
 
     // Fire gamification toasts. The server returns everything we need in the
@@ -1075,7 +1076,7 @@ export const useNN = create<State>()((set, get) => ({
       profile: nextProfile ?? s.profile,
     }));
     if (typeof window !== 'undefined' && get().profile?.userId) {
-      try { window.localStorage.setItem(`nn:study:changed:${get().profile!.userId}`, `undo:${data.reviewId}`); } catch { /* Refocus still revalidates. */ }
+      try { writeBrowserValue(window.localStorage, `nn:study:changed:${get().profile!.userId}`, `undo:${data.reviewId}`); } catch { /* Refocus still revalidates. */ }
     }
     return result;
   },

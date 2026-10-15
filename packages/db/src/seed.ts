@@ -32,8 +32,8 @@ import {
   stateLabel,
   type NoteTypeDef,
   type Rating,
-} from '@neuronexus/shared';
-import { auth } from '@neuronexus/auth/server';
+} from '@reomi/shared';
+import { auth } from '@reomi/auth/server';
 import { db } from './client.ts';
 import { ensureBuiltins } from './ensure-builtins.ts';
 import { cards, decks, noteTypes, notes, profile, reviews, user } from './schema/index.ts';

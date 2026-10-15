@@ -4,6 +4,7 @@ import { NNBtn } from './ui';
 import { CardEditor } from './card-editor';
 import { ResizeHandle } from './design-system/resize-handle';
 import { CARD_PANEL, boundedPanelWidth, readCardPanelWidth } from '@/lib/panel-width';
+import { writeBrowserValue } from '@/lib/storage-migration';
 import { useT } from '@/lib/i18n';
 import type { Card } from '@/lib/types';
 import { useIsMobile } from '@/lib/use-breakpoint';
@@ -36,7 +37,7 @@ export function CardDetailPanel({ card, deckName, index, total, onMove, onClose,
   const resize = (value: number) => {
     const next = boundedPanelWidth(value, CARD_PANEL.min, maxWidth, CARD_PANEL.default);
     setPreferredWidth(next);
-    try { localStorage.setItem(CARD_PANEL.key, String(next)); } catch { /* Keep the in-memory width. */ }
+    try { writeBrowserValue(localStorage, CARD_PANEL.key, String(next)); } catch { /* Keep the in-memory width. */ }
   };
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {

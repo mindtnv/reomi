@@ -1,6 +1,6 @@
 // BetterAuth schema — follows the layout produced by `@better-auth/cli generate`.
 // If you add plugins (magicLink, passkey, etc) re-run:
-//   bun run --filter @neuronexus/auth auth:generate
+//   bun run --filter @reomi/auth auth:generate
 // which overwrites this file with the current canonical schema.
 
 import { boolean, pgTable, text, timestamp } from 'drizzle-orm/pg-core';

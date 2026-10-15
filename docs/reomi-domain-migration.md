@@ -6,11 +6,11 @@ The apex `reomi.ru` and `www` are outside this migration; no landing page is dep
 ## Infrastructure and rollback baseline
 
 - Coolify team: `8`; server: `ru-anvgrp-1`, `82.202.165.26`.
-- API: `u6kweu7gzzw9kidpuq7i0n7y`, image `ghcr.io/mindtnv/neuronexus-api`.
-- Web: `tmc5k98iayyj0g28qr7inbaj`, image `ghcr.io/mindtnv/neuronexus-web`.
+- API: `u6kweu7gzzw9kidpuq7i0n7y`. Current publish window tags both `ghcr.io/<owner>/neuronexus-api` and `ghcr.io/<owner>/reomi-api` with the same commit SHA. Coolify still selects the image repository; switching it to `reomi-api` is an operator step and is not done by this repository change.
+- Web: `tmc5k98iayyj0g28qr7inbaj`. The same window publishes `ghcr.io/<owner>/neuronexus-web` and `ghcr.io/<owner>/reomi-web`. Application UUIDs stay unchanged.
 - Both verified baseline image tags on 2026-09-21: `40c5833c66ae990e34fd2b2683f9266bab4aa77f`.
 - Old web: `https://neuronexus.mihailantonov.pro`.
-- Old API: `https://api.neuronexus.mihailantonov.pro`.
+- Old API host `https://api.neuronexus.mihailantonov.pro` is a removable alias. It is not a supported endpoint. Do not document it as a compatibility promise. The old web host still redirects to `https://app.reomi.ru`.
 - Existing S3 endpoint/public media base, database and auth secret remain unchanged.
 
 Nonsecret routing/environment snapshots and the original bucket CORS are saved on the operator Mac under `~/.codex/reomi-domain-migration/`. Do not commit credentials or full environment dumps.
@@ -31,7 +31,7 @@ Nonsecret routing/environment snapshots and the original bucket CORS are saved o
 - Update web runtime `NEXT_PUBLIC_API_URL=https://api.reomi.ru`; the production workflow MUST also bake this value into the web image. Runtime alone cannot change browser JavaScript/CSP.
 - Release through the existing main workflow, which deploys API before web. Verify both immutable tags match the released commit and both apps reach `running:healthy`.
 - The old web hostname now returns 307 to the new origin, preserving paths and query strings. The canonical hostname and local development do not match that redirect.
-- Keep the old API hostname as an alias for existing MCP/PAT clients; do not redirect POST/SSE traffic or broaden CORS/cookies.
+- The old API hostname can be removed from Coolify and DNS by the operator. It is not a supported client endpoint. Do not redirect POST/SSE traffic or broaden CORS/cookies while it still answers. The old web hostname keeps its redirect.
 
 ## Acceptance
 

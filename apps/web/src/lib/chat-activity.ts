@@ -21,7 +21,7 @@ import type {
   MessageAttachment,
   MessageMention,
   MessageUsage,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import type { IconName } from '@/components/ui';
 
 // ── View models (Eden serializes dates → ISO strings) ────────────────────────
@@ -94,7 +94,7 @@ export interface MessageVM {
   model?: string;
   /** Composer @-mentions on a user message (C7) — rendered as chips under the bubble. */
   mentions?: MessageMention[];
-  context?: import('@neuronexus/shared').AssistantContextSnapshot;
+  context?: import('@reomi/shared').AssistantContextSnapshot;
   /** Composer attachments on a user message — image previews + file chips. */
   attachments?: MessageAttachment[];
 }
@@ -111,7 +111,7 @@ export interface PersistedMessageRow {
   usage?: MessageUsage | null;
   model?: string | null;
   mentions?: MessageMention[] | null;
-  context?: import('@neuronexus/shared').AssistantContextSnapshot | null;
+  context?: import('@reomi/shared').AssistantContextSnapshot | null;
   attachments?: MessageAttachment[] | null;
 }
 

@@ -35,7 +35,7 @@ import {
   sourceChunks as sourceChunksTable,
   sourceReadingState as readingStateTable,
   sources as sourcesTable,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import { buildApp } from '../src/app.ts';
 import { env } from '../src/env.ts';
 import { drainSourceIngest } from '../src/ai/source-ingest.ts';

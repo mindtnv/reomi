@@ -6,7 +6,7 @@ import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared
 import { PathnameContext, SearchParamsContext } from 'next/dist/shared/lib/hooks-client-context.shared-runtime';
 import { useNN } from '../../lib/store';
 import { AppNavigationProvider } from '../navigation';
-import { BASIC_NOTE_TYPE, CLOZE_NOTE_TYPE } from '@neuronexus/shared';
+import { BASIC_NOTE_TYPE, CLOZE_NOTE_TYPE } from '@reomi/shared';
 import { cardFromApi, noteTypeFromApi, profileFromApi, reviewFromApi } from '../../lib/mappers';
 import { emptyStudySession, mergeStudyQueue, recordStudyAnswer, saveStudyHandoff, writeStudyCheckpoint, readStudyCheckpoint, clearStudyCheckpoints } from '../../lib/review-session';
 
@@ -113,6 +113,7 @@ describe('review screen lifecycle', () => {
   test('failed queue stays an error and can be retried without saving a session', async () => {
     let attempt = 0;
     localStorage.removeItem('nn:lastSession:test-user');
+    localStorage.removeItem('reomi:lastSession:test-user');
     globalThis.fetch = (async () => ++attempt === 1
       ? Response.json({ error: 'unavailable' }, { status: 503 })
       : Response.json({ due: [], new: [], total: 0, mode: 'regular' })) as unknown as typeof fetch;
@@ -125,7 +126,7 @@ describe('review screen lifecycle', () => {
     expect(attempt).toBe(2);
     expect(container.querySelector('[role="alert"]')).toBeNull();
     expect(container.textContent).toContain('review.allCaught.title');
-    expect(localStorage.getItem('nn:lastSession:test-user')).toBeNull();
+    expect(localStorage.getItem('reomi:lastSession:test-user')).toBeNull();
   });
 
   test('changing the deck ignores an older queue response', async () => {
@@ -340,7 +341,7 @@ describe('review screen lifecycle', () => {
     await act(async () => button('editor.review.undo.button').click());
     expect(container.textContent).toContain('Second question');
     expect(container.textContent).toContain('+15 XP');
-    expect(localStorage.getItem('nn:lastSession:test-user')).toBeNull();
+    expect(localStorage.getItem('reomi:lastSession:test-user')).toBe('');
     await act(async () => button('editor.review.undo.button').click());
     expect(container.textContent).not.toContain('Second question');
     expect(container.textContent).toContain('+0 XP');
@@ -381,7 +382,7 @@ describe('review screen lifecycle', () => {
     await act(async () => button('review.ratings.easy').click());
     await act(async () => button('review.finish').click());
     expect(container.textContent).toContain('review.sessionComplete.title');
-    const saved = JSON.parse(localStorage.getItem('nn:lastSession:test-user')!);
+    const saved = JSON.parse(localStorage.getItem('reomi:lastSession:test-user')!);
     expect(saved).toMatchObject({ cards: 1, xpGained: 15, durationMs: 1200, grades: { 1: 0, 2: 0, 3: 0, 4: 1 } });
   });
 

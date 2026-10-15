@@ -2,7 +2,7 @@ import {ensureTestDom,GlobalRegistrator} from '../../lib/test-dom-setup';
 import {afterAll,afterEach,beforeEach,expect,test} from 'bun:test';
 import React,{act} from 'react';
 import type {Root} from 'react-dom/client';
-import type {AssistantObjectSnapshot} from '@neuronexus/shared';
+import type {AssistantObjectSnapshot} from '@reomi/shared';
 ensureTestDom();const {createRoot}=await import('react-dom/client');const {NotebookScopePicker}=await import('./notebook-scope-picker');
 let root:Root,host:HTMLDivElement,oldFetch:typeof fetch;
 beforeEach(()=>{ensureTestDom();(globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;oldFetch=globalThis.fetch;host=document.createElement('div');document.body.appendChild(host);root=createRoot(host);});

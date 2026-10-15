@@ -13,7 +13,7 @@
 import { buildKnowledgeTools } from './knowledge-tools.ts';
 import { withAssistantReadScope } from './assistant-tool-scope';
 import { captureCardEvidence, captureReadEvidence, captureQuotedEvidence, type QuotedEvidenceInput, type ReadEvidenceChunk, writePerCardProvenance } from './card-evidence';
-import type { CardEvidenceSnapshot, ChunkCardEvidenceSnapshot } from '@neuronexus/shared';
+import type { CardEvidenceSnapshot, ChunkCardEvidenceSnapshot } from '@reomi/shared';
 import { readContextObject } from './assistant-object-read';
 import { readTextMarkedPassages } from './text-marked-passages';
 import type { Logger } from 'pino';
@@ -32,7 +32,7 @@ import {
   sources,
   type Citation,
   type Db,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import {
   MAX_NOTES_PER_NOTEBOOK,
   NOTE_CONTENT_MAX,
@@ -41,7 +41,7 @@ import {
   type FieldValues,
   type SourceCitation,
   type AssistantContextSnapshot,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import { embed, isEmbeddingEnabled } from './openai-client.ts';
 import { retrieve } from './retrieve.ts';
 import { retrieveDocuments } from './retrieve-documents.ts';
@@ -66,7 +66,7 @@ import {
   cardContent,
 } from '../modules/cards.ts';
 import { cardProgress, dueForecast, studyStats } from '../modules/progress-stats.ts';
-import { parseCardQuery, CardQueryError } from '@neuronexus/shared';
+import { parseCardQuery, CardQueryError } from '@reomi/shared';
 import { env } from '../env.ts';
 import { safeError, safeLogUrl } from '../logger.ts';
 

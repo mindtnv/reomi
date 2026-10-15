@@ -1,7 +1,7 @@
 // Unit tests for the pure numbered-citation helpers (Notebooks redesign A2).
 
 import { describe, expect, test } from 'bun:test';
-import type { Citation, SourceCitation } from '@neuronexus/shared';
+import type { Citation, SourceCitation } from '@reomi/shared';
 import {
   buildCitationNumbering,
   CITATION_COVER_TONES,

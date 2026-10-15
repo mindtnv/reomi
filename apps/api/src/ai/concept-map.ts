@@ -34,7 +34,7 @@
 // no document vectors ⇒ { nodes: [], edges: [], reason: 'not_indexed' }.
 
 import { sql } from 'drizzle-orm';
-import { db } from '@neuronexus/db';
+import { db } from '@reomi/db';
 
 /** A section node: a (source, heading-or-position-bucket) cluster of chunks. */
 export interface ConceptMapNode {

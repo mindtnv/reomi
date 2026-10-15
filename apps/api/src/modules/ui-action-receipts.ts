@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { and, eq, gt, lt, isNull, sql } from 'drizzle-orm';
-import { db, cards, deckHierarchyRevisions, decks, notebookNotes, notebooks, notes, noteTypes, sources, uiActionReceipts } from '@neuronexus/db';
-import type { UiActionEnvelope, UiActionInverse, UiActionKind, UiActionOffers, UiActionReceipt, UiActionResult, UiActionTarget } from '@neuronexus/shared';
+import { db, cards, deckHierarchyRevisions, decks, notebookNotes, notebooks, notes, noteTypes, sources, uiActionReceipts } from '@reomi/db';
+import type { UiActionEnvelope, UiActionInverse, UiActionKind, UiActionOffers, UiActionReceipt, UiActionResult, UiActionTarget } from '@reomi/shared';
 import { StudyError } from './study-notes';
 
 export type ActionTx = Parameters<Parameters<typeof db.transaction>[0]>[0];

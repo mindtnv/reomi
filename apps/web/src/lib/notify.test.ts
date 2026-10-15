@@ -31,6 +31,7 @@ import {
 beforeEach(() => {
   if (typeof localStorage !== 'undefined') {
     localStorage.removeItem('nn:notifications:enabled');
+    localStorage.removeItem('reomi:notifications:enabled');
   }
 });
 

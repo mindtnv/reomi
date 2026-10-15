@@ -1,6 +1,6 @@
 import { beforeEach, expect, test } from 'bun:test';
 import { eq, sql, count } from 'drizzle-orm';
-import { db, cards, notes, noteTypes, decks, reviews } from '@neuronexus/db';
+import { db, cards, notes, noteTypes, decks, reviews } from '@reomi/db';
 import { buildApp } from '../src/app';
 import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers';
 
@@ -78,7 +78,7 @@ test('new reviews and changed notes invalidate consent before deleting anything'
 });
 
 test('converting notes first protects their cards/history when the old type is later deleted', async () => {
-  const { identifiedTemplates } = await import('@neuronexus/shared');
+  const { identifiedTemplates } = await import('@reomi/shared');
   const { cookie, userId, type } = await fixture(2);
   const [kept] = await db.select().from(cards).where(eq(cards.userId, userId)).orderBy(cards.id);
   expect((await callApp(app, 'POST', '/reviews', { cookie, body: { cardId: kept!.id, rating: 3 } })).status).toBe(200);

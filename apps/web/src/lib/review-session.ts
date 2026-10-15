@@ -1,4 +1,4 @@
-import { MAX_REVIEW_DURATION_MS, State, xpForRating } from '@neuronexus/shared';
+import { MAX_REVIEW_DURATION_MS, State, xpForRating } from '@reomi/shared';
 import type { Card, Rating, Review } from './types';
 
 export type StudyMode = 'regular' | 'filtered';

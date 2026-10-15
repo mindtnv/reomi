@@ -1,7 +1,7 @@
 import { beforeEach, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import { db, sources, sourceChunks } from '@neuronexus/db';
+import { db, sources, sourceChunks } from '@reomi/db';
 import { buildApp } from '../src/app';
 import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers';
 const app = buildApp(); beforeEach(resetTestDb);

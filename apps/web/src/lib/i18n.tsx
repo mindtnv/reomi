@@ -5,6 +5,7 @@ import { enUS, ru as ruDateLocale } from 'date-fns/locale';
 import type { Locale as DateFnsLocale } from 'date-fns';
 import en from './messages/en';
 import ru from './messages/ru';
+import { readBrowserValue, writeBrowserValue } from './storage-migration';
 
 export type Locale = 'en' | 'ru';
 
@@ -49,7 +50,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('nn:locale') as Locale | null;
+      const saved = readBrowserValue(localStorage, 'nn:locale') as Locale | null;
       if (saved === 'en' || saved === 'ru') {
         setLocaleState(saved);
       } else if (typeof navigator !== 'undefined' && navigator.language?.toLowerCase().startsWith('ru')) {
@@ -71,7 +72,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l);
     try {
-      localStorage.setItem('nn:locale', l);
+      writeBrowserValue(localStorage, 'nn:locale', l);
     } catch {
       /* noop */
     }

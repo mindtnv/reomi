@@ -16,7 +16,7 @@
 // (an empty scope can match nothing — the notebook has no checked-in sources).
 
 import { sql } from 'drizzle-orm';
-import { db } from '@neuronexus/db';
+import { db } from '@reomi/db';
 
 /** One ranked document chunk, carrying its source-chunk provenance. */
 export interface RankedDocumentChunk {

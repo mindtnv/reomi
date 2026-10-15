@@ -36,7 +36,7 @@ const {
   sanitizeHtml,
   sanitizeMermaidSvg,
 } = await import('./render-card.tsx');
-import type { NoteTypeDef } from '@neuronexus/shared';
+import type { NoteTypeDef } from '@reomi/shared';
 
 // A minimal basic note-type whose front template is the raw field, so a test can
 // drive the FULL markdown + math + sanitize pipeline (`renderCardHtml`) directly.

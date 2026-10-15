@@ -2,7 +2,7 @@ import { ensureTestDom, GlobalRegistrator } from '../../lib/test-dom-setup';
 import { afterAll, afterEach, beforeEach, expect, test } from 'bun:test';
 import React, { act, useState } from 'react';
 import type { Root } from 'react-dom/client';
-import { newUuidV7 } from '@neuronexus/shared';
+import { newUuidV7 } from '@reomi/shared';
 import { useNN } from '../../lib/store';
 import type { NotebookNote } from '../../lib/types';
 ensureTestDom();

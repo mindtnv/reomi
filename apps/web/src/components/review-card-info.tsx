@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, type ReactNode } from 'react';
-import { stateLabel } from '@neuronexus/shared';
+import { stateLabel } from '@reomi/shared';
 import { useLocale, useT } from '@/lib/i18n';
 import type { Card } from '@/lib/types';
 

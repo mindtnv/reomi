@@ -7,7 +7,7 @@ import { useT } from '@/lib/i18n';
 import { NNBtn } from '@/components/ui';
 import { useNavigationGuard } from '@/components/navigation';
 import { useDialog } from '@/components/dialog';
-import { MARK_NOTE_MAX } from '@neuronexus/shared';
+import { MARK_NOTE_MAX } from '@reomi/shared';
 
 /** Annotation comments remain owned by the source, unlike retained study notes. */
 export function SourceAnnotationNotes({ sourceId, onOpen }: { sourceId: string; onOpen: (mark: SourceMark) => void }) {

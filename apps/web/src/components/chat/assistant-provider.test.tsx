@@ -30,6 +30,7 @@ function Consumer({ page }: { page: string }) {
 beforeEach(() => {
   ensureTestDom(); (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
   localStorage.removeItem('nn:assistant:drafts:v1:alice');localStorage.removeItem('nn:assistant:drafts:v1:bob');
+  localStorage.removeItem('reomi:assistant:drafts:v1:alice');localStorage.removeItem('reomi:assistant:drafts:v1:bob');
   previousFetch = globalThis.fetch; globalThis.fetch = (async () => Response.json({ items: [], nextCursor: null })) as unknown as typeof fetch;
   useNN.setState({ profile: { userId: 'alice' } as any });
   host = document.createElement('div'); document.body.appendChild(host); root = createRoot(host);

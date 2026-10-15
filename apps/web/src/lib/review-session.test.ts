@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { State } from '@neuronexus/shared';
+import { State } from '@reomi/shared';
 import { cardFromApi, reviewFromApi } from './mappers';
 import { emptyStudySession, mergeStudyQueue, recordStudyAnswer, undoStudyAnswer, skipStudyCard, studyTotals, createAnswerTimer, createStudyClock, saveStudyHandoff, readStudyHandoff, clearStudyHandoff } from './review-session';
 

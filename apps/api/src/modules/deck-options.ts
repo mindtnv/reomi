@@ -5,13 +5,13 @@
 // auth-gated and every query is scoped by `user.id`. Steps are validated at
 // WRITE time against the ts-fsrs duration-string grammar (reused from the
 // resolver's `isValidSteps`); `desiredRetention` is validated against the
-// SINGLE source for the range (`MIN_RETENTION`/`MAX_RETENTION` in @neuronexus/
+// SINGLE source for the range (`MIN_RETENTION`/`MAX_RETENTION` in @reomi/
 // shared) so it can't drift from the scheduler clamp.
 
 import { Elysia, t } from 'elysia';
 import { and, count, eq } from 'drizzle-orm';
-import { db, deckOptionsPreset, decks } from '@neuronexus/db';
-import { MAX_RETENTION, MIN_RETENTION } from '@neuronexus/shared';
+import { db, deckOptionsPreset, decks } from '@reomi/db';
+import { MAX_RETENTION, MIN_RETENTION } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin.ts';
 import { isValidSteps } from './deck-config.ts';
 

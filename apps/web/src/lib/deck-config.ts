@@ -11,7 +11,7 @@
  * changes.
  */
 
-import { ANKI_DEFAULTS, isValidLearningSteps as isValidSteps } from '@neuronexus/shared';
+import { ANKI_DEFAULTS, isValidLearningSteps as isValidSteps } from '@reomi/shared';
 import type { Deck, DeckOptionsPreset, Profile } from '@/lib/types';
 
 export interface ClientResolvedDeckConfig {

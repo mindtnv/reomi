@@ -1,13 +1,14 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { assistantRefKey, type AssistantObjectRef, type AssistantObjectSnapshot, type ChatModelOption, type AssistantContextPolicy } from '@neuronexus/shared';
+import { assistantRefKey, type AssistantObjectRef, type AssistantObjectSnapshot, type ChatModelOption, type AssistantContextPolicy } from '@reomi/shared';
 import { AssistantController, type AssistantConversation, type AssistantTransport } from '@/lib/assistant-controller';
 import { createAssistantTransport } from '@/lib/assistant-transport';
 import { assistantApi, ok } from '@/lib/api';
 import { useNN } from '@/lib/store';
 import { raiseToast } from '@/components/toasts';
 import { readAssistantDrafts, writeAssistantDrafts } from '@/lib/assistant-drafts';
+import { readBrowserValue } from '@/lib/storage-migration';
 
 export interface AssistantStatus {
   chatEnabled: boolean; embeddingEnabled?: boolean; degraded?: boolean; visionEnabled?: boolean; fetchPageEnabled?: boolean;
@@ -117,7 +118,7 @@ function AssistantRuntime({ ownerId, children, transportFactory = createAssistan
       if (cancelled) return;
       const models=Array.isArray(value.models)?value.models:[];
       setStatus({ ...value, models }); setStatusError(null); controller.setContextVersion(value.assistant?.contextVersion ?? 0);
-      let saved:string|null=null;try{saved=localStorage.getItem('nn:chat:model');}catch{}
+      let saved:string|null=null;try{saved=readBrowserValue(localStorage,'nn:chat:model');}catch{}
       const fallback=models.find(m=>m.id===saved)?.id??models.find(m=>m.default)?.id??models[0]?.id;
       for(const session of Object.values(controller.getSnapshot().sessions)){
         if(!models.some(m=>m.id===session.model))controller.setModel(session.key,fallback);
@@ -168,10 +169,10 @@ function AssistantRuntime({ ownerId, children, transportFactory = createAssistan
   const newConversation = useCallback((pins: AssistantObjectSnapshot[] = []) => {
     const key = controller.newConversation(pins);
     let saved: string | null = null;
-    try { saved = localStorage.getItem('nn:chat:model'); } catch {}
+    try { saved = readBrowserValue(localStorage, 'nn:chat:model'); } catch {}
     const model = status?.models?.find(m => m.id === saved)?.id ?? status?.models?.find(m => m.default)?.id ?? status?.models?.[0]?.id;
     controller.setModel(key, model);
-    try { if (status?.fetchPageEnabled) controller.setResearch(key, localStorage.getItem('nn:chat:research') === '1'); } catch {}
+    try { if (status?.fetchPageEnabled) controller.setResearch(key, readBrowserValue(localStorage, 'nn:chat:research') === '1'); } catch {}
     return key;
   }, [controller, status]);
   const [pageOpening, setPageOpening] = useState(false);

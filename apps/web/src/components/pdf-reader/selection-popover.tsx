@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ASSISTANT_CONTEXT_LIMITS, MARK_NOTE_MAX, MARK_QUOTE_MAX, MARK_RECTS_MAX, SOURCE_MARK_COLORS, type MarkRect, type SourceMarkColor } from '@neuronexus/shared';
+import { ASSISTANT_CONTEXT_LIMITS, MARK_NOTE_MAX, MARK_QUOTE_MAX, MARK_RECTS_MAX, SOURCE_MARK_COLORS, type MarkRect, type SourceMarkColor } from '@reomi/shared';
 import { clientRectsToMarkRects } from '@/lib/pdf-ink';
 import { NNBtn, NNIcon } from '@/components/ui';
 import { copyCodeText } from '@/components/chat/code-copy';

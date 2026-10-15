@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { newFsrsCard } from '@neuronexus/shared';
+import { newFsrsCard } from '@reomi/shared';
 import { humanInterval } from './fsrs';
 
 describe('review interval display', () => {

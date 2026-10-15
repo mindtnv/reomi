@@ -35,7 +35,7 @@ import {
   type IngestErrorCode,
   type NotebookColor,
   type SourceMime,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import { NNBtn, NNCard, NNIcon, NNBadge, NNLoadError, NNSkeleton } from '@/components/ui';
 import { restoreNotebookSourceScope, newlyReadableNotebookSources } from '@/lib/notebook-source-scope';
 import { isCooldownError, useNN } from '@/lib/store';
@@ -46,7 +46,7 @@ import type {
   Source,
   SourceLinkedCard,
 } from '@/lib/types';
-import type { SourceCitation } from '@neuronexus/shared';
+import type { SourceCitation } from '@reomi/shared';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useWcoTopInsets } from '@/lib/ui-store';
 import { useT } from '@/lib/i18n';
@@ -68,7 +68,7 @@ import { StudioPanel } from '@/components/notebook/studio-panel';
 import { sourceOperationLabel } from '@/lib/source-operation-label';
 import { useKnowledgeRefresh } from '@/lib/use-knowledge-refresh';
 import { useSourceStatus } from '@/lib/use-source-status';
-import { prefillKey } from '@/lib/library-handoff';
+import { readBrowserValue, removeBrowserValue, writeBrowserValue } from '@/lib/storage-migration';
 import { api, ok } from '@/lib/api';
 import type { LibraryItem, SuggestedSource, SuggestSourcesResult } from '@/lib/types';
 
@@ -242,7 +242,7 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
     (next: DockTab) => {
       setDockTab(next);
       try {
-        localStorage.setItem(dockTabKey, next);
+        writeBrowserValue(localStorage, dockTabKey, next);
       } catch {
         /* best-effort */
       }
@@ -259,8 +259,8 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
     dockHydratedNotebookRef.current = notebookId;
     try {
       const saved=navigationWorkspace?.entry?.views[navigationScope]?.fields;
-      if(saved?.dockCollapsed===undefined)setDockCollapsed(localStorage.getItem(dockKey) === 'collapsed');
-      const storedTab = localStorage.getItem(dockTabKey);
+      if(saved?.dockCollapsed===undefined)setDockCollapsed(readBrowserValue(localStorage, dockKey) === 'collapsed');
+      const storedTab = readBrowserValue(localStorage, dockTabKey);
       if(!saved?.dockTab)setDockTab(
         storedTab === 'overview' || storedTab === 'notes' || storedTab === 'studio'
           ? storedTab
@@ -277,7 +277,7 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
     setDockCollapsed((prev) => {
       const next = !prev;
       try {
-        localStorage.setItem(dockKey, next ? 'collapsed' : 'open');
+        writeBrowserValue(localStorage, dockKey, next ? 'collapsed' : 'open');
       } catch {
         /* best-effort */
       }
@@ -426,7 +426,7 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
           scopeHydratedRef.current = true;
           let stored: unknown = null;
           try {
-            const raw = localStorage.getItem(scopeKey);
+            const raw = readBrowserValue(localStorage, scopeKey);
             stored = raw ? JSON.parse(raw) : null;
           } catch {
             stored = null;
@@ -522,10 +522,10 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
     // Defer so the ChatPanel has populated composerPrefillRef.
     const id = window.setTimeout(() => {
       try {
-        const key = prefillKey(notebookId);
-        const text = sessionStorage.getItem(key);
+        const key = `nn:nb:prefill:${notebookId}`;
+        const text = readBrowserValue(sessionStorage, key);
         if (text) {
-          sessionStorage.removeItem(key);
+          removeBrowserValue(sessionStorage, key);
           composerPrefillRef.current?.prefill(text);
             }
       } catch {
@@ -542,7 +542,7 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
       setScope((prev) => {
         const resolved = typeof next === 'function' ? next(prev) : next;
         try {
-          localStorage.setItem(scopeKey, JSON.stringify([...resolved]));
+          writeBrowserValue(localStorage, scopeKey, JSON.stringify([...resolved]));
         } catch {
           /* best-effort */
         }
@@ -559,7 +559,7 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
         if (next.has(id)) next.delete(id);
         else next.add(id);
         try {
-          localStorage.setItem(scopeKey, JSON.stringify([...next]));
+          writeBrowserValue(localStorage, scopeKey, JSON.stringify([...next]));
         } catch {
           /* best-effort */
         }

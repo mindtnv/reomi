@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { db, sources, sourceMarks, sourceAnnotations, decks, cards, cardSources, ensureBuiltins } from '@neuronexus/db';
+import { db, sources, sourceMarks, sourceAnnotations, decks, cards, cardSources, ensureBuiltins } from '@reomi/db';
 import { eq } from 'drizzle-orm';
 import { buildApp } from '../src/app';
 import { __setAiClientForTests, __resetAiClientForTests } from '../src/ai/openai-client';

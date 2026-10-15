@@ -7,7 +7,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { buildApp } from '../src/app.ts';
 import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers.ts';
-import { db, cards } from '@neuronexus/db';
+import { db, cards } from '@reomi/db';
 import { eq, sql } from 'drizzle-orm';
 import { rebuildCardTextBatch } from '../src/ai/rebuild-card-text';
 

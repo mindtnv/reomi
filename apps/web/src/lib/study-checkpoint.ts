@@ -1,12 +1,13 @@
 import type { Card, CardSourceLink, Rating } from './types';
 import type { StudyMode, StudySession } from './review-session';
+import { readBrowserValue, removeBrowserValue, writeBrowserValue, type MigratingStorage } from './storage-migration';
 
 /** Persistence helper for the existing study-session owner, never the navigation journal. */
 export const STUDY_CHECKPOINT_LIMITS = { entryBytes:512*1024, totalBytes:3*1024*1024, entries:16, answers:1000, pendingCards:1000, answerChars:16000 } as const;
 export type PendingStudyGrade = {id:string;cardId:string;rating:Rating;durationMs:number;mode:StudyMode;before:Card};
 export type StudyViewCheckpoint = {revealed:boolean;submitted:boolean;typedAnswer:string;elapsedMs:number;finished:boolean;infoOpen:boolean;pendingPeek:CardSourceLink|null;editingCardId?:string|null};
 export type StudyCheckpoint = {id:string;owner:string;href:string;session:StudySession;view:StudyViewCheckpoint;pending:PendingStudyGrade|null;updatedAt?:number};
-type StoragePort=Pick<Storage,'getItem'|'setItem'|'removeItem'>;
+type StoragePort=MigratingStorage;
 const key=(owner:string)=>`nn:study:checkpoint:v1:${owner}`;
 const object=(value:unknown):value is Record<string,unknown>=>!!value&&typeof value==='object'&&!Array.isArray(value);
 const id=(value:unknown):value is string=>typeof value==='string'&&value.length>0&&value.length<=200&&!/[\u0000-\u001f]/.test(value);
@@ -60,7 +61,7 @@ function decode(value:unknown,owner:string):StudyCheckpoint|null {
   return {id:value.id,owner,href:value.href,session:{activeId:s.activeId as string|null,pending:pending as Card[],history},view:v as unknown as StudyViewCheckpoint,pending:operation,updatedAt:number(value.updatedAt)?value.updatedAt:0};
 }
 function readEntries(owner:string,storage:StoragePort):StudyCheckpoint[] {
-  const raw=storage.getItem(key(owner));if(!raw||size(raw)>STUDY_CHECKPOINT_LIMITS.totalBytes)return [];
+  const raw=readBrowserValue(storage,key(owner));if(!raw||size(raw)>STUDY_CHECKPOINT_LIMITS.totalBytes)return [];
   const envelope:unknown=JSON.parse(raw);
   if(!object(envelope)||envelope.version!==1||envelope.owner!==owner||!Array.isArray(envelope.entries)||envelope.entries.length>STUDY_CHECKPOINT_LIMITS.entries)return [];
   return envelope.entries.flatMap(value=>{const entry=decode(value,owner);return entry?[entry]:[];});
@@ -95,7 +96,7 @@ export function writeStudyCheckpoint(checkpoint:StudyCheckpoint,storage?:Storage
       if(!completed)return false;
       entries=entries.filter(entry=>entry.id!==completed.id);raw=encode();
     }
-    port.setItem(key(checkpoint.owner),raw);return true;
+    writeBrowserValue(port,key(checkpoint.owner),raw);return true;
   } catch {return false;}
 }
-export function clearStudyCheckpoints(owner:string,storage?:StoragePort) {try{disk(storage)?.removeItem(key(owner));}catch{/* Isolated live study remains usable. */}}
+export function clearStudyCheckpoints(owner:string,storage?:StoragePort) {try{const port=disk(storage);if(port)removeBrowserValue(port,key(owner));}catch{/* Isolated live study remains usable. */}}

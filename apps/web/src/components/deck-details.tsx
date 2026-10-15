@@ -1,5 +1,5 @@
 'use client';
-import type { StudySummary } from '@neuronexus/shared';
+import type { StudySummary } from '@reomi/shared';
 import type { Deck } from '@/lib/types';
 import { useStudyForecast } from '@/lib/use-study-overview';
 import { useLocale, useT } from '@/lib/i18n';

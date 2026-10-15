@@ -1,4 +1,4 @@
-import { newUuidV7 } from '@neuronexus/shared';
+import { newUuidV7 } from '@reomi/shared';
 
 type Item = { id?: string; ord: number; draftKey?: string };
 export const withDraftKeys = <T extends Item>(items: T[]): (T & { draftKey: string })[] =>

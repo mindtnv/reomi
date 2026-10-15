@@ -1,6 +1,6 @@
 import { beforeEach, expect, test } from 'bun:test';
 import { eq } from 'drizzle-orm';
-import { db, notebooks } from '@neuronexus/db';
+import { db, notebooks } from '@reomi/db';
 import { buildApp } from '../src/app.ts';
 import { buildToolRegistry, type ToolContext } from '../src/ai/tools.ts';
 import { rootLogger } from '../src/logger.ts';
@@ -55,7 +55,7 @@ test('every exposed tool has localized activity text and the correct confirmatio
 });
 
 test('library reads work from parsed chunks without embeddings and exclude foreign sources', async () => {
-  const {sources,sourceChunks}=await import('@neuronexus/db');
+  const {sources,sourceChunks}=await import('@reomi/db');
   const a=await signUpAndCookie(app,uniqueEmail()),b=await signUpAndCookie(app,uniqueEmail());
   const [own]=await db.insert(sources).values({userId:a.userId,kind:'text',title:'Owned source',status:'error',errorCode:'index_failed',verified:true}).returning();
   const [foreign]=await db.insert(sources).values({userId:b.userId,kind:'text',title:'Secret foreign source',status:'ready',verified:true}).returning();
@@ -71,7 +71,7 @@ test('library reads work from parsed chunks without embeddings and exclude forei
 });
 
 test('notebook deletion preview identifies conversations as retained instead of deleted',async()=>{
-  const {conversations,notebookNotes}=await import('@neuronexus/db');
+  const {conversations,notebookNotes}=await import('@reomi/db');
   const {userId}=await signUpAndCookie(app,uniqueEmail());
   const [notebook]=await db.insert(notebooks).values({userId,title:'Notebook'}).returning();
   await db.insert(conversations).values({userId,notebookId:notebook!.id,title:'Retained conversation'});

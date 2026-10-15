@@ -1,6 +1,6 @@
 // NotebookLM M1 — экран библиотеки /notebooks (T8). Полный паритет ключей с
 // en/notebooks.ts (проверяется i18n-parity.test.ts). `status.*` сопоставляет
-// машинный errorCode (INGEST_ERROR_CODES из @neuronexus/shared) с текстом.
+// машинный errorCode (INGEST_ERROR_CODES из @reomi/shared) с текстом.
 
 const notebooks = {
   title: 'Блокноты',

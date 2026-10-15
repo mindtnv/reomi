@@ -1,4 +1,4 @@
-import { newUuidV7, type UiActionResult } from '@neuronexus/shared';
+import { newUuidV7, type UiActionResult } from '@reomi/shared';
 
 export type SaveStatus = 'clean' | 'dirty' | 'saving' | 'saved' | 'failed' | 'uncertain' | 'conflict';
 export interface PendingSave<T> { owner: string; requestId: string; payload: T; fingerprint: string }

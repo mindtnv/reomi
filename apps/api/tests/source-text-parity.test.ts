@@ -15,7 +15,7 @@ import {
   notebooks,
   sourceChunks,
   sources as sourcesTable,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import { buildApp } from '../src/app.ts';
 import {
   __resetAiClientForTests,

@@ -1,4 +1,4 @@
-import { compareDeckOrder } from '@neuronexus/shared';
+import { compareDeckOrder } from '@reomi/shared';
 import type { Card, Deck } from './types';
 
 export interface DeckNode {

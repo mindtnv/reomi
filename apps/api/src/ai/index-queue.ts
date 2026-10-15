@@ -18,8 +18,8 @@
 
 import { createHash } from 'node:crypto';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { cards, db, kbChunk } from '@neuronexus/db';
-import { chunkSource } from '@neuronexus/shared';
+import { cards, db, kbChunk } from '@reomi/db';
+import { chunkSource } from '@reomi/shared';
 import { env } from '../env.ts';
 import {
   rootLogger,

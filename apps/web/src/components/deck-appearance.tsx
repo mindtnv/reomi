@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { DECK_COLORS as COLOR_CATALOG } from '@neuronexus/shared';
+import { DECK_COLORS as COLOR_CATALOG } from '@reomi/shared';
 import { NNIcon } from './ui';
 import { useT } from '@/lib/i18n';
 import type { DeckColor } from '@/lib/types';

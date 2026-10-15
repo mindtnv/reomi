@@ -5,7 +5,7 @@ import type { Root } from 'react-dom/client';
 import en from '../../lib/messages/en/notebooks';
 import ru from '../../lib/messages/ru/notebooks';
 import { DialogProvider } from '../dialog';
-import { SOURCE_MARK_COLORS } from '@neuronexus/shared';
+import { SOURCE_MARK_COLORS } from '@reomi/shared';
 import { SelectionPopover, type SelectionInfo } from './selection-popover';
 ensureTestDom();
 const { createRoot } = await import('react-dom/client');

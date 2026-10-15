@@ -20,7 +20,7 @@ import {
   type ClientRectLike,
   type PdfTextItem,
 } from './pdf-ink';
-import { MARK_RECTS_MAX, MARKED_TEXT_MAX, type InkStroke, type MarkRect } from '@neuronexus/shared';
+import { MARK_RECTS_MAX, MARKED_TEXT_MAX, type InkStroke, type MarkRect } from '@reomi/shared';
 
 describe('coord transforms', () => {
   test('normToCanvas / canvasToNorm roundtrip', () => {

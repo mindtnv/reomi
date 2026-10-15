@@ -13,6 +13,8 @@
 // iOS note: granting notification permission here also enables the iOS app badge
 // (navigator.setAppBadge) — the two features share the same permission gate.
 
+import { readBrowserValue, removeBrowserValue, writeBrowserValue } from './storage-migration';
+
 const OPT_IN_KEY = 'nn:notifications:enabled';
 
 /** Returns true only when Notification API is present in this context. */
@@ -26,7 +28,7 @@ function notificationsAvailable(): boolean {
  */
 export function isNotificationsEnabled(): boolean {
   if (typeof localStorage === 'undefined') return false;
-  return localStorage.getItem(OPT_IN_KEY) === 'true';
+  return readBrowserValue(localStorage, OPT_IN_KEY) === 'true';
 }
 
 /**
@@ -36,9 +38,9 @@ export function isNotificationsEnabled(): boolean {
 export function setNotificationsEnabled(enabled: boolean): void {
   if (typeof localStorage === 'undefined') return;
   if (enabled) {
-    localStorage.setItem(OPT_IN_KEY, 'true');
+    writeBrowserValue(localStorage, OPT_IN_KEY, 'true');
   } else {
-    localStorage.removeItem(OPT_IN_KEY);
+    removeBrowserValue(localStorage, OPT_IN_KEY);
   }
 }
 

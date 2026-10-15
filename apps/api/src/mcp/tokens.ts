@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { and, eq, gt, isNull, or, lt } from 'drizzle-orm';
-import { db, personalAccessTokens, user } from '@neuronexus/db';
+import { db, personalAccessTokens, user } from '@reomi/db';
 
 export const tokenMetadata = {
   id: personalAccessTokens.id, name: personalAccessTokens.name, prefix: personalAccessTokens.prefix,

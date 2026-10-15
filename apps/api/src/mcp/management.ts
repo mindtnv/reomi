@@ -1,8 +1,8 @@
-import { DECK_COLORS } from '@neuronexus/shared';
+import { DECK_COLORS } from '@reomi/shared';
 import { z } from 'zod';
 import { and, count, eq, inArray, sql } from 'drizzle-orm';
-import { db, cards, decks, notes, notebooks, notebookNotes, notebookSources, notebookArtifacts, conversations, reviews, sources, sourceReadingState } from '@neuronexus/db';
-import { NOTEBOOK_COLORS, NOTEBOOK_TITLE_MAX, NOTEBOOK_EMOJI_MAX, NOTEBOOK_DESCRIPTION_MAX, NOTE_TITLE_MAX, NOTE_CONTENT_MAX, MAX_NOTES_PER_NOTEBOOK } from '@neuronexus/shared';
+import { db, cards, decks, notes, notebooks, notebookNotes, notebookSources, notebookArtifacts, conversations, reviews, sources, sourceReadingState } from '@reomi/db';
+import { NOTEBOOK_COLORS, NOTEBOOK_TITLE_MAX, NOTEBOOK_EMOJI_MAX, NOTEBOOK_DESCRIPTION_MAX, NOTE_TITLE_MAX, NOTE_CONTENT_MAX, MAX_NOTES_PER_NOTEBOOK } from '@reomi/shared';
 import type { ToolContext } from '../ai/tools.ts';
 import { descendantIds } from '../modules/cards.ts';
 import { attachSourceToNotebook } from '../modules/sources-shared.ts';

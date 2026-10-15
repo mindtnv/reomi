@@ -1,5 +1,5 @@
 import { and, desc, eq } from 'drizzle-orm';
-import { db, notebookArtifacts, quizAttempts } from '@neuronexus/db';
+import { db, notebookArtifacts, quizAttempts } from '@reomi/db';
 import { scoreQuizAttempt } from '../ai/artifacts';
 import { StudyError } from './study-notes';
 

@@ -11,8 +11,8 @@
 // Resolution order per field: nearest-ancestor preset value (if set) → profile
 // (`desiredRetention` only) → ANKI_DEFAULTS / the daily-limit defaults below.
 
-import { ANKI_DEFAULTS, isValidLearningSteps as isValidSteps } from '@neuronexus/shared';
-import type { Deck, DeckOptionsPreset, Profile } from '@neuronexus/db';
+import { ANKI_DEFAULTS, isValidLearningSteps as isValidSteps } from '@reomi/shared';
+import type { Deck, DeckOptionsPreset, Profile } from '@reomi/db';
 
 // Anki-style per-day caps used when no preset supplies them. These mirror the
 // `deck_options_preset` schema defaults (newPerDay 20 / reviewsPerDay 200) and

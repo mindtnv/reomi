@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia';
-import { NOTE_CONTENT_MAX, NOTE_TITLE_MAX, QUIZ_QUESTIONS_MAX } from '@neuronexus/shared';
+import { NOTE_CONTENT_MAX, NOTE_TITLE_MAX, QUIZ_QUESTIONS_MAX } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin';
 import { createStudyNote, deleteStudyNote, getStudyNote, listStudyNotes, patchStudyNote } from './study-notes';
 import { createSourceArtifact, deleteSourceArtifact, getSourceArtifact, listSourceArtifacts, regenerateSourceArtifact } from './study-artifacts';

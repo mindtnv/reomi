@@ -1,5 +1,5 @@
 {
-  "name": "@neuronexus/web",
+  "name": "@reomi/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@elysiajs/eden": "^1.4.9",
-    "@neuronexus/auth": "workspace:*",
-    "@neuronexus/shared": "workspace:*",
+    "@reomi/auth": "workspace:*",
+    "@reomi/shared": "workspace:*",
     "@types/markdown-it": "^14.2.0",
     "d3-drag": "^3.0.0",
     "d3-force": "^3.0.0",
@@ -33,7 +33,7 @@
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "^20.14.5",
-    "@neuronexus/api": "workspace:*",
+    "@reomi/api": "workspace:*",
     "@serwist/next": "9.5.12",
     "@types/d3-drag": "^3.0.7",
     "@types/d3-force": "^3.0.10",

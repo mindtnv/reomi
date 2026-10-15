@@ -16,6 +16,7 @@ beforeEach(() => {
   originalFetch = globalThis.fetch;
   useNN.setState({ decks: [], profile: { userId: 'harvest-owner' } as any });
   localStorage.removeItem('nn:nb:quickdeck');
+  localStorage.removeItem('reomi:nb:quickdeck');
   host = document.createElement('div'); document.body.appendChild(host); root = createRoot(host);
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); globalThis.fetch = originalFetch; useNN.getState().reset(); delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT; });

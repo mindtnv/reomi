@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { useEffect, useState } from 'react';
 import { useBreakpoint } from './use-breakpoint';
+import { readBrowserValue, writeBrowserValue } from './storage-migration';
 
 // UI-only / ephemeral+pref store, separate from the `useNN` server mirror.
 // Holds chrome preferences that never touch the API:
@@ -27,7 +28,7 @@ export function clampSidebarWidth(value: number): number {
 }
 export function readSidebarWidth(): number {
   try {
-    const value = typeof window !== 'undefined' ? window.localStorage.getItem(SIDEBAR_WIDTH_KEY) : null;
+    const value = typeof window !== 'undefined' ? readBrowserValue(window.localStorage, SIDEBAR_WIDTH_KEY) : null;
     return value?.trim() ? clampSidebarWidth(Number(value)) : SIDEBAR_WIDTH_EXPANDED;
   } catch { return SIDEBAR_WIDTH_EXPANDED; }
 }
@@ -36,7 +37,7 @@ export function readSidebarWidth(): number {
 function persistSidebar(collapsed: boolean): void {
   try {
     if (typeof window === 'undefined') return;
-    window.localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0');
+    writeBrowserValue(window.localStorage, SIDEBAR_KEY, collapsed ? '1' : '0');
   } catch {
     // localStorage unavailable / quota / disabled — best-effort, ignore.
   }
@@ -46,7 +47,7 @@ function persistSidebar(collapsed: boolean): void {
 export function readSidebarCollapsed(): boolean | null {
   try {
     if (typeof window === 'undefined') return null;
-    const raw = window.localStorage.getItem(SIDEBAR_KEY);
+    const raw = readBrowserValue(window.localStorage, SIDEBAR_KEY);
     if (raw === '1') return true;
     if (raw === '0') return false;
     return null;
@@ -71,7 +72,7 @@ export const useUI = create<UIState>((set, get) => ({
   setSidebarWidth: (value) => {
     const width = clampSidebarWidth(value);
     set({ sidebarWidth: width });
-    try { if (typeof window !== 'undefined') window.localStorage.setItem(SIDEBAR_WIDTH_KEY, String(width)); } catch {}
+    try { if (typeof window !== 'undefined') writeBrowserValue(window.localStorage, SIDEBAR_WIDTH_KEY, String(width)); } catch {}
   },
   sidebarCollapsed: false,
   toggleSidebar: () => {

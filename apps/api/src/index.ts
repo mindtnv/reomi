@@ -1,4 +1,4 @@
-import { closeDb } from '@neuronexus/db';
+import { closeDb } from '@reomi/db';
 import { buildApp, type App } from './app.ts';
 import { env } from './env.ts';
 import { rootLogger, safeError } from './logger.ts';

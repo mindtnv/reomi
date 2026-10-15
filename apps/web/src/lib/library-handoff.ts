@@ -4,6 +4,8 @@
 // behind that flow — notebook selection, the sessionStorage key, and the prefill
 // text format — kept DOM-free so they can be unit-tested without a browser.
 
+import { currentStorageKey } from './storage-migration';
+
 /** A notebook an item is attached to (shape from GET /library/items/:id). */
 export interface HandoffNotebook {
   id: string;
@@ -30,7 +32,7 @@ export function planHandoff(notebooks: HandoffNotebook[]): HandoffPlan {
 /** The sessionStorage key a notebook workspace consumes on mount to prefill its
  *  composer. Per-notebook so two open workspaces don't clobber each other. */
 export function prefillKey(notebookId: string): string {
-  return `nn:nb:prefill:${notebookId}`;
+  return currentStorageKey(`nn:nb:prefill:${notebookId}`);
 }
 
 /**

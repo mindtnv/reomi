@@ -18,7 +18,7 @@ import enCommon from './messages/en/common';
 import ruCommon from './messages/ru/common';
 import enAssistant from './messages/en/assistant';
 import ruAssistant from './messages/ru/assistant';
-import { ARTIFACT_ERROR_CODES, INGEST_ERROR_CODES } from '@neuronexus/shared';
+import { ARTIFACT_ERROR_CODES, INGEST_ERROR_CODES } from '@reomi/shared';
 
 // ── Recursive key extractor ──────────────────────────────────────────────────
 

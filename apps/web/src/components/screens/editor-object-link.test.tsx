@@ -43,6 +43,7 @@ test('deck object link selects its target and expands a collapsed parent', async
   const parent = { id: 'parent', name: 'Parent deck', parentId: null, color: 'lime', species: 'fern', position: 0 };
   const child = { ...parent, id: 'child', name: 'Target deck', parentId: 'parent' };
   useNN.setState({ decks: [parent,child] as any });
+  localStorage.removeItem('reomi:decks:collapsed');
   localStorage.setItem('nn:decks:collapsed', JSON.stringify(['parent']));
   globalThis.fetch = (async (url: any) => Response.json(String(url).includes('forecast')
     ? { days: 7, overdueCount: 0, total: 0, buckets: [] }

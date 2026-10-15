@@ -9,8 +9,8 @@ import {
   profile,
   reviews,
   user as userTable,
-} from '@neuronexus/db';
-import { MAX_RETENTION, MIN_RETENTION, PLANT_SPECIES, type PlantSpecies } from '@neuronexus/shared';
+} from '@reomi/db';
+import { MAX_RETENTION, MIN_RETENTION, PLANT_SPECIES, type PlantSpecies } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin.ts';
 
 const plantSpeciesSchema = t.Union([

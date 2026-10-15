@@ -1,6 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import { cards, db, notebookArtifacts, notebookNotes } from '@neuronexus/db';
-import type { AssistantContextSnapshot, AssistantObjectKind } from '@neuronexus/shared';
+import { cards, db, notebookArtifacts, notebookNotes } from '@reomi/db';
+import type { AssistantContextSnapshot, AssistantObjectKind } from '@reomi/shared';
 import type { Tool, ToolContext } from './tools';
 
 const outside = 'outside_context: object not found in selected context; attach it or change Only these materials before reading it';

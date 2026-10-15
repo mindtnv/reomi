@@ -1,7 +1,7 @@
 import { and, count, desc, eq, ilike, isNull, lte, ne, or, sql } from 'drizzle-orm';
-import { conversations, db, messages, notebookNotes, notebooks, sources, type Citation } from '@neuronexus/db';
+import { conversations, db, messages, notebookNotes, notebooks, sources, type Citation } from '@reomi/db';
 import { env } from '../env';
-import { MAX_NOTES_PER_NOTEBOOK, NOTE_TITLE_MAX, NOTE_CONTENT_MAX, NOTE_CITATIONS_MAX_BYTES, NOTE_EXCERPT_MAX } from '@neuronexus/shared';
+import { MAX_NOTES_PER_NOTEBOOK, NOTE_TITLE_MAX, NOTE_CONTENT_MAX, NOTE_CITATIONS_MAX_BYTES, NOTE_EXCERPT_MAX } from '@reomi/shared';
 
 export type StudyOwner = { kind: 'notebook' | 'source'; id: string };
 export class StudyError extends Error {

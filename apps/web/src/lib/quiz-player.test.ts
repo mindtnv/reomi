@@ -3,7 +3,7 @@
 // assembling the «слабые места → карточки» prefill prompt. DOM-free.
 
 import { describe, expect, test } from 'bun:test';
-import type { QuizContent, QuizQuestion } from '@neuronexus/shared';
+import type { QuizContent, QuizQuestion } from '@reomi/shared';
 import {
   allAnswered,
   buildAttemptAnswers,

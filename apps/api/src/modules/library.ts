@@ -29,7 +29,7 @@ import {
   sourceReadingState,
   sources,
   type Source,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import { authPlugin } from '../auth-plugin.ts';
 import { embeddingEnabled, env } from '../env.ts';
 import { embed, isEmbeddingEnabled } from '../ai/openai-client.ts';

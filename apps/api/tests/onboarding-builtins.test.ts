@@ -8,9 +8,9 @@
 
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import { ensureBuiltins, noteTypes } from '@neuronexus/db';
-import { db } from '@neuronexus/db/client';
-import { BUILTIN_NOTE_TYPES } from '@neuronexus/shared';
+import { ensureBuiltins, noteTypes } from '@reomi/db';
+import { db } from '@reomi/db/client';
+import { BUILTIN_NOTE_TYPES } from '@reomi/shared';
 import { buildApp } from '../src/app.ts';
 import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers.ts';
 

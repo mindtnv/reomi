@@ -16,7 +16,7 @@ import {
   MARKED_TEXT_MAX,
   type InkStroke,
   type MarkRect,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 
 // ── Coordinate transforms ────────────────────────────────────────────────────
 

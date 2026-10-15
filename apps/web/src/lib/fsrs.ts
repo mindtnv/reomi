@@ -1,6 +1,6 @@
 import type { Card as FsrsCard } from 'ts-fsrs';
 
-// Client-side FSRS helpers. Scheduling/preview logic lives in @neuronexus/shared
+// Client-side FSRS helpers. Scheduling/preview logic lives in @reomi/shared
 // (single source of truth, honors per-user requestRetention) — this module only
 // keeps the pure display helper that has no scheduler dependency.
 

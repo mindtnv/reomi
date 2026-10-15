@@ -1,6 +1,6 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
-import { db, deckHierarchyRevisions, decks, notebookNotes, notebooks, sources, uiActionReceipts } from '@neuronexus/db';
-import { compareDeckOrder, DECK_COLORS, NOTEBOOK_TITLE_MAX, type DeckPlacement, type UiActionInverse, type UiActionTarget } from '@neuronexus/shared';
+import { db, deckHierarchyRevisions, decks, notebookNotes, notebooks, sources, uiActionReceipts } from '@reomi/db';
+import { compareDeckOrder, DECK_COLORS, NOTEBOOK_TITLE_MAX, type DeckPlacement, type UiActionInverse, type UiActionTarget } from '@reomi/shared';
 import { lockStudyNote, patchStudyNote, StudyError } from './study-notes';
 import { actionReceipt, reconcileAction, type ActionMutation, type ActionTx } from './ui-action-receipts';
 

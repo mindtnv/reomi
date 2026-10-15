@@ -1,7 +1,7 @@
 import { status } from 'elysia';
 import { and, eq, sql, type SQL } from 'drizzle-orm';
-import { db, noteTypes, profile, type Db } from '@neuronexus/db';
-import type { NoteTypeDeletionPreview } from '@neuronexus/shared';
+import { db, noteTypes, profile, type Db } from '@reomi/db';
+import type { NoteTypeDeletionPreview } from '@reomi/shared';
 import { regenerationToken } from './card-regeneration';
 import { startNoteTypeBudget, noteTypeBudgetFailure } from './note-type-budget';
 

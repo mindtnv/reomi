@@ -34,7 +34,7 @@
 //   * GET /cards/:id returns the caller's card; 404 on a foreign id (SHOULD-FIX #4).
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { db, messages as messagesTable } from '@neuronexus/db';
+import { db, messages as messagesTable } from '@reomi/db';
 import { asc, eq } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import {

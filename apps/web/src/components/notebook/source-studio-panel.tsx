@@ -2,7 +2,7 @@
 import { useCallback, useState } from 'react';
 import { useAppNavigation } from '@/components/navigation';
 import { useNN } from '@/lib/store';
-import type { NotebookArtifactType } from '@neuronexus/shared';
+import type { NotebookArtifactType } from '@reomi/shared';
 import { assistantApi, ok } from '@/lib/api';
 import { notebookArtifactFromApi, quizAttemptFromApi } from '@/lib/mappers';
 import { useT } from '@/lib/i18n';

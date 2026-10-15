@@ -46,6 +46,47 @@ describe('independent appearance preference', () => {
     runInNewContext(`var runtime = (${createThemeRuntime.toString()})(${JSON.stringify(THEME_CONFIG)}); runtime.set({version:2, mode:'light', palette:'bloom'}); runtime.apply(runtime.read());`, host.context);
     expect(host.attributes).toEqual({ 'data-theme': 'bloom', 'data-theme-mode': 'light' });
   });
+  test('prepaint copies nn:theme once and keeps a newer reomi value', () => {
+    const attributes: Record<string, string> = {};
+    const data = new Map<string, string>([['nn:theme', JSON.stringify({ version: 2, mode: 'dark', palette: 'dracula' })]]);
+    const context = {
+      document: { documentElement: { setAttribute: (key: string, value: string) => { attributes[key] = value; } }, querySelectorAll: () => [ { content: '', media: 'dark', removeAttribute() { this.media = ''; } }, { content: '', media: 'light', removeAttribute() { this.media = ''; } } ] },
+      window: { matchMedia: () => ({ matches: false }), dispatchEvent: () => {} },
+      localStorage: {
+        getItem: (key: string) => data.get(key) ?? null,
+        setItem: (key: string, value: string) => { data.set(key, value); },
+      },
+      Event: class { constructor(public type: string) {} },
+    };
+    runInNewContext(THEME_INIT_SCRIPT, context);
+    expect(attributes['data-theme']).toBe('dracula');
+    expect(attributes['data-theme-mode']).toBe('dark');
+    expect(data.get('nn:theme')).toContain('"palette":"dracula"');
+    expect(data.get('reomi:theme')).toBe(data.get('nn:theme'));
+    data.set('nn:theme', 'dark');
+    data.set('reomi:theme', JSON.stringify({ version: 2, mode: 'light', palette: 'nord' }));
+    runInNewContext(THEME_INIT_SCRIPT, context);
+    expect(attributes['data-theme']).toBe('nord');
+    expect(attributes['data-theme-mode']).toBe('light');
+    expect(data.get('nn:theme')).toBe('dark');
+  });
+  test('a blocked theme copy still paints from the legacy key', () => {
+    const attributes: Record<string, string> = {};
+    const data = new Map<string, string>([['nn:theme', 'dracula']]);
+    const context = {
+      document: { documentElement: { setAttribute: (key: string, value: string) => { attributes[key] = value; } }, querySelectorAll: () => [ { content: '', media: 'dark', removeAttribute() { this.media = ''; } }, { content: '', media: 'light', removeAttribute() { this.media = ''; } } ] },
+      window: { matchMedia: () => ({ matches: false }), dispatchEvent: () => {} },
+      localStorage: {
+        getItem: (key: string) => data.get(key) ?? null,
+        setItem() { throw new Error('quota'); },
+      },
+      Event: class { constructor(public type: string) {} },
+    };
+    expect(() => runInNewContext(THEME_INIT_SCRIPT, context)).not.toThrow();
+    expect(attributes['data-theme']).toBe('dracula');
+    expect(data.has('reomi:theme')).toBe(false);
+    expect(data.get('nn:theme')).toBe('dracula');
+  });
   test('missing storage and matchMedia cannot prevent first paint', () => {
     const host = browser(null);
     Object.defineProperty(host.context, 'localStorage', { get() { throw new Error('unavailable'); } });

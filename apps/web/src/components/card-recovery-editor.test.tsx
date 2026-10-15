@@ -6,7 +6,7 @@ import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared
 import { PathnameContext } from 'next/dist/shared/lib/hooks-client-context.shared-runtime';
 import { AppNavigationProvider } from './navigation';
 import { DialogProvider } from './dialog';
-import { BASIC_NOTE_TYPE, newUuidV7 } from '@neuronexus/shared';
+import { BASIC_NOTE_TYPE, newUuidV7 } from '@reomi/shared';
 import { useNN } from '../lib/store';
 import { noteTypeFromApi } from '../lib/mappers';
 import { readEditorDraft } from '../lib/editor-drafts';

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { RecoverableSave } from './recoverable-save';
-import type { UiActionResult } from '@neuronexus/shared';
+import type { UiActionResult } from '@reomi/shared';
 
 const result = (id = 'note'): UiActionResult => ({ receipt: { id: 'receipt', requestId: 'request', kind: 'study-note-create',
   label: 'Note', target: { kind: 'study-note', id, revision: '1' }, createdAt: new Date().toISOString(), undoUntil: null, consumedAt: null },

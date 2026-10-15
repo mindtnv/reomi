@@ -11,7 +11,7 @@ export interface ConversationVM {
   updatedAt: string;
   /** Pinned threads sort above the date groups (C4). */
   pinned?: boolean;
-  context?: { policy: 'focus' | 'strict'; refs: import('@neuronexus/shared').AssistantObjectSnapshot[] };
+  context?: { policy: 'focus' | 'strict'; refs: import('@reomi/shared').AssistantObjectSnapshot[] };
   activity?: 'working' | 'needs_approval' | 'completed' | 'error';
 }
 

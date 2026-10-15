@@ -32,7 +32,7 @@ import { NavigationReturn } from '../navigation';
 import { LayerParent, useTransientLayer } from '@/lib/use-transient-layer';
 import { useNavigationScroll } from '@/lib/use-navigation-scroll';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { SourceCitation } from '@neuronexus/shared';
+import type { SourceCitation } from '@reomi/shared';
 import { NNBtn, NNIcon, NNSkeleton } from '@/components/ui';
 import { RichCard } from '@/components/rich-card';
 import { useInlineCitations } from '@/components/chat/source-citations';
@@ -46,7 +46,7 @@ import { downloadMarkdown } from '@/lib/markup-export';
 import { formatCharCount } from '@/lib/artifact-progress';
 import { QuizPlayer } from '@/components/notebook/quiz-player';
 import type { buildAttemptAnswers } from '@/lib/quiz-player';
-import type { NotebookArtifactType } from '@neuronexus/shared';
+import type { NotebookArtifactType } from '@reomi/shared';
 import type { NotebookArtifact, QuizAttempt } from '@/lib/types';
 
 type Tfn = (key: string, params?: Record<string, string | number>) => string;

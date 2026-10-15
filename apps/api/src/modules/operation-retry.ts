@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { db, notebookArtifacts, operationRetryReceipts } from '@neuronexus/db';
+import { db, notebookArtifacts, operationRetryReceipts } from '@reomi/db';
 import { and, eq, sql } from 'drizzle-orm';
-import type { OperationRetryInput, OperationRetryResult } from '@neuronexus/shared';
+import type { OperationRetryInput, OperationRetryResult } from '@reomi/shared';
 import { cooldownCheck } from '../ai-cooldown';
 import { scheduleArtifactGeneration } from '../ai/artifacts';
 import { enqueueSource } from '../ai/source-ingest';

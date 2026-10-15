@@ -20,7 +20,25 @@ export function createThemeRuntime(config: ThemeRuntimeConfig) {
   function read(): Appearance {
     if (volatile) return memory;
     try {
-      const raw = localStorage.getItem(config.key);
+      const legacyKey = config.key.indexOf('reomi:') === 0 ? 'nn:' + config.key.slice(6) : '';
+      let raw: string | null = null;
+      try { raw = localStorage.getItem(config.key); } catch { raw = null; }
+      if (raw === '') raw = null;
+      else if (raw == null && legacyKey) {
+        let legacy: string | null = null;
+        try { legacy = localStorage.getItem(legacyKey); } catch { legacy = null; }
+        if (legacy) {
+          let broken = false;
+          const trimmed = String(legacy).replace(/^\s+/, '');
+          if (trimmed.charAt(0) === '{' || trimmed.charAt(0) === '[') {
+            try { JSON.parse(legacy); } catch { broken = true; }
+          }
+          if (!broken) {
+            raw = legacy;
+            try { localStorage.setItem(config.key, legacy); } catch { /* Keep reading the old snapshot. */ }
+          }
+        }
+      }
       memory = normalize(raw);
       if (raw && (raw === 'system' || Object.prototype.hasOwnProperty.call(config.legacyModes, raw))) {
         try { localStorage.setItem(config.key, JSON.stringify(memory)); } catch {}

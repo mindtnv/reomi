@@ -14,7 +14,7 @@
 
 import { Elysia, t, status as reply } from 'elysia';
 import { and, asc, eq, isNull, or } from 'drizzle-orm';
-import { cards, db, decks, noteTypes, notes, type Db } from '@neuronexus/db';
+import { cards, db, decks, noteTypes, notes, type Db } from '@reomi/db';
 import {
   generateCards,
   acceptedAnswerVariants,
@@ -27,7 +27,7 @@ import {
   stateLabel,
   type FieldValues,
   type NoteTypeDef,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import { authPlugin } from '../auth-plugin.ts';
 import {
   logCorrelation,

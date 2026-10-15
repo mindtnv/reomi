@@ -10,8 +10,8 @@
 
 import { Elysia, t } from 'elysia';
 import { and, eq } from 'drizzle-orm';
-import { db, filteredDeck } from '@neuronexus/db';
-import { CardQueryError, parseCardQuery } from '@neuronexus/shared';
+import { db, filteredDeck } from '@reomi/db';
+import { CardQueryError, parseCardQuery } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin.ts';
 
 // The session sort-order enum — single source of truth. The queue's filtered

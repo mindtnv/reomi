@@ -9,7 +9,9 @@
 import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
 import { useUI, readSidebarCollapsed, readSidebarWidth } from './ui-store';
 
+import { currentStorageKey } from './storage-migration';
 const SIDEBAR_KEY = 'nn:sidebar-collapsed';
+const SIDEBAR_CURRENT = currentStorageKey(SIDEBAR_KEY);
 
 type Store = Record<string, string>;
 
@@ -69,11 +71,12 @@ describe('ui-store — sidebar collapse', () => {
     expect(useUI.getState().sidebarCollapsed).toBe(false);
     useUI.getState().toggleSidebar();
     expect(useUI.getState().sidebarCollapsed).toBe(true);
-    expect(data[SIDEBAR_KEY]).toBe('1');
+    expect(data[SIDEBAR_CURRENT]).toBe('1');
+    expect(data[SIDEBAR_KEY]).toBeUndefined();
 
     useUI.getState().toggleSidebar();
     expect(useUI.getState().sidebarCollapsed).toBe(false);
-    expect(data[SIDEBAR_KEY]).toBe('0');
+    expect(data[SIDEBAR_CURRENT]).toBe('0');
   });
 
   test('setSidebarCollapsed sets state and persists', () => {
@@ -82,11 +85,11 @@ describe('ui-store — sidebar collapse', () => {
 
     useUI.getState().setSidebarCollapsed(true);
     expect(useUI.getState().sidebarCollapsed).toBe(true);
-    expect(data[SIDEBAR_KEY]).toBe('1');
+    expect(data[SIDEBAR_CURRENT]).toBe('1');
 
     useUI.getState().setSidebarCollapsed(false);
     expect(useUI.getState().sidebarCollapsed).toBe(false);
-    expect(data[SIDEBAR_KEY]).toBe('0');
+    expect(data[SIDEBAR_CURRENT]).toBe('0');
   });
 
   test('readSidebarCollapsed reflects persisted value', () => {
@@ -97,8 +100,10 @@ describe('ui-store — sidebar collapse', () => {
 
     data[SIDEBAR_KEY] = '1';
     expect(readSidebarCollapsed()).toBe(true);
+    expect(data[SIDEBAR_KEY]).toBe('1');
+    expect(data[SIDEBAR_CURRENT]).toBe('1');
 
-    data[SIDEBAR_KEY] = '0';
+    data[SIDEBAR_CURRENT] = '0';
     expect(readSidebarCollapsed()).toBe(false);
   });
 });
@@ -141,7 +146,8 @@ describe('sidebar width preference', () => {
     setWindow({ localStorage: storage });
     useUI.getState().setSidebarWidth(900);
     expect(useUI.getState().sidebarWidth).toBe(360);
-    expect(data['nn:sidebar-width']).toBe('360');
+    expect(data['reomi:sidebar-width']).toBe('360');
+    expect(data['nn:sidebar-width']).toBeUndefined();
     useUI.getState().setSidebarWidth(100);
     expect(useUI.getState().sidebarWidth).toBe(72);
     expect(useUI.getState().sidebarCollapsed).toBe(false);
@@ -159,9 +165,10 @@ describe('sidebar width preference', () => {
     setWindow({ localStorage: storage });
     data['nn:sidebar-width'] = '284';
     expect(readSidebarWidth()).toBe(284);
-    data['nn:sidebar-width'] = 'broken';
+    expect(data['nn:sidebar-width']).toBe('284');
+    data['reomi:sidebar-width'] = 'broken';
     expect(readSidebarWidth()).toBe(232);
-    data['nn:sidebar-width'] = 'Infinity';
+    data['reomi:sidebar-width'] = 'Infinity';
     expect(readSidebarWidth()).toBe(232);
   });
   test('unavailable storage never breaks resizing', () => {

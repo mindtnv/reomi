@@ -1,7 +1,7 @@
 import { sourceOperationPresentation } from './source-operation-presentation';
 import { evidenceExcerpt, legacyChunkEvidence, legacySourceEvidence } from '../ai/legacy-evidence';
 import { harvestOriginHash } from '../ai/harvest-cards';
-import { ASSISTANT_CONTEXT_LIMITS } from '@neuronexus/shared';
+import { ASSISTANT_CONTEXT_LIMITS } from '@reomi/shared';
 import { captureManualTextSelection, captureManualPdfSelection } from './source-card-selection';
 import { writePerCardProvenance } from '../ai/card-evidence';
 // NotebookLM sources — CRUD + ingest routes (M1, T3 + T7). Every query is
@@ -51,7 +51,7 @@ import {
   type Citation,
   type Db,
   type Source,
-} from '@neuronexus/db';
+} from '@reomi/db';
 import {
   ANNOTATION_MAX_POINTS,
   ANNOTATION_MAX_STROKES,
@@ -78,7 +78,7 @@ import {
   type NotebookNoteKind,
   type PageAnnotations,
   type SourceMarkKind,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import { authPlugin } from '../auth-plugin.ts';
 import { AI_COOLDOWN_MS, cooldownCheck } from '../ai-cooldown.ts';
 import { env } from '../env.ts';

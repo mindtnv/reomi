@@ -11,8 +11,8 @@
 // a database whose name contains "test". The `NODE_ENV=test` branch in
 // packages/db/src/env.ts already enforces this at DB-client construction.
 
-import { db } from '@neuronexus/db/client';
-import { ensureVectorExtension, kbChunk } from '@neuronexus/db';
+import { db } from '@reomi/db/client';
+import { ensureVectorExtension, kbChunk } from '@reomi/db';
 import { sql } from 'drizzle-orm';
 
 const TABLES = [
@@ -174,7 +174,7 @@ import {
   CLOZE_NOTE_TYPE,
   TYPEIN_NOTE_TYPE,
   type NoteTypeDef,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 
 export type BuiltinKind = 'basic' | 'cloze' | 'typein';
 

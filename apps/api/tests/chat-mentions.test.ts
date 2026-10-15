@@ -13,7 +13,7 @@
 //   * >8 ids → 400 ValidationError (Elysia body schema).
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { db, ensureBuiltins, messages as messagesTable } from '@neuronexus/db';
+import { db, ensureBuiltins, messages as messagesTable } from '@reomi/db';
 import { asc, eq } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import {

@@ -131,6 +131,7 @@ test('late previews after unmount do not revive the dialog', async () => {
 
 test.each(['en', 'ru'])('complete impact numbers render in %s with an empty local card mirror', async locale => {
   const { I18nProvider } = await import('../lib/i18n');
+  localStorage.removeItem('reomi:locale');
   const previous = localStorage.getItem('nn:locale');
   localStorage.setItem('nn:locale', locale);
   globalThis.fetch = (async (_url: any, _init: any) => Response.json(impact)) as typeof fetch;

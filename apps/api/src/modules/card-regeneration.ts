@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { and, asc, eq, getTableColumns, inArray, sql } from 'drizzle-orm';
-import { cards, type Db } from '@neuronexus/db';
-import { fsrsResetColumns, isLegacyClozeCard, type generateCards } from '@neuronexus/shared';
+import { cards, type Db } from '@reomi/db';
+import { fsrsResetColumns, isLegacyClozeCard, type generateCards } from '@reomi/shared';
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 export type GeneratedCard = ReturnType<typeof generateCards>[number];

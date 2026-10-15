@@ -1,6 +1,8 @@
 // M4 — shared client-side types + presets for the PDF reader toolbar/ink layer.
-// (Toolbar UI state, not persisted server data — that's @neuronexus/shared
+// (Toolbar UI state, not persisted server data — that's @reomi/shared
 // InkStroke/PageAnnotations.)
+
+import { readBrowserValue, writeBrowserValue } from '@/lib/storage-migration';
 
 export type InkTool = 'hand' | 'pen' | 'highlighter' | 'eraser' | 'smart-card';
 
@@ -39,7 +41,7 @@ export const TOOL_SETTINGS_KEY = 'nn:pdf:tools';
 export function loadToolSettings(): ToolSettings {
   if (typeof localStorage === 'undefined') return { ...DEFAULT_TOOL_SETTINGS };
   try {
-    const raw = localStorage.getItem(TOOL_SETTINGS_KEY);
+    const raw = readBrowserValue(localStorage, TOOL_SETTINGS_KEY);
     if (!raw) return { ...DEFAULT_TOOL_SETTINGS };
     const parsed = JSON.parse(raw) as Partial<ToolSettings>;
     const tool: InkTool =
@@ -63,7 +65,7 @@ export function loadToolSettings(): ToolSettings {
 export function saveToolSettings(s: ToolSettings): void {
   if (typeof localStorage === 'undefined') return;
   try {
-    localStorage.setItem(TOOL_SETTINGS_KEY, JSON.stringify(s));
+    writeBrowserValue(localStorage, TOOL_SETTINGS_KEY, JSON.stringify(s));
   } catch {
     /* best-effort */
   }

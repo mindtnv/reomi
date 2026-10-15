@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { getStudyNote } from '../modules/study-notes';
 import { getStudyArtifact } from '../modules/study-artifacts';
 import { readContextObject } from '../ai/assistant-object-read';
-import type { User } from '@neuronexus/db';
+import type { User } from '@reomi/db';
 import type { ToolContext } from '../ai/tools.ts';
 import type { McpPrincipal } from './tokens.ts';
 import { withInternalRead } from './internal-read.ts';

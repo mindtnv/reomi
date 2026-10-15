@@ -36,8 +36,8 @@ import {
   sourceChunks as sourceChunksTable,
   sourceMarks as sourceMarksTable,
   sources as sourcesTable,
-} from '@neuronexus/db';
-import type { MarkRect, PageAnnotations, SourceMarkKind } from '@neuronexus/shared';
+} from '@reomi/db';
+import type { MarkRect, PageAnnotations, SourceMarkKind } from '@reomi/shared';
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import {

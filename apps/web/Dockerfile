@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.24.0
 # ── Web Dockerfile (Next.js 16 standalone) ────────────────────────────────
-# Build from the repo root so bun workspaces resolve `@neuronexus/*`.
+# Build from the repo root so bun workspaces resolve `@reomi/*`.
 #
 #   docker build -f apps/web/Dockerfile -t neuronexus-web:latest .
 

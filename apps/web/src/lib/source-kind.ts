@@ -6,8 +6,8 @@
 //     `var(--${tone}-500)` / `var(--${tone}-600)`.
 // One map of tone names + two thin accessors keeps both honest.
 
-import type { RenderKind } from '@neuronexus/shared';
-import type { SourceKind } from '@neuronexus/shared';
+import type { RenderKind } from '@reomi/shared';
+import type { SourceKind } from '@reomi/shared';
 import type { BadgeTone } from '@/components/ui';
 
 /** Accent tone names (match the CSS `--<tone>-NNN` token families). */

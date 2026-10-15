@@ -13,7 +13,7 @@
 // chip injection lives in `components/chat/source-citations.ts` (DOM decoration,
 // mirroring `code-copy.ts`).
 
-import { SRC_TOKEN_RE, isSourceCitation, type Citation, type SourceCitation } from '@neuronexus/shared';
+import { SRC_TOKEN_RE, isSourceCitation, type Citation, type SourceCitation } from '@reomi/shared';
 
 /** Deterministic cover tones — letter-tile background for a source, picked by a
  *  stable hash of its id so a given source always renders the same colour. */

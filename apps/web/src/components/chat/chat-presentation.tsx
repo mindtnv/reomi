@@ -12,14 +12,14 @@ import type {
   Citation,
   MessageAttachmentInput,
   SourceCitation,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import {
   CARD_TOKEN_RE as CARD_TOKEN_CORE_RE,
   SRC_TOKEN_RE as SRC_TOKEN_CORE_RE,
   isSourceCitation,
   MAX_MEDIA_BYTES,
   MEDIA_MIME_ALLOWLIST,
-} from '@neuronexus/shared';
+} from '@reomi/shared';
 import {
   NNBadge,
   NNBtn,
@@ -117,7 +117,7 @@ function formatTimestamp(iso: string | undefined, locale: string): string {
 // noise in the prose. Only spaces/tabs around a token are absorbed (never
 // newlines), then runs of spaces are collapsed.
 //
-// Built from the shared core pattern (`CARD_TOKEN_CORE_RE` from @neuronexus/shared)
+// Built from the shared core pattern (`CARD_TOKEN_CORE_RE` from @reomi/shared)
 // so the server's citation-dedup and this client stay in lockstep on the token
 // shape; the leading `[ \t]*` whitespace-absorber stays local to the renderer.
 const CARD_TOKEN_RE = new RegExp(`[ \\t]*${CARD_TOKEN_CORE_RE.source}`, 'g');

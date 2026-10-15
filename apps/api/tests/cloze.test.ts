@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { and, eq } from 'drizzle-orm';
-import { cards, db, notes, reviews } from '@neuronexus/db';
-import { CLOZE_NOTE_TYPE, fsrsResetColumns, generateCards } from '@neuronexus/shared';
+import { cards, db, notes, reviews } from '@reomi/db';
+import { CLOZE_NOTE_TYPE, fsrsResetColumns, generateCards } from '@reomi/shared';
 import { buildApp } from '../src/app';
 import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers';
 
