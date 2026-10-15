@@ -59,7 +59,7 @@ async function lateResponse(run: () => Promise<unknown>, body: unknown) {
   globalThis.fetch = (() => {
     started.resolve();
     return response.promise;
-  }) as typeof fetch;
+  }) as unknown as typeof fetch;
   const pending = run();
   await started.promise;
   useNN.getState().reset();
@@ -101,7 +101,7 @@ describe('late responses from the previous account', () => {
   test('moveDeck does not replace the deck tree while the next profile is still empty', async () => {
     const response = Promise.withResolvers<Response>();
     const started = Promise.withResolvers<void>();
-    globalThis.fetch = (() => { started.resolve(); return response.promise; }) as typeof fetch;
+    globalThis.fetch = (() => { started.resolve(); return response.promise; }) as unknown as typeof fetch;
     const pending = useNN.getState().moveDeck('deck-shared', null, 'before');
     await started.promise;
     useNN.getState().reset();
@@ -186,7 +186,7 @@ test('the same account still commits deck, tag, and search updates', async () =>
     if (init?.method === 'PATCH') return Response.json(deckRow('deck-shared', 'Renamed beta', { presetId: 'preset-beta' }));
     if (String(_url).includes('/tags')) return Response.json({ tags: ['beta-tag', 'extra'] });
     return Response.json({ items: [{ ...betaCard, renderFrontText: 'Beta question' }], nextCursor: null });
-  }) as typeof fetch;
+  }) as unknown as typeof fetch;
   await useNN.getState().updateDeck('deck-shared', { name: 'Renamed beta' });
   await useNN.getState().getCardTags();
   await useNN.getState().searchCards('beta');

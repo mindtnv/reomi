@@ -51,7 +51,7 @@ function hangFetch() {
   calls.length = 0;
   globalThis.fetch = ((input: RequestInfo | URL) => new Promise<Response>((resolve) => {
     calls.push({ url: String(input), resolve });
-  })) as typeof fetch;
+  })) as unknown as typeof fetch;
 }
 
 async function renderBrowser() {
