@@ -356,14 +356,23 @@ describe('study reminder tick', () => {
         streakWarningEnabled: true,
       })).status, label).toBe(200);
       await db.delete(notificationDeliveries).where(eq(notificationDeliveries.userId, owner.userId));
-      const { email, sent } = captureEmail();
       const start = Date.parse(`${studyDay}T00:00:00.000Z`);
       const end = start + 86_400_000;
       const dueMs = Date.parse(dueAt);
       const firstSlot = start + Math.ceil((dueMs - start) / step) * step;
+      for (let t = start; t < end; t += step) {
+        const when = new Date(t).toISOString();
+        expect(isLocalHourDue(new Date(t), hour, timeZone), `${label} due at ${when}`).toBe(t >= dueMs);
+      }
+      const probes = [];
+      for (let t = start; t < firstSlot; t += step) probes.push(t);
+      for (const t of [firstSlot, firstSlot + step, end - step]) {
+        if (t >= start && t < end && !probes.includes(t)) probes.push(t);
+      }
+      const { email, sent } = captureEmail();
       let digestSends = 0;
       let streakSends = 0;
-      for (let t = start; t < end; t += step) {
+      for (const t of probes) {
         await runReminderTick({ now: new Date(t), email });
         const nextDigest = sent.filter((message) => message.subject.endsWith(' due')).length;
         const nextStreak = sent.filter((message) => message.subject.startsWith('Reomi: streak ')).length;
