@@ -21,8 +21,8 @@ Each numbered section is one pull request. Land them in order. A later section s
 
 ## 4. Propose the plan in the existing assistant
 
-- [ ] 4.1 Add failing tests that `propose_topic_plan` is offered in the global assistant registry and the notebook registry, that a goal call returns 4 to 8 modules and writes no notebook or source, that a call which already includes a module list does not call the model, that a dead or private URL is absent, and that chat disabled makes no model call. Verify the welcome screen source does not gain a learn-a-topic action.
-- [ ] 4.2 Render the proposal tool result as a plan card in the existing transcript, with both locales. Verify 4.1 passes, a second explicit module list replaces the card data without a completion, and cancelling or leaving the chat creates no notebook.
+- [x] 4.1 Add failing tests that `propose_topic_plan` is offered in the global assistant registry and the notebook registry, that a goal call returns 4 to 8 modules and writes no notebook or source, that a call which already includes a module list does not call the model, that a dead or private URL is absent, and that chat disabled makes no model call. Verify the welcome screen source does not gain a learn-a-topic action.
+- [x] 4.2 Render the proposal tool result as a plan card in the existing transcript, with both locales. Verify 4.1 passes, a second explicit module list replaces the card data without a completion, and cancelling or leaving the chat creates no notebook.
 
 ## 5. Confirm the plan and ingest the pages
 

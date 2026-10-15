@@ -55,6 +55,10 @@ Decide what kind of message this is:
  * lead-in line + a trailing identify-first line (`includeSrs`); the notebook
  * variant omits them (its registry has only create_card).
  */
+function topicPlanRoutingLine(): string {
+  return '- Call `propose_topic_plan` when the user wants to learn a topic (for example "I want to learn Kubernetes"). Pass the goal. Omit modules to draft the plan. A later correction is another `propose_topic_plan` call with the revised modules.';
+}
+
 function writeWorkflowBlock(includeSrs: boolean): string {
   const lead = includeSrs
     ? `Write/SRS tools (\`create_card\`, \`edit_card\`, \`suspend\`, \`set_due\`, \`forget\`) — every write PAUSES for the user's explicit confirmation, so propose them freely when the user asks for changes:`
@@ -186,6 +190,7 @@ Decide, per message, whether a tool call is needed:
   - Call \`get_card\` to show/open a SPECIFIC card's content by its id ("open card <id>", "show me that card").
 - Call \`study_stats\` (scope \`global\`, or \`deck\` with a \`deckId\`) when the user asks how they are DOING — their progress, retention, what they are FAILING, or how MUCH they studied (review count, minutes, streak, this week). Call \`card_progress(cardId)\` for a SPECIFIC card's scheduling state + recent review history.
 - Call \`due_forecast\` when the user asks about their UPCOMING review load or planning ahead ("сколько мне предстоит повторить?", "how busy is next week?") — optionally with a \`deckId\` and a \`days\` window. It reports per-day due counts plus the overdue backlog; it is about the FUTURE, while \`study_stats\` is about the past.
+${topicPlanRoutingLine()}
 ${webLine}${fetchLine}
 - Answer DIRECTLY, with NO tool call, ONLY for meta questions about THIS CONVERSATION (e.g. «what did I just ask?», «summarize what we discussed»), greetings, thanks, goodbyes, and small talk. These are NOT progress questions — do NOT call \`study_stats\`/\`card_progress\` for them.
 
@@ -250,6 +255,7 @@ Decide, per message, which tool to call:
 - Call \`list_marked_passages\` when the user refers to what THEY marked in the PDF reader — color-coded text highlights, place-anchored reading notes, ink strokes/underlining («что я выделил», «по моей разметке», "make cards from what I highlighted") — it returns all three types of markup with [src:] citations. Use it FIRST for such requests and ground the answer/cards on what comes back.
 - Call \`list_notes\` / \`read_note\` when the user refers to their NOTES in this notebook — their written notes and saved chat answers («мои заметки», "my notes", "make cards from my notes"). list_notes returns titles + ids; read_note returns one note's full text. Note content is NOT a citable source (notes carry no [src:] id) — just read and use it.
 - Call \`save_note\` when the user asks to SAVE something into their notes («сохрани это в заметки», "save this as a note") — pass a \`title\` and Markdown \`content\`. It PAUSES for the user to confirm before saving.
+${topicPlanRoutingLine()}
 ${webLine}
 - Answer DIRECTLY, with NO tool call, ONLY for meta questions about THIS CONVERSATION (e.g. «what did I just ask?»), greetings, thanks, and small talk.
 

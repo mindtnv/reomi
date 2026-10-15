@@ -11,6 +11,7 @@
 // (the `text` field, capped) + a streamed `tool_result` event.
 
 import { buildKnowledgeTools } from './knowledge-tools.ts';
+import { proposeTopicPlan } from './topic-plan-proposal.ts';
 import { withAssistantReadScope } from './assistant-tool-scope';
 import { captureCardEvidence, captureReadEvidence, captureQuotedEvidence, type QuotedEvidenceInput, type ReadEvidenceChunk, writePerCardProvenance } from './card-evidence';
 import type { CardEvidenceSnapshot, ChunkCardEvidenceSnapshot } from '@reomi/shared';
@@ -2570,6 +2571,7 @@ export function buildToolRegistry(
       listDecks,
       createCard,
       saveNote,
+      proposeTopicPlan,
     ];
     if (webOn) registry.push(webSearch);
     return registry;
@@ -2586,6 +2588,7 @@ export function buildToolRegistry(
     listDecks,
     browseCards,
     getCard,
+    proposeTopicPlan,
   ];
   if (webOn) registry.push(webSearch);
   if (fetchOn) registry.push(fetchPage);
