@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+
 import { useState } from 'react';
 import { apiErrorFromResponse } from '@/lib/api';
 import { authFailureText, authFieldError, forgotPasswordOutcome, passwordResetRequestUrl } from '@/lib/auth-recovery';

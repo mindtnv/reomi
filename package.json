@@ -15,6 +15,7 @@
     "test": "NODE_ENV=test bun --env-file=./.env test",
     "test:ci": "NODE_ENV=test bun --env-file=./.env test",
     "test:s3:ci": "NODE_ENV=test S3_INTEGRATION_REQUIRED=true bun --env-file=./.env test apps/api/tests/media.test.ts apps/api/tests/source-dedup.test.ts",
+    "lint": "eslint apps/web --max-warnings 0",
     "test:unit": "NODE_ENV=test bun --env-file=./.env test packages/shared",
     "test:api": "NODE_ENV=test bun --env-file=./.env test apps/api",
     "e2e": "bash scripts/verify-reomi.sh",
@@ -36,9 +37,12 @@
     "db:seed:design": "bun --env-file=.env.design packages/db/src/seed-design.ts"
   },
   "devDependencies": {
+    "@babel/parser": "7.29.9",
     "@fission-ai/openspec": "1.13.1",
     "@playwright/test": "^1.64.1",
     "@types/node": "^26.6.2",
+    "eslint": "9.39.5",
+    "eslint-plugin-react": "7.37.5",
     "typescript": "^7.0.2"
   },
   "overrides": {

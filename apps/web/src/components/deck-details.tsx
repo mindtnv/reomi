@@ -1,4 +1,6 @@
 'use client';
+
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
 import type { StudySummary } from '@reomi/shared';
 import type { Deck } from '@/lib/types';
 import { useStudyForecast } from '@/lib/use-study-overview';

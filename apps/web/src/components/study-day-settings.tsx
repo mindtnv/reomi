@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { TextInput } from '@/components/design-system/primitives';
+import { NNBtn } from '@/components/ui';
 import { api, ok } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 
@@ -116,11 +118,11 @@ export function StudyDaySettings({
       {choice.takesEffectAt ? <p>{t('settings.studyDay.takesEffect', { when: formatInstant(choice.takesEffectAt) })}</p> : null}
       <label style={{ display: 'grid', gap: 4, maxWidth: 280 }}>
         {t('settings.studyDay.zone')}
-        <input aria-label={t('settings.studyDay.zone')} value={zone} onChange={(event) => setZone(event.target.value)} />
+        <TextInput aria-label={t('settings.studyDay.zone')} value={zone} onChange={(event) => setZone(event.target.value)} />
       </label>
       <label style={{ display: 'grid', gap: 4, maxWidth: 280 }}>
         {t('settings.studyDay.rollover')}
-        <input
+        <TextInput
           aria-label={t('settings.studyDay.rollover')}
           type="number"
           min={0}
@@ -134,8 +136,8 @@ export function StudyDaySettings({
       {error === 'save' ? <p role="alert">{t('settings.studyDay.saveError')}</p> : null}
       {status ? <p role="status">{status}</p> : null}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button type="button" onClick={onSave}>{t('settings.studyDay.save')}</button>
-        <button type="button" onClick={() => { void apply({ timeZone: null, rolloverMinute: null }); }}>{t('settings.studyDay.reset')}</button>
+        <NNBtn type="button" onClick={onSave}>{t('settings.studyDay.save')}</NNBtn>
+        <NNBtn type="button" onClick={() => { void apply({ timeZone: null, rolloverMinute: null }); }}>{t('settings.studyDay.reset')}</NNBtn>
       </div>
     </div>
   );

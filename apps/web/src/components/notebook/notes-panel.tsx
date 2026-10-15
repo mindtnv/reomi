@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+
 import { useWorkspaceState } from '@/components/navigation';
 import { useNavigationScroll } from '@/lib/use-navigation-scroll';
 import { AssistantAskButton } from '../chat/assistant-ask-button';

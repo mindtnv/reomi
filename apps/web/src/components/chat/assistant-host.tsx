@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+
 import { useWindowControlsOverlay } from '@/lib/ui-store';
 import { LayerParent, useTransientLayer } from '@/lib/use-transient-layer';
 import { assistantFocusControls } from '@/lib/assistant-overlay-focus';

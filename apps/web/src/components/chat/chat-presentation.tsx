@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+
 // Shared transcript, citation, approval and picker presentation. No stream ownership.
 import { useTransientLayer } from '@/lib/use-transient-layer';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';

@@ -1,4 +1,6 @@
 'use client';
+
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
 import React from 'react';
 import { Modal } from '@/components/design-system/modal';
 import { useNavigationGuard, useAppNavigation } from '@/components/navigation';

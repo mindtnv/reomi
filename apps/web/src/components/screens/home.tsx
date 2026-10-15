@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAppNavigation } from '@/components/navigation';
 import { format } from 'date-fns';

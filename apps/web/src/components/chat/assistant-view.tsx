@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+
 import { useAssistantOverlayFocus } from '@/lib/assistant-overlay-focus';
 import { AssistantPopup } from './assistant-popup';
 import { NotebookScopePicker } from './notebook-scope-picker';

@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+
 // "Similar cards" panel — semantic neighbours of one card, fed by
 // GET /cards/:id/similar (stored-vector lookup, no runtime embedding call).
 // Used in the cards-browser edit dock and the reviewer drawer. Plain-text

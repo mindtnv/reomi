@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+
 // Feature #1 — «провал → источник». A lightweight reviewer surface, fed by the
 // SAME `useCardSources` hook the SourceLinksPanel uses, but tuned for the in-flow
 // reveal/grade loop (NOT a backlink list):

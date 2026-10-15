@@ -1,4 +1,6 @@
 'use client';
+
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
 import { InlineDeckCreate } from '../inline-deck-create';
 
 // Feature #2 — «Урожай выделений → карточки» wizard. Opened from the «Разметка»

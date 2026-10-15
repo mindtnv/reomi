@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+
 // OverviewPanel («Блокноты 2.0» N2, Р6/Р12 «Обзор» tab — the FIRST/default dock
 // tab) — the notebook briefing + suggested questions.
 //

@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ASSISTANT_CONTEXT_LIMITS, MARK_NOTE_MAX, MARK_QUOTE_MAX, MARK_RECTS_MAX, SOURCE_MARK_COLORS, type MarkRect, type SourceMarkColor } from '@reomi/shared';

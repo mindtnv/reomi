@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+
 import { useNavigationScroll, NavigationRestoreNotice } from '@/lib/use-navigation-scroll';
 import { NNIcon } from '@/components/ui';
 import { PdfPageVisibility } from '@/lib/pdf-page-visibility';

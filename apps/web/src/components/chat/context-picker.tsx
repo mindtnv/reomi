@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {visibleAssistantViewport} from '@/lib/assistant-overlay-geometry';
 import { LayerParent, useTransientLayer } from '@/lib/use-transient-layer';

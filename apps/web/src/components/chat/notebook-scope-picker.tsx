@@ -1,4 +1,6 @@
 'use client';
+
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
 import {useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import type {AssistantObjectSnapshot} from '@reomi/shared';

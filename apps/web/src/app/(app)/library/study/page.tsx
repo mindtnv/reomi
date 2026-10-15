@@ -1,4 +1,6 @@
 'use client';
+
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { NNAppPage } from '@/components/app-page';

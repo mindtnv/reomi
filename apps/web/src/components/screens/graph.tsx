@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+
 // NeuroNexus — Graph screen
 // Interactive knowledge graph: d3-force layout + d3-zoom pan/zoom + d3-drag nodes.
 // Real data wired from the useNN store; derived via buildGraph.

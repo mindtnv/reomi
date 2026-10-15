@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+
 import { useEffect, useState, useRef } from 'react';
 import { fetchMarks, updateMark } from '@/lib/pdf-annotations';
 import type { SourceMark } from '@/lib/types';

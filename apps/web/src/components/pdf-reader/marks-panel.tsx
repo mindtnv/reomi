@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+
 // M5 — «Разметка» panel: a sliding panel over the right edge of the reader
 // showing all marks (highlights + notes) and ink pages grouped by page number.
 // Clicking a mark scrolls+flashes it in the reader.

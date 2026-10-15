@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+
 import React, { CSSProperties, ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { NNIcon, NNLogo } from './ui';
