@@ -160,6 +160,32 @@ describe('repository contracts', () => {
     expect(webUuidLoop).toBeGreaterThan(apiStop);
   });
 
+  test('browser smoke follows a pull request locally and a finished deploy in production', () => {
+    const packageJson = JSON.parse(readRepoFile('package.json')) as {
+      scripts: Record<string, string>;
+    };
+    expect(packageJson.scripts.e2e).toBe('bash scripts/verify-reomi.sh');
+    expect(packageJson.scripts['e2e:prod']).toBe('E2E_TARGET=prod bash scripts/verify-reomi.sh');
+
+    const ci = readRepoFile('.github/workflows/ci.yml');
+    expect(ci).toMatch(/^ {8}run: bun run e2e$/m);
+
+    const deploy = readRepoFile('.github/workflows/deploy.yml');
+    const marker = deploy.indexOf('\n  e2e-prod:\n');
+    expect(marker).toBeGreaterThan(-1);
+    const job = deploy.slice(marker);
+    expect(job).toContain('needs: [deploy]');
+    expect(job).toMatch(/^ {8}run: bun run e2e:prod$/m);
+    expect(job).not.toContain('COOLIFY');
+    expect(job).not.toContain('docker_registry_image_tag');
+
+    for (const guide of ['CLAUDE.md', 'AGENTS.md']) {
+      const text = readRepoFile(guide);
+      expect(text, guide).toContain('.cursor/skills/verify-reomi/SKILL.md');
+      expect(text, guide).toContain('bun run e2e');
+    }
+  });
+
   test('workspace packages are named reomi', () => {
     const root = JSON.parse(readRepoFile('package.json')) as { name: string };
     expect(root.name).toBe('reomi');
