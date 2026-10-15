@@ -26,8 +26,8 @@ Each numbered section is one pull request. Land them in order. A later section s
 
 ## 5. Confirm the plan and ingest the pages
 
-- [ ] 5.1 Add failing tests that applying `create_topic_plan` creates one notebook and one plan, ingests each accepted URL through the existing URL ingest, attaches those sources to the notebook, and links them to the modules. Verify reject writes nothing, a fetch is not started before the source row exists, a later ingest error keeps the link, a cap stops the rest of the batch, the user id comes from the session, and no card row is created.
-- [ ] 5.2 Implement the write tool on the existing confirm path, using the plan save and the per-module URL action. Render the same modules and URLs on the existing confirm card. Verify 5.1 passes and Apply does not call the model.
+- [x] 5.1 Add failing tests that applying `create_topic_plan` creates one notebook and one plan, ingests each accepted URL through the existing URL ingest, attaches those sources to the notebook, and links them to the modules. Verify reject writes nothing, a fetch is not started before the source row exists, a later ingest error keeps the link, a cap stops the rest of the batch, the user id comes from the session, and no card row is created.
+- [x] 5.2 Implement the write tool on the existing confirm path, using the plan save and the per-module URL action. Render the same modules and URLs on the existing confirm card. Verify 5.1 passes and Apply does not call the model.
 
 ## 6. Show the plan on the notebook
 

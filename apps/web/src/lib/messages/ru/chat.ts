@@ -211,6 +211,7 @@ const m = {
     get_card: 'Открыта карточка',
     fetch_page: 'Прочитана страница',
     propose_topic_plan: 'Предложен план обучения',
+    create_topic_plan: 'Сохранить план обучения',
     // Лейблы write/SRS-тулов (B5) — `{front}` = фронт карточки, `{deck}` =
     // имя колоды; никогда не UUID.
     create_card: 'Черновик карточки для «{deck}»',
@@ -312,6 +313,8 @@ const m = {
   },
   plan: {
     modules: 'Модули: {count}',
+    confirm: 'Сохранить этот план',
+    pages: 'Страницы: {count}',
   },
   // Errors surfaced in the stream
   errors: {

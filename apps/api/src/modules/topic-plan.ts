@@ -114,7 +114,7 @@ export function parsePlanBody(
   return { ok: true, value: { goal, level, modules } };
 }
 
-class PlanWriteError extends Error {
+export class PlanWriteError extends Error {
   constructor(
     readonly statusCode: 400 | 404 | 409,
     readonly code: 'invalid_module' | 'not_found' | 'plan_exists' | 'too_many_notebooks',
@@ -367,6 +367,11 @@ async function writePlan(
   const loaded = await loadPlan(userId, notebookIdOut);
   if (!loaded) throw new PlanWriteError(404, 'not_found');
   return loaded;
+}
+
+/** Create mode with no notebook id. writePlan stays the only plan writer. */
+export async function createPlanNotebook(userId: string, parsed: ParsedPlan): Promise<PlanView> {
+  return writePlan(userId, 'create', undefined, parsed);
 }
 
 function uniqueName(err: unknown): string | null {

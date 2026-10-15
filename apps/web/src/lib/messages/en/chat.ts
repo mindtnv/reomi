@@ -211,6 +211,7 @@ const m = {
     get_card: 'Opened a card',
     fetch_page: 'Read a page',
     propose_topic_plan: 'Proposed a study plan',
+    create_topic_plan: 'Save a study plan',
     // Write/SRS tool labels (B5) — `{front}` = the card's front excerpt,
     // `{deck}` = the target deck name; never a UUID.
     create_card: 'Drafted a card for {deck}',
@@ -313,6 +314,8 @@ const m = {
   },
   plan: {
     modules: '{count} modules',
+    confirm: 'Save this plan',
+    pages: '{count} pages',
   },
   // Errors surfaced in the stream
   errors: {
