@@ -9,7 +9,7 @@ import { DialogProvider } from './dialog';
 import { BASIC_NOTE_TYPE, newUuidV7 } from '@reomi/shared';
 import { useNN } from '../lib/store';
 import { noteTypeFromApi } from '../lib/mappers';
-import { readEditorDraft } from '../lib/editor-drafts';
+import { readEditorDraft, writeEditorDraft } from '../lib/editor-drafts';
 ensureTestDom();
 const { createRoot } = await import('react-dom/client');
 const { NNCardForm } = await import('./card-form');
@@ -78,4 +78,50 @@ test('lost card creation resolves once, retains newer text across reload, then u
   expect(host.querySelector<HTMLTextAreaElement>('textarea[data-nn-field]')!.value).toBe('Newer B');
   await act(async () => button('actions.save').click());
   expect(creates).toBe(1); expect(updates).toBe(1); expect(savedCallbacks).toBe(1);
+});
+
+test('reopening a new-note draft repeats one create operation', async () => {
+  const posts: string[] = [];
+  let creates = 0;
+  const committed = new Map<string, { note: { id: string }; cards: Array<{ id: string }> }>();
+  globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+    const path = String(url);
+    if (path.endsWith('/session')) return Response.json({ sessionId: newUuidV7() });
+    const operationId = path.match(/\/notes\/operations\/([0-9a-f-]{36})/i)?.[1];
+    if (operationId && (init?.method ?? 'GET') === 'GET') {
+      const saved = committed.get(operationId);
+      return saved ? Response.json({ status: 'committed', result: saved }) : Response.json({ error: 'operation_not_found' }, { status: 404 });
+    }
+    if (operationId && init?.method === 'POST') {
+      posts.push(operationId);
+      const saved = committed.get(operationId);
+      if (saved) return Response.json({ ...saved, replayed: true });
+      creates += 1;
+      const body = JSON.parse(String(init.body));
+      const note = { id: 'saved-note', noteTypeId: BASIC_NOTE_TYPE.id, fieldValues: body.fieldValues, tags: [], updatedAt: '2026-09-23T00:00:01.000Z' };
+      const result = { note, cards: [{ id: 'saved-card', noteId: note.id, deckId: 'deck', templateOrd: 0, state: 'new' }] };
+      committed.set(operationId, result);
+      throw new Error('reply lost after commit');
+    }
+    if (path.includes('/card-notes') && (init?.method ?? 'GET') === 'POST') {
+      creates += 1;
+      posts.push('legacy');
+      throw new Error('reply lost after commit');
+    }
+    return Response.json({ items: [] });
+  }) as unknown as typeof fetch;
+  await act(async () => root.render(view(() => {})));
+  await front('A');
+  await act(async () => button('actions.create').click());
+  await act(async () => root.render(null));
+  const scope = { ownerId: owner, kind: 'note' as const, entityId: 'new' };
+  const stored = readEditorDraft(scope);
+  expect(stored?.value).toBeTruthy();
+  writeEditorDraft(scope, { ...(stored!.value as object), pendingSave: null }, stored!.revision);
+  await act(async () => root.render(view(() => {})));
+  await act(async () => button('editor.draft.restore').click());
+  await act(async () => button('actions.create').click());
+  expect(creates).toBe(1);
+  expect(posts).not.toContain('legacy');
+  expect(new Set(posts).size).toBe(1);
 });
