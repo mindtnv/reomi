@@ -4,9 +4,9 @@ Each numbered section is one pull request. Land them in order. A later section s
 
 ## 1. Persist an owned plan
 
-- [ ] 1.1 Add failing API tests for a first save, a hand-built module with no URLs, a 13-module reject, a forward prerequisite reject, a second save that keeps one module's identity and does not rename the notebook, a second save that drops a module without deleting its library source, a 409 when the notebook already has a plan, and a foreign or missing notebook. Verify the new test file fails before the schema exists.
-- [ ] 1.2 Add `topic_plans`, `topic_modules`, `topic_module_prerequisites`, and `topic_module_sources` to the Drizzle schema and generate the next versioned migration. Verify `bun run db:migrate:apply:test` applies it on an empty test database and on a database that already has the previous chain head.
-- [ ] 1.3 Implement save and read for `POST /notebooks/plans`, `PUT /notebooks/:id/plan`, and `GET /notebooks/:id/plan` inside one transaction per save. Verify 1.1 passes, a save creates no card rows, and deleting the notebook removes the plan while library sources remain.
+- [x] 1.1 Add failing API tests for a first save, a hand-built module with no URLs, a 13-module reject, a forward prerequisite reject, a second save that keeps one module's identity and does not rename the notebook, a second save that drops a module without deleting its library source, a 409 when the notebook already has a plan, and a foreign or missing notebook. Verify the new test file fails before the schema exists.
+- [x] 1.2 Add `topic_plans`, `topic_modules`, `topic_module_prerequisites`, and `topic_module_sources` to the Drizzle schema and generate the next versioned migration. Verify `bun run db:migrate:apply:test` applies it on an empty test database and on a database that already has the previous chain head.
+- [x] 1.3 Implement save and read for `POST /notebooks/plans`, `PUT /notebooks/:id/plan`, and `GET /notebooks/:id/plan` inside one transaction per save. Verify 1.1 passes, a save creates no card rows, and deleting the notebook removes the plan while library sources remain.
 
 ## 2. Generate an unsaved draft
 

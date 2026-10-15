@@ -13,6 +13,7 @@ import {
   real,
   text,
   timestamp,
+  primaryKey,
   uniqueIndex,
   unique,
   uuid,
@@ -1404,6 +1405,96 @@ export const notificationDeliveries = pgTable(
   ],
 );
 
+// ── topic study plan ───────────────────────────────────────────────────────
+// One notebook owns at most one plan. Modules are an ordered list the user
+// edits. Source links are a separate table so dropping a module does not
+// delete the library row.
+
+export const topicPlans = pgTable(
+  'topic_plans',
+  {
+    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    notebookId: uuid('notebook_id')
+      .notNull()
+      .references(() => notebooks.id, { onDelete: 'cascade' }),
+    goal: text('goal').notNull(),
+    level: text('level'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique('topic_plans_notebook_uq').on(t.notebookId),
+    index('topic_plans_user_idx').on(t.userId),
+    check('topic_plans_goal_chk', sql`char_length(${t.goal}) between 1 and 200`),
+    check('topic_plans_level_chk', sql`${t.level} is null or char_length(${t.level}) between 1 and 80`),
+  ],
+);
+
+export const topicModules = pgTable(
+  'topic_modules',
+  {
+    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    planId: uuid('plan_id')
+      .notNull()
+      .references(() => topicPlans.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    title: text('title').notNull(),
+    outcome: text('outcome').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique('topic_modules_plan_position_uq').on(t.planId, t.position),
+    index('topic_modules_user_idx').on(t.userId),
+    check('topic_modules_position_chk', sql`${t.position} >= 0`),
+    check('topic_modules_title_chk', sql`char_length(${t.title}) between 1 and 120`),
+    check('topic_modules_outcome_chk', sql`char_length(${t.outcome}) between 1 and 400`),
+  ],
+);
+
+export const topicModulePrerequisites = pgTable(
+  'topic_module_prerequisites',
+  {
+    moduleId: uuid('module_id')
+      .notNull()
+      .references(() => topicModules.id, { onDelete: 'cascade' }),
+    prerequisiteModuleId: uuid('prerequisite_module_id')
+      .notNull()
+      .references(() => topicModules.id, { onDelete: 'cascade' }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.moduleId, t.prerequisiteModuleId] }),
+    check('topic_module_prereq_not_self', sql`${t.moduleId} <> ${t.prerequisiteModuleId}`),
+  ],
+);
+
+export const topicModuleSources = pgTable(
+  'topic_module_sources',
+  {
+    moduleId: uuid('module_id')
+      .notNull()
+      .references(() => topicModules.id, { onDelete: 'cascade' }),
+    sourceId: uuid('source_id')
+      .notNull()
+      .references(() => sources.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.moduleId, t.sourceId] }),
+    index('topic_module_sources_source_idx').on(t.sourceId),
+    index('topic_module_sources_user_idx').on(t.userId),
+  ],
+);
+
 // ── inferred types ─────────────────────────────────────────────────────────
 
 export type Profile = typeof profile.$inferSelect;
@@ -1458,3 +1549,11 @@ export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type NewPushSubscription = typeof pushSubscriptions.$inferInsert;
 export type NotificationDelivery = typeof notificationDeliveries.$inferSelect;
 export type NewNotificationDelivery = typeof notificationDeliveries.$inferInsert;
+export type TopicPlan = typeof topicPlans.$inferSelect;
+export type NewTopicPlan = typeof topicPlans.$inferInsert;
+export type TopicModule = typeof topicModules.$inferSelect;
+export type NewTopicModule = typeof topicModules.$inferInsert;
+export type TopicModulePrerequisite = typeof topicModulePrerequisites.$inferSelect;
+export type NewTopicModulePrerequisite = typeof topicModulePrerequisites.$inferInsert;
+export type TopicModuleSource = typeof topicModuleSources.$inferSelect;
+export type NewTopicModuleSource = typeof topicModuleSources.$inferInsert;
