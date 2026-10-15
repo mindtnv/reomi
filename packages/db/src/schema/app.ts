@@ -347,6 +347,8 @@ export const cards = pgTable(
 // optional identity so a same-millisecond profile edit is visible. Older
 // snapshots omit them. Date columns are ISO strings.
 export interface UndoSnapshot {
+  // Filtered practice sets this false. Older rows omit it and still count.
+  countsTowardBudget?: boolean;
   card: {
     due: string; // ISO
     stability: number;

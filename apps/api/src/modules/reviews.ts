@@ -28,6 +28,7 @@ import {
   type FsrsCard,
 } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin.ts';
+import { budgetDecksFromSnapshot, loadDeckSpend, pathRemaining } from './deck-budget.ts';
 import { resolveDeckConfig } from './deck-config.ts';
 import { ledgerFromProfile, loadStudyPolicy } from './study-day.ts';
 
@@ -106,7 +107,9 @@ async function gradeReview(user:{id:string;name?:string|null}, body:GradeInput, 
     // Pre-grade snapshot, taken before the FSRS step and the rollup.
     // Dates are ISO strings for JSONB. A filtered grade does not move the
     // daily counters, so restoring them is a no-op.
+    const countsTowardBudget = body.source !== 'filtered';
     const undoSnapshot: UndoSnapshot = {
+      countsTowardBudget,
       card: {
         due: card.due.toISOString(),
         stability: card.stability,
@@ -168,6 +171,16 @@ async function gradeReview(user:{id:string;name?:string|null}, body:GradeInput, 
     // PRE-grade state — classifies new-introduction vs review for the
     // daily counters BEFORE the FSRS step mutates `state`.
     const wasNew = card.state === 'new';
+    if (countsTowardBudget && (wasNew || card.state === 'review')) {
+      const spend = await loadDeckSpend(user.id, resolved.epoch.start, resolved.epoch.end, tx);
+      const room = pathRemaining(
+        budgetDecksFromSnapshot({ userDecks, presetsById, profile: existingProfile ?? null }),
+        spend,
+        card.deckId,
+        wasNew ? 'new' : 'review',
+      );
+      if (room < 1) return status(409, { error: 'daily_limit' });
+    }
 
     // FSRS step
     const fsrsCard: FsrsCard = {

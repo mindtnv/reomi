@@ -1,7 +1,15 @@
 import { cards, db, decks, deckOptionsPreset, profile } from '@reomi/db';
 import { eq, sql } from 'drizzle-orm';
 import { type StudyCounts, type StudySummary, type StudyOverview } from '@reomi/shared';
-import { resolveDeckConfig } from './deck-config';
+import {
+  allocateDeckBudgets,
+  budgetDecksFromSnapshot,
+  loadDeckSpend,
+  type BudgetAllocation,
+  type DeckSpend,
+  type DeckSupply,
+} from './deck-budget.ts';
+import type { DeckConfigSnapshot } from './deck-config.ts';
 import { readAccountStudyDay, studyDaySnapshot } from './study-day.ts';
 
 /** One aggregate per deck; never fetches card contents or embeds vectors. */
@@ -57,6 +65,59 @@ export function studyAvailability(counts: StudyCounts, newRemaining: number, rev
   };
 }
 
+export function supplyFromCounts(counts: Iterable<[string, StudyCounts]>): Map<string, DeckSupply> {
+  return new Map([...counts].map(([id, row]) => [id, { newCards: row.dueNew, reviews: row.dueReview }]));
+}
+
+/** Slot totals follow the tree budget. Offered cards follow the same walk with the cards each deck actually has. */
+export function summarizeAllocation(counts: StudyCounts, allocation: BudgetAllocation, now: Date): StudySummary {
+  let offeredNew = 0;
+  let offeredReview = 0;
+  for (const value of allocation.newByDeck.values()) offeredNew += value;
+  for (const value of allocation.reviewByDeck.values()) offeredReview += value;
+  const summary = studyAvailability(counts, allocation.newRemaining, allocation.reviewRemaining, now);
+  return {
+    ...summary,
+    availableNew: offeredNew,
+    availableReview: offeredReview,
+    totalAvailable: counts.dueLearning + offeredNew + offeredReview,
+    limitedNew: counts.dueNew - offeredNew,
+    limitedReview: counts.dueReview - offeredReview,
+  };
+}
+
+export function allocateStudyScope(
+  snapshot: DeckConfigSnapshot,
+  spend: ReadonlyMap<string, DeckSpend>,
+  countsByDeck: Map<string, StudyCounts>,
+  scopeId: string | null,
+  now: Date,
+  options: { include?: (deckId: string) => boolean; clampNew?: number; clampReview?: number } = {},
+): { allocation: BudgetAllocation; summary: StudySummary } {
+  const nodes = budgetDecksFromSnapshot(snapshot);
+  const scopeIds = scopeId ? [scopeId, ...descendantIdsOf(scopeId, nodes)] : nodes.map((deck) => deck.id);
+  const visible = options.include ? scopeIds.filter((id) => options.include!(id)) : scopeIds;
+  const allocation = allocateDeckBudgets(
+    nodes,
+    spend,
+    supplyFromCounts(countsByDeck),
+    scopeId,
+    (id) => visible.includes(id),
+    { newCards: options.clampNew, reviews: options.clampReview },
+  );
+  const counts = sumStudyCounts(visible.flatMap((id) => {
+    const row = countsByDeck.get(id);
+    return row ? [row] : [];
+  }));
+  return { allocation, summary: summarizeAllocation(counts, allocation, now) };
+}
+
+function descendantIdsOf(deckId: string, decks: { id: string; parentId: string | null }[], seen = new Set<string>()): string[] {
+  if (seen.has(deckId)) return [];
+  seen.add(deckId);
+  return decks.filter((deck) => deck.parentId === deckId).flatMap((deck) => [deck.id, ...descendantIdsOf(deck.id, decks, seen)]);
+}
+
 export async function loadStudyOverview(userId: string, now = new Date()): Promise<StudyOverview> {
   const [userDecks, presets, profiles, direct] = await Promise.all([
     db.select().from(decks).where(eq(decks.userId, userId)),
@@ -66,26 +127,10 @@ export async function loadStudyOverview(userId: string, now = new Date()): Promi
   ]);
   const snapshot = { userDecks, presetsById: new Map(presets.map((p) => [p.id, p])), profile: profiles[0] ?? null };
   const { read } = await readAccountStudyDay(userId, profiles[0] ?? null, now);
-  const usedNew = read.usedNew;
-  const usedReviews = read.usedReviews;
-  const availability = (counts: StudyCounts, deckId: string | null) => {
-    const config = resolveDeckConfig(deckId, snapshot);
-    return studyAvailability(counts, Math.max(0, config.newPerDay - usedNew), Math.max(0, config.reviewsPerDay - usedReviews), now);
-  };
-  const byId = new Map(userDecks.map((deck) => [deck.id, deck]));
-  const aggregated = new Map(userDecks.map((deck) => [deck.id, sumStudyCounts([])]));
-  for (const [deckId, counts] of direct) {
-    let id: string | null = deckId;
-    const seen = new Set<string>();
-    while (id && byId.has(id) && !seen.has(id)) {
-      seen.add(id);
-      aggregated.set(id, sumStudyCounts([aggregated.get(id)!, counts]));
-      id = byId.get(id)!.parentId;
-    }
-  }
+  const spend = await loadDeckSpend(userId, read.startsAt, read.endsAt);
   return {
-    overall: availability(sumStudyCounts(direct.values()), null),
-    decks: Object.fromEntries([...aggregated].map(([id, counts]) => [id, availability(counts, id)])),
+    overall: allocateStudyScope(snapshot, spend, direct, null, now).summary,
+    decks: Object.fromEntries(userDecks.map((deck) => [deck.id, allocateStudyScope(snapshot, spend, direct, deck.id, now).summary])),
     direct: Object.fromEntries(userDecks.map((deck) => [deck.id, direct.get(deck.id) ?? sumStudyCounts([])])),
     studyDay: studyDaySnapshot(read),
   };
