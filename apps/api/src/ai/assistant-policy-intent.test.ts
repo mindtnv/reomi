@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from 'bun:test';
 import { __setAiClientForTests, __resetAiClientForTests } from './openai-client';
+import { UpstreamChatError } from './chat-upstream';
 import { resolveAssistantPolicyIntent } from './assistant-policy-intent';
 afterEach(__resetAiClientForTests);
 test('ordinary questions do not invoke policy classification', async () => {
@@ -36,6 +37,15 @@ test('a direct request can return to focus but a classifier cannot return arbitr
   expect(await resolveAssistantPolicyIntent('Можно использовать другие источники, сними ограничение','strict')).toEqual({kind:'set',policy:'focus'});
   __setAiClientForTests({complete:async()=>'{"intent":"unrestricted_admin"}'});
   expect(await resolveAssistantPolicyIntent('Use only these materials','strict')).toEqual({kind:'selection_required'});
+});
+
+test('an upstream or transport failure is rethrown instead of asking for a selection', async () => {
+  __setAiClientForTests({ complete: async () => { throw new UpstreamChatError({ status: null, html: false }); } });
+  await expect(resolveAssistantPolicyIntent('Use only these materials', 'focus')).rejects.toBeInstanceOf(UpstreamChatError);
+  __setAiClientForTests({ complete: async () => { throw new UpstreamChatError({ status: 401, html: false }); } });
+  await expect(resolveAssistantPolicyIntent('Use only these materials', 'focus')).rejects.toBeInstanceOf(UpstreamChatError);
+  __setAiClientForTests({ complete: async () => { throw new TypeError('fetch failed'); } });
+  await expect(resolveAssistantPolicyIntent('Use only these materials', 'focus')).rejects.toThrow('fetch failed');
 });
 
 test('requests to use any sources or the assistant own knowledge are checked for a return to focus', async () => {

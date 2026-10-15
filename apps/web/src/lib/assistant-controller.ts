@@ -4,8 +4,13 @@ import {
   type ChatResumeRequest, type MessageAttachmentInput,
 } from '@reomi/shared';
 import { applySummaryFrom, reconstructMessages, type MessageVM, type PersistedMessageRow, type ToolCallVM } from './chat-activity';
+import { ApiError } from './api';
 import type { ChatStreamHandlers, ChatTurnOpts } from './chat-stream';
 import type { AssistantDraftRecord } from './assistant-drafts';
+
+function failureCode(reported: string, error?: ApiError): string {
+  return error?.safeMessage || reported;
+}
 
 export interface AssistantConversation {
   id: string; title: string | null; updatedAt: string; notebookId?: string | null; pinned?: boolean; contextVersion?: number;
@@ -281,12 +286,12 @@ export class AssistantController {
           }));
           if (!canRestore) this.rememberUnsent(key, payload);
         }
-        this.fail(key, code, error?.status, error?.requestId);
+        this.fail(key, failureCode(code, error), error?.status, error?.requestId);
       });
       await this.transport.stream(id, payload.content, handlers, { context, policySelection: payload.policySelection, expectedContextRevision: payload.expectedRevision,
         model: payload.model, research: payload.research || undefined, attachments: payload.attachments, signal: flight.controller.signal });
     } catch (error) {
-      if (this.current(key, flight)) this.fail(key, error instanceof Error ? error.message : 'send_failed');
+      if (this.current(key, flight)) this.fail(key, error instanceof ApiError ? error.safeMessage : error instanceof Error ? error.message : 'send_failed');
     } finally { this.release(key, flight, completed); }
   }
   private placeholder(id: string, model?: string): MessageVM {
@@ -356,7 +361,7 @@ export class AssistantController {
     this.update(key, s => ({ ...s, messages: s.messages.map(m => m.id === host.id ? { ...m, streaming: true, model: request.model ?? session.model ?? m.model,
       toolCalls: m.toolCalls?.map(c => c.id === request.resumeToolCallId ? { ...c, decision: request.decision } : c) } : m) }));
     const failed: NonNullable<ChatStreamHandlers['onError']> = (code, error) => {
-      this.fail(key, code, error?.status, error?.requestId);
+      this.fail(key, failureCode(code, error), error?.status, error?.requestId);
       if (error?.status && error.status >= 400) this.update(key, s => ({ ...s, phase: 'needs_approval', messages: s.messages.map(m => m.id === host.id ? host : m) }));
     };
     const notebookId = session.conversation?.notebookId;
@@ -364,7 +369,7 @@ export class AssistantController {
     const sourceIds = request.sourceIds ?? (legacyPin?.ref.kind === 'notebook' ? legacyPin.ref.sourceIds : undefined);
     try { await this.transport.resume(session.conversationId, { ...request, ...(sourceIds !== undefined ? {sourceIds} : {}), model: request.model ?? session.model },
       this.handlers(key, flight, host.id, () => { completed = true; }, failed), flight.controller.signal); }
-    catch (error) { if (this.current(key, flight)) this.fail(key, error instanceof Error ? error.message : 'resume_failed'); }
+    catch (error) { if (this.current(key, flight)) this.fail(key, error instanceof ApiError ? error.safeMessage : error instanceof Error ? error.message : 'resume_failed'); }
     finally { this.release(key, flight, completed); }
   }
 
@@ -384,9 +389,9 @@ export class AssistantController {
       this.handlers(key, flight, id, () => { completed = true; }, (code,error) => {
         if (error?.status && error.status >= 400) this.update(key, s => ({ ...s, messages: session.messages,
           ...(consumedPolicyRevision !== undefined && s.composerRevision === consumedPolicyRevision ? { policySelection: session.policySelection } : {}) }));
-        this.fail(key, code, error?.status, error?.requestId);
+        this.fail(key, failureCode(code, error), error?.status, error?.requestId);
       }), flight.controller.signal); }
-    catch (error) { if (this.current(key, flight)) this.fail(key, error instanceof Error ? error.message : 'regenerate_failed'); }
+    catch (error) { if (this.current(key, flight)) this.fail(key, error instanceof ApiError ? error.safeMessage : error instanceof Error ? error.message : 'regenerate_failed'); }
     finally { this.release(key, flight, completed); }
     return completed;
   }

@@ -1,5 +1,6 @@
 // AI / RAG module. v1 foundation. Exposes:
 //   GET    /ai/status                          — feature switches + model config (Slice 0).
+//   GET    /ai/chat-probe                      — cookie-authenticated chat host probe.
 //   POST   /ai/reindex                         — enqueue all the caller's cards (Slice 3).
 //   GET    /chat/conversations                 — user's threads, newest first (Slice 4).
 //   POST   /chat/conversations                 — create a thread (Slice 4).
@@ -22,6 +23,7 @@
 import { captureSuppliedEvidence } from '../ai/card-evidence';
 import { capStoredToolResult } from '../ai/tool-result-cap.ts';
 import { resolveAssistantPolicyIntent } from '../ai/assistant-policy-intent';
+import { learnerCodeForThrown, preFlushChatFailure, probeChatUpstream } from '../ai/chat-upstream.ts';
 import { Elysia, t } from 'elysia';
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
@@ -1415,12 +1417,9 @@ function sseResponse(
           // Cancelled turn (Stop / disconnect / superseded) — not an error.
           log.info({ err: err instanceof Error ? err.message : err }, 'ai.chat.turn_aborted');
         } else {
-          log.error({ err }, 'ai.chat.stream_failed');
-          const code =
-            err instanceof Error && /^(chat_stream_torn|chat_failed|ai_disabled)/.test(err.message)
-              ? err.message
-              : 'chat_failed';
-          emit({ type: 'error', message: code });
+          const message = learnerCodeForThrown(err);
+          log.error({ message }, 'ai.chat.stream_failed');
+          emit({ type: 'error', message });
         }
       } finally {
         opts.onSettled?.();
@@ -1499,6 +1498,24 @@ export const aiModule = new Elysia({ prefix: '/ai' })
       // when embeddings are off/degraded.
       void reconcileDocumentsOnStartup({ userId: user.id }, log);
       return { queued };
+    },
+    { auth: true },
+  )
+  .get(
+    '/chat-probe',
+    async (context) => {
+      const { user, status } = context;
+      const log = requestLogFromContext(context);
+      const cooled = cooldownCheck(`chat-probe:${user.id}`, AI_COOLDOWN_MS.chatProbe);
+      if (!cooled.ok) return status(429, { error: 'cooldown', retryAfterMs: cooled.retryAfterMs });
+      // NODE_ENV=test forces the env flag off. The injected chat surface is the
+      // existing enable seam, so installing a fetch mock does not run the probe.
+      if (!isChatEnabled()) return { ok: false, state: 'disabled' as const };
+      return probeChatUpstream({
+        info: (fields, event) => {
+          log.info(fields, event);
+        },
+      });
     },
     { auth: true },
   );
@@ -1837,6 +1854,8 @@ const createChatModule = <const Prefix extends string>(prefix: Prefix) => new El
         // Pre-flush failure after the lock was taken — release it or the
         // conversation stays 409-locked until the TTL.
         releaseTurnLock(conv.id, lock);
+        const failure = preFlushChatFailure(err);
+        if (failure) return status(failure.status, { error: failure.error });
         if (err instanceof AssistantContextError) return status(assistantContextErrorStatus(err), { error: err.code });
         throw err;
       }
@@ -2428,6 +2447,8 @@ const createChatModule = <const Prefix extends string>(prefix: Prefix) => new El
       });
       } catch (error) {
         releaseTurnLock(conv.id, lock);
+        const failure = preFlushChatFailure(error);
+        if (failure) return status(failure.status, { error: failure.error });
         if (error instanceof AssistantContextError) return status(assistantContextErrorStatus(error), { error: error.code });
         throw error;
       }

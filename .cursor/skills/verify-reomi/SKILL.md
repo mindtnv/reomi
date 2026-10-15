@@ -1,6 +1,6 @@
 ---
 name: verify-reomi
-description: Drive the Reomi web app as a signed-in learner. Use before a pull request that changes UI or API behavior, and when checking sign-in, decks, cards, review, or statistics. Local runs use docker compose Postgres and bun. Production runs sign in at https://app.reomi.ru.
+description: Drive the Reomi web app as a signed-in learner. Use before a pull request that changes UI or API behavior, and when checking sign-in, decks, cards, review, statistics, chat, and settings. Local runs use docker compose Postgres and bun. Production runs sign in at https://app.reomi.ru.
 ---
 
 # Verify Reomi
@@ -59,6 +59,17 @@ Local walk:
 9. Open `Stats`. Expect `Due forecast`, `Retention by interval`, and `Per-deck performance`. Scroll the row that contains the deck name and the exact text `1 own` into the viewport.
 
 Production uses the same steps from sign-in onward. It does not sign up and does not require the garden. Deck, question, and answer all start with `e2e-<time>-<entropy>`.
+
+Settings and the live assistant are `e2e/assistant-settings.e2e.ts`. That file creates or signs in its own learner and does not depend on the deck walk. Production uses `E2E_EMAIL` and `E2E_PASSWORD`. The Playwright smoke also opens Settings and expects the Notifications heading, then checks cookie-authenticated GET /ai/chat-probe.
+
+1. Open `/settings`. Expect the heading `Notifications`. The page must not crash. A switch may be present.
+2. Read cookie-authenticated GET /ai/chat-probe with the page's credentialed fetch. Local is `http://localhost:3000`. Production is `https://api.reomi.ru`. Parse the JSON with `parseChatProbe`.
+3. When the probe is `{ ok: false, state: 'disabled' }` and the mode is not production, skip only that live assertion with the reason `CHAT_API_KEY unset; skipping live assistant assertion`. Production never skips. A null probe or a probe that is not ok fails the test.
+4. Open `/chat` and send `Reply with the single word ok.`. Fail if `The assistant needs attention`, `The AI service is temporarily unavailable.`, or `Something went wrong. Please try again.` is visible. Wait up to 90s for a non-empty assistant reply.
+
+e2e-prod sends a chat message and fails when the assistant shows the attention or unavailable state. Pull-request CI skips that live assertion with a clear reason when chat is disabled.
+
+A pull request that changes user-visible UI attaches screenshots of each changed screen in a normal browser and in an installed or standalone PWA. Display-mode emulation counts. The reviewer looks at those screenshots before approve. Raw or unstyled HTML forms are a request for changes.
 
 ## Evidence
 

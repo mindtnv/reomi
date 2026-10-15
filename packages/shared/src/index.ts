@@ -20,6 +20,7 @@ export * from './youtube-source.ts';
 export * from './notebook.ts';
 export * from './annotations.ts';
 export * from './chat-models.ts';
+export * from './chat-probe.ts';
 export * from './assistant-context.ts';
 export * from './rag-prompt.ts';
 export * from './uuid.ts';

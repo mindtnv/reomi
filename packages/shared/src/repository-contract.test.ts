@@ -202,11 +202,37 @@ describe('repository contracts', () => {
     expect(smoke).not.toContain('deploy-main');
     expect(smoke).not.toContain('COOLIFY');
     expect(smoke).not.toContain('docker_registry_image_tag');
+    expect(smoke).not.toContain('CHAT_BASE_URL');
 
+    const shell = readRepoFile('scripts/verify-reomi.sh');
+    const warningAt = shell.indexOf(
+      '::warning::E2E_EMAIL or E2E_PASSWORD is unset. Skipping production smoke.',
+    );
+    expect(warningAt).toBeGreaterThan(-1);
+    expect(shell.slice(warningAt, warningAt + 160)).toContain('exit 0');
+
+    const assistantE2e = readRepoFile('e2e/assistant-settings.e2e.ts');
+    expect(assistantE2e).toContain('CHAT_API_KEY unset; skipping live assistant assertion');
+    expect(assistantE2e).not.toContain('CHAT_BASE_URL');
+
+    const phrases = [
+      'chat, and settings',
+      'cookie-authenticated GET /ai/chat-probe',
+      'expects the Notifications heading',
+      'attention or unavailable state',
+      'when chat is disabled',
+      'installed or standalone PWA',
+      'Display-mode emulation counts',
+      'request for changes',
+    ];
     for (const guide of ['CLAUDE.md', 'AGENTS.md']) {
       const text = readRepoFile(guide);
       expect(text, guide).toContain('.cursor/skills/verify-reomi/SKILL.md');
       expect(text, guide).toContain('bun run e2e');
+    }
+    for (const guide of ['CLAUDE.md', 'AGENTS.md', '.cursor/skills/verify-reomi/SKILL.md']) {
+      const text = readRepoFile(guide);
+      for (const phrase of phrases) expect(text, `${guide} missing ${phrase}`).toContain(phrase);
     }
   });
 

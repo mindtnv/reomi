@@ -53,6 +53,7 @@ const assistant = {
     context_unavailable: 'An attached object is unavailable. Check the context and try again.',
     context_selection_required: 'Choose the sources for this older conversation before continuing. Its history is preserved.',
     uploads_in_progress: 'Wait for the attachments to finish uploading.', turn_in_progress: 'This conversation already has an active response.',
+    ai_unavailable: 'The AI service is temporarily unavailable.',
   },
 };
 export default assistant;
