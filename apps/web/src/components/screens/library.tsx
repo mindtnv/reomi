@@ -1,6 +1,6 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+/* eslint-disable react/forbid-elements -- #78 */
 
 // LibraryScreen (L1) — the user's personal material store (`/library`). A
 // "library item" IS a sources row; this screen lists them with a cover grid /

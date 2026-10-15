@@ -6,6 +6,13 @@ import { I18nProvider } from '../lib/i18n';
 import { writeBrowserValue } from '../lib/storage-migration';
 
 ensureTestDom();
+if (typeof Notification === 'undefined') {
+  Object.defineProperty(globalThis, 'Notification', {
+    configurable: true,
+    writable: true,
+    value: class Notification {},
+  });
+}
 const { createRoot } = await import('react-dom/client');
 const { ReminderSettings } = await import('./reminder-settings');
 
@@ -15,6 +22,7 @@ let container: HTMLDivElement;
 afterEach(() => { root?.unmount(); container?.remove(); });
 
 async function render(locale: 'en' | 'ru', props: React.ComponentProps<typeof ReminderSettings>) {
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   localStorage.clear();
   localStorage.setItem('nn:locale', locale);
   container = document.createElement('div');
@@ -37,17 +45,23 @@ describe('reminder settings', () => {
       });
       const text = container.textContent ?? '';
       if (locale === 'en') {
-        expect(text).toContain('Local notification on this device when you open the app.');
+        expect(text).toContain('Shows a local notification on this device when you open Reomi and cards are due.');
+        expect(text).not.toContain('Local notification on this device when you open the app.');
         expect(text.toLowerCase()).not.toContain('background');
       } else {
-        expect(text).toContain('Локальное уведомление на этом устройстве при открытии приложения.');
+        expect(text).toContain('Локальное уведомление на этом устройстве, когда ты открываешь Reomi и есть карточки.');
+        expect(text).not.toContain('Локальное уведомление на этом устройстве при открытии приложения.');
         expect(text).not.toContain('фон');
       }
+      const language = container.querySelector('[role="radiogroup"]');
+      expect(language?.querySelector('[aria-checked="true"]')?.textContent).toBe(locale === 'en' ? 'English' : 'Русский');
       expect(text).toContain(locale === 'en' ? 'Push is not configured on this server.' : 'Push на этом сервере не настроен.');
       expect(saved).toHaveLength(0);
       expect(permissions).toHaveLength(0);
-      const boxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
-      await act(async () => { boxes[0]!.click(); });
+      const digest = container.querySelector<HTMLButtonElement>(`button[aria-label="${locale === 'en' ? 'Daily due digest' : 'Дайджест карточек'}"]`);
+      expect(digest?.getAttribute('role')).toBe('switch');
+      expect(digest?.textContent).toBe('');
+      await act(async () => { digest!.click(); });
       const save = [...container.querySelectorAll('button')].find((button) => /Save reminders|Сохранить напоминания/.test(button.textContent ?? ''));
       await act(async () => { save!.click(); });
       expect(saved).toHaveLength(1);
@@ -70,5 +84,14 @@ describe('reminder settings', () => {
     await act(async () => { push!.click(); });
     expect(permissions).toEqual(['asked']);
     expect(subscribed).toEqual(['public-key']);
+  });
+
+  test('a saved reminder language stays put when the app locale differs', async () => {
+    writeBrowserValue(localStorage, 'nn:locale', 'ru');
+    await render('ru', {
+      load: async () => ({ saved: true, locale: 'en', vapidPublicKey: null }),
+      save: async () => undefined,
+    });
+    expect(container.querySelector('[role="radiogroup"] [aria-checked="true"]')?.textContent).toBe('English');
   });
 });

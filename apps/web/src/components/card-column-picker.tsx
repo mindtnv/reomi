@@ -1,6 +1,6 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+/* eslint-disable react/forbid-elements -- #78 #72 */
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { NNBtn } from './ui';

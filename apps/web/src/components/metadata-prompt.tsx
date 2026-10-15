@@ -1,6 +1,6 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+/* eslint-disable react/forbid-elements -- #78 */
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { UiActionResult } from '@reomi/shared';
 import { RecoverableSave } from '@/lib/recoverable-save';

@@ -227,6 +227,15 @@ export function useWcoTopInsets(fullBleed = false): { wco: boolean; left: number
   return { wco: true, left, right };
 }
 
+/**
+ * Installed apps draw under the status bar. The shell should clear that inset
+ * so the fixed-height topbar keeps the same box as the browser tab. Window
+ * Controls Overlay already owns the titlebar, so it must not gain a second inset.
+ */
+export function shellClearsSafeArea(mode: DisplayMode, windowControlsOverlay: boolean): boolean {
+  return mode === 'standalone' && !windowControlsOverlay;
+}
+
 /** React hook — 'browser' on first render, resolves to the detected value after mount. */
 export function useDisplayMode(): DisplayMode {
   const [mode, setMode] = useState<DisplayMode>('browser');

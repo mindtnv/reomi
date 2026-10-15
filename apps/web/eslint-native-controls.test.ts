@@ -58,14 +58,27 @@ test('a comment or string that mentions a button stays legal', async () => {
   expect(result.messages).toEqual([]);
 });
 
-test('a file-level eslint-disable suppresses the rule until the file is migrated', async () => {
+test('a file-level disable cites an issue before it suppresses the rule', async () => {
+  for (const comment of [
+    '/* eslint-disable react/forbid-elements -- #78 */',
+    '/* eslint-disable react/forbid-elements -- https://github.com/mindtnv/reomi/issues/78 */',
+  ]) {
+    const result = await lint('apps/web/src/components/example.tsx', `${comment}\n${button}`);
+    expect(result.errorCount).toBe(0);
+    expect(result.messages).toEqual([]);
+  }
+});
+
+test('a file-level disable without an issue link does not suppress a raw button', async () => {
   const result = await lint(
     'apps/web/src/components/example.tsx',
     '/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */\n' +
       button,
   );
-  expect(result.errorCount).toBe(0);
-  expect(result.messages).toEqual([]);
+  expect(result.errorCount).toBe(1);
+  expect(result.messages.map((message) => message.message)).toEqual([
+    '<button> is forbidden, use TextInput, Button, or NNSelect.',
+  ]);
 });
 
 test('textarea and a Button component stay legal', async () => {

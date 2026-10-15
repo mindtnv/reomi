@@ -1,6 +1,6 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+/* eslint-disable react/forbid-elements -- #78 */
 
 // M4 — the floating reader toolbar (inside the reader panel, thumb-reachable on
 // iPad: ≥40 px touch targets). Tools hand/pen/highlighter/eraser, 6 colors, 3

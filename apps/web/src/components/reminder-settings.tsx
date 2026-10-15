@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { SegmentedControl, TextInput } from '@/components/design-system/primitives';
+import React, { useEffect, useId, useRef, useState } from 'react';
+import { SegmentedControl, Switch, TextInput } from '@/components/design-system/primitives';
 import { NNBtn } from '@/components/ui';
 import { api, ok } from '@/lib/api';
-import { useT } from '@/lib/i18n';
+import { useLocale, useT } from '@/lib/i18n';
 import {
   isNotificationsEnabled,
   requestNotificationPermission,
@@ -27,7 +27,11 @@ export interface ReminderSnapshot extends ReminderChoice {
   vapidPublicKey: string | null;
 }
 
-const emptyChoice = (): ReminderChoice => ({
+function appReminderLocale(locale: string): 'ru' | 'en' {
+  return locale === 'ru' ? 'ru' : 'en';
+}
+
+const emptyChoice = (locale: 'ru' | 'en'): ReminderChoice => ({
   digestEnabled: false,
   streakWarningEnabled: false,
   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
@@ -35,7 +39,7 @@ const emptyChoice = (): ReminderChoice => ({
   streakHour: 21,
   emailEnabled: false,
   pushEnabled: false,
-  locale: 'en',
+  locale,
 });
 
 async function defaultLoad(): Promise<ReminderSnapshot> {
@@ -66,6 +70,29 @@ async function defaultSubscribe(publicKey: string): Promise<void> {
   }));
 }
 
+function SettingRow({
+  title,
+  description,
+  alert,
+  control,
+}: {
+  title: string;
+  description?: string;
+  alert?: string;
+  control: React.ReactNode;
+}) {
+  return (
+    <div className="reomi-reminder-row">
+      <div className="reomi-reminder-copy">
+        <strong>{title}</strong>
+        {description ? <span>{description}</span> : null}
+        {alert ? <span className="reomi-reminder-alert" role="alert">{alert}</span> : null}
+      </div>
+      {control}
+    </div>
+  );
+}
+
 export function ReminderSettings({
   load = defaultLoad,
   save = defaultSave,
@@ -78,12 +105,25 @@ export function ReminderSettings({
   subscribe?: (publicKey: string) => Promise<void>;
 }) {
   const t = useT();
+  const { locale: appLocale } = useLocale();
+  const hourId = useId();
+  const zoneId = useId();
+  const localeLocked = useRef(false);
   const [localOn, setLocalOn] = useState(() => isNotificationsEnabled());
   const [denied, setDenied] = useState(false);
-  const [choice, setChoice] = useState<ReminderChoice>(emptyChoice);
+  const [choice, setChoice] = useState<ReminderChoice>(() => emptyChoice(appReminderLocale(appLocale)));
   const [vapidPublicKey, setVapidPublicKey] = useState<string | null>(null);
   const [status, setStatus] = useState('');
+  const [saving, setSaving] = useState(false);
   const unavailable = typeof Notification === 'undefined';
+
+  useEffect(() => {
+    const next = appReminderLocale(appLocale);
+    setChoice((current) => {
+      if (localeLocked.current || current.locale === next) return current;
+      return { ...current, locale: next };
+    });
+  }, [appLocale]);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,10 +131,11 @@ export function ReminderSettings({
       if (cancelled || !row) return;
       setVapidPublicKey(row.vapidPublicKey ?? null);
       if (!row.saved) return;
+      localeLocked.current = true;
       setChoice({
         digestEnabled: Boolean(row.digestEnabled),
         streakWarningEnabled: Boolean(row.streakWarningEnabled),
-        timeZone: row.timeZone || emptyChoice().timeZone,
+        timeZone: row.timeZone || emptyChoice('en').timeZone,
         digestHour: row.digestHour ?? 9,
         streakHour: row.streakHour ?? 21,
         emailEnabled: Boolean(row.emailEnabled),
@@ -130,61 +171,115 @@ export function ReminderSettings({
     setChoice((current) => ({ ...current, pushEnabled: true }));
   };
 
+  const onSave = () => {
+    setSaving(true);
+    void save(choice)
+      .then(() => setStatus(t('settings.notifications.saved')))
+      .catch(() => setStatus(''))
+      .finally(() => setSaving(false));
+  };
+
   return (
-    <div style={{ display: 'grid', gap: 14 }}>
-      <div style={{ display: 'flex', gap: 12 }}>
-        {unavailable ? (
-          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{t('settings.notifications.unavailable')}</div>
-        ) : (
-          <NNBtn type="button" role="switch" aria-label={t('settings.notifications.enable')} aria-checked={localOn} onClick={() => { void toggleLocal(); }}>
-            {localOn ? 'on' : 'off'}
-          </NNBtn>
-        )}
-        <div>
-          <div>{t('settings.notifications.subtitle')}</div>
-          <div>{t('settings.notifications.enableDesc')}</div>
-          {denied ? <div>{t('settings.notifications.denied')}</div> : null}
+    <div className="reomi-settings-stack">
+      {unavailable ? (
+        <p className="reomi-settings-note">{t('settings.notifications.unavailable')}</p>
+      ) : (
+        <SettingRow
+          title={t('settings.notifications.enable')}
+          description={t('settings.notifications.enableDesc')}
+          alert={denied ? t('settings.notifications.denied') : undefined}
+          control={
+            <Switch
+              label={t('settings.notifications.enable')}
+              checked={localOn}
+              onChange={() => { void toggleLocal(); }}
+            />
+          }
+        />
+      )}
+
+      <SettingRow
+        title={t('settings.notifications.digest')}
+        description={t('settings.notifications.digestDesc')}
+        control={
+          <Switch
+            label={t('settings.notifications.digest')}
+            checked={choice.digestEnabled}
+            onChange={(digestEnabled) => setChoice({ ...choice, digestEnabled })}
+          />
+        }
+      />
+
+      <div className="reomi-settings-form-grid">
+        <div className="reomi-settings-field">
+          <label className="reomi-settings-field-label" htmlFor={hourId}>{t('settings.notifications.hour')}</label>
+          <TextInput
+            id={hourId}
+            aria-label={t('settings.notifications.hour')}
+            type="number"
+            min={0}
+            max={23}
+            value={choice.digestHour}
+            onChange={(event) => setChoice({ ...choice, digestHour: Number(event.target.value) })}
+          />
+        </div>
+        <div className="reomi-settings-field">
+          <label className="reomi-settings-field-label" htmlFor={zoneId}>{t('settings.notifications.timezone')}</label>
+          <TextInput
+            id={zoneId}
+            aria-label={t('settings.notifications.timezone')}
+            value={choice.timeZone}
+            onChange={(event) => setChoice({ ...choice, timeZone: event.target.value })}
+          />
         </div>
       </div>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <TextInput type="checkbox" checked={choice.digestEnabled} onChange={(event) => setChoice({ ...choice, digestEnabled: event.target.checked })} />
-        {t('settings.notifications.digest')}
-      </label>
-      <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{t('settings.notifications.digestDesc')}</div>
-      <label style={{ display: 'grid', gap: 4, maxWidth: 280 }}>
-        {t('settings.notifications.hour')}
-        <TextInput aria-label={t('settings.notifications.hour')} type="number" min={0} max={23} value={choice.digestHour} onChange={(event) => setChoice({ ...choice, digestHour: Number(event.target.value) })} />
-      </label>
-      <label style={{ display: 'grid', gap: 4, maxWidth: 280 }}>
-        {t('settings.notifications.timezone')}
-        <TextInput aria-label={t('settings.notifications.timezone')} value={choice.timeZone} onChange={(event) => setChoice({ ...choice, timeZone: event.target.value })} />
-      </label>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <TextInput type="checkbox" checked={choice.streakWarningEnabled} onChange={(event) => setChoice({ ...choice, streakWarningEnabled: event.target.checked })} />
-        {t('settings.notifications.streak')}
-      </label>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <TextInput type="checkbox" checked={choice.emailEnabled} onChange={(event) => setChoice({ ...choice, emailEnabled: event.target.checked })} />
-        {t('settings.notifications.email')}
-      </label>
-      <label style={{ display: 'grid', gap: 4, maxWidth: 280 }}>
-        {t('settings.notifications.language')}
+
+      <SettingRow
+        title={t('settings.notifications.streak')}
+        description={t('settings.notifications.streakDesc')}
+        control={
+          <Switch
+            label={t('settings.notifications.streak')}
+            checked={choice.streakWarningEnabled}
+            onChange={(streakWarningEnabled) => setChoice({ ...choice, streakWarningEnabled })}
+          />
+        }
+      />
+      <SettingRow
+        title={t('settings.notifications.email')}
+        control={
+          <Switch
+            label={t('settings.notifications.email')}
+            checked={choice.emailEnabled}
+            onChange={(emailEnabled) => setChoice({ ...choice, emailEnabled })}
+          />
+        }
+      />
+
+      <div className="reomi-settings-field">
+        <div className="reomi-settings-field-label" id={`${hourId}-language`}>{t('settings.notifications.language')}</div>
         <SegmentedControl
           label={t('settings.notifications.language')}
           value={choice.locale}
-          onChange={(locale) => setChoice({ ...choice, locale })}
-          options={[{ value: 'en', label: 'en' }, { value: 'ru', label: 'ru' }]}
+          options={[
+            { value: 'en', label: 'English' },
+            { value: 'ru', label: 'Русский' },
+          ]}
+          onChange={(locale) => {
+            localeLocked.current = true;
+            setChoice({ ...choice, locale });
+          }}
         />
-      </label>
-      {vapidPublicKey ? (
-        <NNBtn type="button" onClick={() => { void allowPush(); }}>{t('settings.notifications.pushEnable')}</NNBtn>
-      ) : (
-        <p>{t('settings.notifications.pushUnavailable')}</p>
-      )}
-      <NNBtn type="button" onClick={() => { void save(choice).then(() => setStatus(t('settings.notifications.saved'))).catch(() => setStatus('')); }}>
-        {t('settings.notifications.save')}
-      </NNBtn>
-      {status ? <div>{status}</div> : null}
+      </div>
+
+      {vapidPublicKey ? null : <p className="reomi-settings-note">{t('settings.notifications.pushUnavailable')}</p>}
+      <div className="reomi-settings-actions">
+        {vapidPublicKey ? (
+          <NNBtn variant="soft" onClick={() => { void allowPush(); }}>{t('settings.notifications.pushEnable')}</NNBtn>
+        ) : null}
+        <NNBtn variant="primary" loading={saving} onClick={onSave}>{t('settings.notifications.save')}</NNBtn>
+      </div>
+      {status ? <p className="reomi-settings-note" role="status">{status}</p> : null}
     </div>
   );
 }

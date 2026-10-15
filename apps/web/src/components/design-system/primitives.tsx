@@ -79,6 +79,27 @@ export function TextInput({ className, ...props }: ComponentProps<'input'>) {
   return <input {...props} className={['reomi-input', className].filter(Boolean).join(' ')} />;
 }
 
+export function Switch({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      className="reomi-switch"
+      aria-label={label}
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+    />
+  );
+}
+
 export function TextArea({ className, ...props }: ComponentProps<'textarea'>) {
   return <textarea {...props} className={['reomi-input', 'reomi-textarea', className].filter(Boolean).join(' ')} />;
 }

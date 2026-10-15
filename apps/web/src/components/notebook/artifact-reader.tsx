@@ -1,6 +1,6 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+/* eslint-disable react/forbid-elements -- #78 */
 
 // ArtifactReader («Блокноты 2.0» — full-window studio document reader). The
 // generated studio document was unreadable in the 340px dock («микро окно»), so

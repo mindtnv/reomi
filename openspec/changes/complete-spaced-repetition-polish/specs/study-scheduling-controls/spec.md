@@ -25,6 +25,24 @@ The system SHALL use one configurable study-day boundary and explain collection,
 - **THEN** the start, the end, and the counters stay unchanged
 - **AND** the saved zone takes effect at `2026-10-16T00:00:00.000Z`
 
+#### Scenario: Sibling decks keep separate new budgets
+- **WHEN** top-level decks A and B each allow 10 new cards per day and each has 12 new cards
+- **THEN** studying A offers 10, studying B offers 10, and study-all offers 10 from each
+- **AND** the study summary reports those same available counts
+- **AND** after 10 introductions from A, B and study-all still offer B's 10
+
+#### Scenario: A parent budget constrains its children
+- **WHEN** a parent allows 15 new cards, children A and B each allow 10, and each child has 12 new cards
+- **THEN** the parent queue and study-all offer 10 from A and 5 from B in deck order
+- **AND** studying A or B alone offers 10
+- **AND** the study summary reports 15 for the parent and the collection, and 10 for each child
+- **AND** after 10 introductions from A, the parent, B, and study-all offer 5
+
+#### Scenario: One remaining introduction admits one concurrent grade
+- **WHEN** one new introduction or one mature review remains and two tabs grade different cards
+- **THEN** one grade succeeds and the other is rejected with `daily_limit`
+- **AND** the deck does not exceed that limit, with no card reserved before the grade
+
 #### Scenario: Later rollover after the stored end
 - **WHEN** the open UTC midnight epoch labeled `2026-10-15` has ended and the saved rollover is minute 90
 - **THEN** `2026-10-16T00:30:00.000Z` and `2026-10-16T02:00:00.000Z` share one budget labeled `2026-10-16` from `2026-10-16T00:00:00.000Z` until `2026-10-17T01:30:00.000Z`

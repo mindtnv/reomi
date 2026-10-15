@@ -1,6 +1,6 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+/* eslint-disable react/forbid-elements -- #78 */
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { newUuidV7, OPERATION_GROUPS, type OperationItem, type OperationRetryInput } from '@reomi/shared';

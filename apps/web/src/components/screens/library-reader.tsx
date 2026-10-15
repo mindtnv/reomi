@@ -1,6 +1,6 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+/* eslint-disable react/forbid-elements -- #78 */
 import { AssistantAskButton } from '../chat/assistant-ask-button';
 import { SourceStudioPanel } from '../notebook/source-studio-panel';
 import { SourceAnnotationNotes } from '../pdf-reader/source-annotation-notes';

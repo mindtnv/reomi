@@ -1,6 +1,6 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+/* eslint-disable react/forbid-elements -- #78 */
 
 import React, { CSSProperties, ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
@@ -12,7 +12,6 @@ import { signOut } from '@/lib/auth';
 import { useNN } from '@/lib/store';
 import {
   useUI,
-  useDisplayMode,
   useWcoTopInsets,
   useWindowControlsOverlay,
   SIDEBAR_WIDTH_COLLAPSED,
@@ -180,7 +179,6 @@ export const NNTopbar = ({
   const t = useT();
   const toggleSidebar = useUI((s) => s.toggleSidebar);
   const sidebarCollapsed = useUI((s) => s.sidebarCollapsed);
-  const displayMode = useDisplayMode();
   // Window Controls Overlay (installed desktop PWA): the topbar doubles as the
   // OS titlebar — draggable via data-wco, padded clear of the overlaid window
   // controls (left inset covers macOS lights minus the sidebar already under
@@ -196,8 +194,6 @@ export const NNTopbar = ({
       style={{
         '--nn-topbar-wco-left': `${wcoLeft}px`,
         '--nn-topbar-wco-right': `${wcoRight}px`,
-        // Only installed mobile apps need the device's top safe area.
-        paddingTop: displayMode === 'standalone' ? 'env(safe-area-inset-top, 0px)' : undefined,
       } as CSSProperties}
     >
       <div className="nn-topbar-leading">

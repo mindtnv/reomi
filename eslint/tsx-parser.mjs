@@ -46,11 +46,18 @@ export function parseForESLint(code) {
 }
 
 // Only this rule's directives are forwarded. Other files disable rules this
-// config does not load, and ESLint treats those as errors.
+// config does not load, and ESLint treats those as errors. A disable also
+// has to cite an issue (`#78` or a GitHub issue URL) or it is ignored.
+const ISSUE_CITE = /#\d+|\/issues\/\d+/;
+
 function eslintComments(comments) {
   if (!Array.isArray(comments)) return [];
   return comments
-    .filter((comment) => typeof comment.value === 'string' && comment.value.includes('react/forbid-elements'))
+    .filter((comment) => (
+      typeof comment.value === 'string'
+      && comment.value.includes('react/forbid-elements')
+      && ISSUE_CITE.test(comment.value)
+    ))
     .map((comment) => ({
       type: comment.type === 'CommentLine' ? 'Line' : 'Block',
       value: comment.value,

@@ -1,6 +1,6 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+/* eslint-disable react/forbid-elements -- #78 */
 
 // "Sources" backlink panel — the source passages a card was generated from
 // (NotebookLM M3), fed by GET /cards/:id/sources. Mounted in the cards-browser

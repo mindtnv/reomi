@@ -1,6 +1,6 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- TODO: replace raw input, select, and button with TextInput, Button, or NNSelect. */
+/* eslint-disable react/forbid-elements -- #78 */
 import { useMemo, useState } from 'react';
 import { useLocale, useT } from '@/lib/i18n';
 import { answerDurationGroups, type SessionAnswerSample } from '@/lib/session-charts';

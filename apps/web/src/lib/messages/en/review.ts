@@ -14,6 +14,7 @@ const m = {
   undoFailed: 'Could not undo the answer. Check your connection and try again.',
   refreshQueue: 'Refresh queue',
   cardChanged: 'This card changed, was deleted, or was suspended. Refresh the queue to continue.',
+  dailyLimit: 'Today\'s new-card or review limit for this deck is already used. Refresh the queue to continue.',
   gradeFailed: 'Could not confirm that your answer was saved. Check your connection and try again.',
   loadFailed: 'Could not load cards',
   loadFailedBody: 'Check your connection and try again. Your saved progress is safe.',

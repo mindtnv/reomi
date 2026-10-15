@@ -207,6 +207,21 @@ describe('review screen lifecycle', () => {
     expect(container.textContent).toContain('review.allCaught.title');
   });
 
+  test('a daily limit blocks another grade and asks for a queue refresh', async () => {
+    globalThis.fetch = ((url: any) => {
+      if (String(url).includes('/cards/queue')) return Promise.resolve(Response.json({ due: [], new: [studyCard], total: 1, mode: 'regular' }));
+      if (String(url).includes('/reviews')) return Promise.resolve(Response.json({ error: 'daily_limit' }, { status: 409 }));
+      return Promise.resolve(Response.json({ items: [] }));
+    }) as unknown as typeof fetch;
+    await render();
+    await act(async () => button('review.showAnswer').click());
+    await act(async () => button('review.ratings.good').click());
+    expect(container.textContent).toContain('review.dailyLimit');
+    expect(container.textContent).not.toContain('review.cardChanged');
+    expect(button('review.ratings.good').disabled).toBe(true);
+    expect(button('review.refreshQueue')).toBeTruthy();
+  });
+
   test('an in-flight grade from a signed-out account cannot finish the new account\'s session', async () => {
     const response = Promise.withResolvers<Response>();
     let loads = 0;

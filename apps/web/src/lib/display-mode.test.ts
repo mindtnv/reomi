@@ -5,7 +5,7 @@
 // inject / omit / throw the browser API and assert the guard result).
 
 import { describe, expect, test } from 'bun:test';
-import { detectDisplayMode, readWindowControlsOverlay, wcoTopInsets } from './ui-store';
+import { detectDisplayMode, readWindowControlsOverlay, shellClearsSafeArea, wcoTopInsets } from './ui-store';
 
 function fakeWin(matches: boolean): Window {
   return {
@@ -108,5 +108,19 @@ describe('wcoTopInsets', () => {
 
   test('insets never go negative', () => {
     expect(wcoTopInsets({ x: 10, y: 0, width: 5000, height: 36 }, 1280, 500)).toEqual({ left: 0, right: 0 });
+  });
+});
+
+describe('shellClearsSafeArea', () => {
+  test('browser tabs keep the existing chrome box', () => {
+    expect(shellClearsSafeArea('browser', false)).toBe(false);
+  });
+
+  test('standalone without the titlebar overlay clears the device safe area', () => {
+    expect(shellClearsSafeArea('standalone', false)).toBe(true);
+  });
+
+  test('window controls overlay owns the titlebar and skips a second inset', () => {
+    expect(shellClearsSafeArea('standalone', true)).toBe(false);
   });
 });
