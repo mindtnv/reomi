@@ -12,9 +12,13 @@ const { McpSettings } = await import('./mcp-settings');
 let host: HTMLDivElement;
 let root: Root;
 let originalFetch: typeof fetch;
+let languageDescriptor: PropertyDescriptor | undefined;
 beforeEach(() => {
   ensureTestDom();
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  languageDescriptor = Object.getOwnPropertyDescriptor(navigator, 'language');
+  Object.defineProperty(navigator, 'language', { configurable: true, get: () => 'ru-RU' });
+  localStorage.setItem('reomi:locale', 'en');
   localStorage.setItem('nn:locale', 'en');
   originalFetch = globalThis.fetch;
   globalThis.fetch = (async () => Response.json([])) as unknown as typeof fetch;
@@ -26,6 +30,7 @@ afterEach(async () => {
   await act(async () => root.unmount());
   host.remove();
   globalThis.fetch = originalFetch;
+  if (languageDescriptor) Object.defineProperty(navigator, 'language', languageDescriptor);
   delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
 });
 
