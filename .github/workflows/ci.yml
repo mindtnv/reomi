@@ -154,3 +154,39 @@ jobs:
 
       - name: Test real S3 round trips
         run: bun run test:s3:ci
+
+  e2e:
+    name: Browser smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Cache bun packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Browser smoke
+        run: bun run e2e
+
+      - name: Upload smoke evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          if-no-files-found: ignore
+          path: |
+            e2e/artifacts
+            test-results
+            playwright-report
