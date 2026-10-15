@@ -14,7 +14,7 @@ import {
 import {
   chargeStudyDay,
   gradeFsrs,
-  isLeech,
+  leechSuspendsOnLapse,
   legacyOpenEpoch,
   legacyReviewEpochEnd,
   legacyUtcMidnight,
@@ -202,9 +202,7 @@ async function gradeReview(user:{id:string;name?:string|null}, body:GradeInput, 
       maximumInterval: cfg.maximumInterval,
     });
 
-    // Leech detection — auto-suspend once the resolved threshold crossed.
-    const nowLeech = isLeech(res.card.lapses, cfg.leechThreshold);
-    const shouldSuspend = nowLeech && !isLeech(card.lapses, cfg.leechThreshold);
+    const shouldSuspend = leechSuspendsOnLapse(card.lapses, res.card.lapses, cfg.leechThreshold);
 
     const [updatedCard] = await tx
       .update(cards)

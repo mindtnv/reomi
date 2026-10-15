@@ -266,7 +266,7 @@ Each under `apps/api/src/modules/*.ts`, prefixed with its resource (`/decks`, `/
 ### FSRS grading
 `apps/api/src/modules/reviews.ts` reconstructs a `ts-fsrs` Card shape from the flat Drizzle columns, calls `gradeFsrs` from `@reomi/shared` with the user's `desiredRetention`, then writes back the new FSRS state + a `reviews` row + an updated `profile` (streak/xp/level/plantStage) inside a single `db.transaction`. Keep the entire grade rollup transactional; a partial card/review/profile write corrupts scheduling and gamification even though the app now has other multi-table workflows too.
 
-**Leech auto-suspend:** after a grade, if `card.lapses` crosses the threshold (Anki default: 8), `suspended` is set to `true` in the same transaction and the response includes `leeched: true`. Subsequent `POST /reviews` on a suspended card returns 409.
+**Leech auto-suspend:** a grade that adds a lapse suspends when the new count reaches the deck threshold and again every half of that threshold, rounded up. The default of 8 suspends at 8, 12, and 16. `suspended` is set in the same transaction and the response includes `leeched: true`. Unsuspend leaves the lapse count alone. A threshold edit does not suspend by itself. A suspended card returns 409 on `POST /reviews`.
 
 **XP formula:** `{ Again: 0, Hard: 5, Good: 10, Easy: 15 }` — defined in `xpForRating` in `@reomi/shared`. Formula lives there, not in the handler, so the web app can preview deltas client-side.
 

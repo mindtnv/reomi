@@ -291,3 +291,14 @@ export function todayISO(d: Date = new Date()): string {
 export function isLeech(lapses: number, threshold: number = ANKI_DEFAULTS.leechThreshold): boolean {
   return lapses >= threshold;
 }
+
+/** A new lapse suspends at the threshold and every half of it, rounded up. */
+export function leechSuspendsOnLapse(
+  previousLapses: number,
+  nextLapses: number,
+  threshold: number = ANKI_DEFAULTS.leechThreshold,
+): boolean {
+  if (!(threshold > 0) || !(nextLapses > previousLapses)) return false;
+  const step = Math.max(1, Math.ceil(threshold / 2));
+  return nextLapses >= threshold && (nextLapses - threshold) % step === 0;
+}

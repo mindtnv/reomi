@@ -3,6 +3,7 @@ import {
   ANKI_DEFAULTS,
   gradeFsrs,
   isLeech,
+  leechSuspendsOnLapse,
   levelFromXp,
   nextStreak,
   newFsrsCard,
@@ -286,6 +287,35 @@ describe('nextStreak', () => {
   test('month boundary is respected', () => {
     // 2026-03-31 → 2026-04-01 is yesterday
     expect(nextStreak(3, '2026-03-31', '2026-04-01')).toBe(4);
+  });
+});
+
+describe('leechSuspendsOnLapse', () => {
+  test('suspends at the threshold and every half of it, rounded up', () => {
+    for (const n of [8, 12, 16, 20]) expect(leechSuspendsOnLapse(n - 1, n)).toBe(true);
+    for (const n of [9, 10, 11, 13, 15]) expect(leechSuspendsOnLapse(n - 1, n)).toBe(false);
+    for (const n of [3, 5, 7]) expect(leechSuspendsOnLapse(n - 1, n, 3)).toBe(true);
+    for (const n of [4, 6]) expect(leechSuspendsOnLapse(n - 1, n, 3)).toBe(false);
+    for (const n of [4, 6, 8, 10]) expect(leechSuspendsOnLapse(n - 1, n, 4)).toBe(true);
+    expect(leechSuspendsOnLapse(4, 5, 4)).toBe(false);
+    for (const n of [5, 8, 11, 14]) expect(leechSuspendsOnLapse(n - 1, n, 5)).toBe(true);
+    for (const n of [6, 7, 9, 10, 12]) expect(leechSuspendsOnLapse(n - 1, n, 5)).toBe(false);
+    expect(leechSuspendsOnLapse(0, 1, 1)).toBe(true);
+    expect(leechSuspendsOnLapse(4, 5, 1)).toBe(true);
+  });
+
+  test('uses the threshold of this grade', () => {
+    expect(leechSuspendsOnLapse(4, 5, 6)).toBe(false);
+    expect(leechSuspendsOnLapse(5, 6, 6)).toBe(true);
+    expect(leechSuspendsOnLapse(7, 8, 5)).toBe(true);
+    expect(leechSuspendsOnLapse(8, 9, 5)).toBe(false);
+    expect(leechSuspendsOnLapse(10, 11, 5)).toBe(true);
+  });
+
+  test('ignores a grade that does not add a lapse', () => {
+    expect(leechSuspendsOnLapse(8, 8)).toBe(false);
+    expect(leechSuspendsOnLapse(8, 4, 4)).toBe(false);
+    expect(leechSuspendsOnLapse(3, 4, 0)).toBe(false);
   });
 });
 
