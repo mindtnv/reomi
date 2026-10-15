@@ -364,12 +364,6 @@ describe('study reminder tick', () => {
         const when = new Date(t).toISOString();
         expect(isLocalHourDue(new Date(t), hour, timeZone), `${label} due at ${when}`).toBe(t >= dueMs);
       }
-      // Every step before the hour stays. At UTC midnight the wall clock can
-      // already be past the saved hour, and that is the early send this walk
-      // was added to reject. Steps after the hour repeat one claimed slot and
-      // each one loads the study overview. That tail crosses bun's 5s timeout
-      // in CI. Bun leaves the timed-out test running, the next beforeEach
-      // truncates the table, and the sent-row assertion then reads zero.
       const probes = [];
       for (let t = start; t < firstSlot; t += step) probes.push(t);
       for (const t of [firstSlot, firstSlot + step, end - step]) {
