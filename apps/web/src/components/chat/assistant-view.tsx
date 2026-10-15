@@ -18,6 +18,7 @@ import { ThreadRail } from './thread-rail';
 import { SlashMenu } from './mention-popover';
 import { ChatUnavailable } from './chat-unavailable';
 import { NNBtn, NNIcon, NNLoadError, NNSkeleton } from '@/components/ui';
+import { Checkbox } from '@/components/design-system/primitives';
 import { useAppNavigation } from '@/components/navigation';
 import { useDialog } from '@/components/dialog';
 import { raiseToast } from '@/components/toasts';
@@ -345,7 +346,7 @@ function AssistantConversationView({ sessionKey, locale }: { sessionKey: string;
             if (e.key === 'Escape' && snapshot.presentation === 'floating') { e.preventDefault(); a.controller.setPresentation('hidden'); return; }
             if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); if (!disabled) void a.controller.send(sessionKey); }
           }}/>
-        {!compact && <div className="reomi-assistant-composer-scope"><label className="reomi-assistant-policy" title={t('assistant.onlyMaterialsHint')}><input aria-description={t('assistant.onlyMaterialsHint')} type="checkbox" checked={session.policy === 'strict'} disabled={contextBusy || !contextSupported} onChange={e => void changePins(session.pins,e.target.checked ? 'strict':'focus')}/>{t('assistant.onlyMaterials')}</label></div>}
+        {!compact && <div className="reomi-assistant-composer-scope"><Checkbox className="reomi-assistant-policy" title={t('assistant.onlyMaterialsHint')} aria-description={t('assistant.onlyMaterialsHint')} checked={session.policy === 'strict'} disabled={contextBusy || !contextSupported} onChange={checked => void changePins(session.pins, checked ? 'strict' : 'focus')}>{t('assistant.onlyMaterials')}</Checkbox></div>}
         <div className="reomi-assistant-composer-actions">
           <input ref={files} type="file" multiple hidden accept="image/*,.txt,.md,.markdown,.csv,.json,.log" onChange={e => { if (e.target.files) void addFiles([...e.target.files]); e.target.value=''; }}/>
           <NNBtn variant="ghost" size="sm" icon="plus" ariaLabel={t('chat.composer.attach')} disabled={disabled} onClick={() => files.current?.click()}/>

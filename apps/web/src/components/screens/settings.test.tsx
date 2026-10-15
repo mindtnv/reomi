@@ -106,6 +106,7 @@ test('personal-token form sends one request on repeated submit and retains the o
     return fallback(url,init);
   }) as typeof fetch;
   await render();await tab('connections');
+  await act(async()=>Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(b=>b.getAttribute('aria-expanded')==='false' && b.textContent?.includes('Connect an agent'))!.click());
   expect(container.textContent).toContain('codex mcp add reomi');
   expect(container.textContent).toContain('REOMI_MCP_TOKEN');
   expect(container.textContent).not.toMatch(/nn_pat_/);

@@ -1,9 +1,9 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 #72 */
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { NNBtn } from './ui';
+import { Checkbox } from './design-system/primitives';
 import { CARD_COLUMNS } from '@/lib/card-columns';
 import { useT } from '@/lib/i18n';
 
@@ -42,12 +42,11 @@ export function CardColumnPicker({ selected, onChange, onReset }: {
       onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(true); } }}
       onBlur={event => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node) && !trigger.current?.contains(event.relatedTarget as Node)) close(); }}>
       <header><strong>{t('cards.columnPicker.title')}</strong><span>{selected.length} / {CARD_COLUMNS.length}</span></header>
-      <div>{CARD_COLUMNS.map(column => <label key={column.id}>
-        <input type="checkbox" checked={selected.includes(column.id)} disabled={column.id === 'question'}
-          onChange={event => onChange(event.target.checked ? [...selected, column.id] : selected.filter(id => id !== column.id))} />
+      <div>{CARD_COLUMNS.map(column => <Checkbox key={column.id} checked={selected.includes(column.id)} disabled={column.id === 'question'}
+        onChange={checked => onChange(checked ? [...selected, column.id] : selected.filter(id => id !== column.id))}>
         <span>{t(column.labelKey)}</span>
         {column.id === 'question' && <small>{t('cards.columnPicker.required')}</small>}
-      </label>)}</div>
+      </Checkbox>)}</div>
       <footer><NNBtn size="sm" variant="soft" icon="sync" onClick={onReset}>{t('cards.columnPicker.reset')}</NNBtn></footer>
     </div>, document.body)}
   </span>;
