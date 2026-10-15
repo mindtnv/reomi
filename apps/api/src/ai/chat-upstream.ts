@@ -118,7 +118,7 @@ export function isChatUpstreamOutage(err: unknown): boolean {
   return err instanceof UpstreamChatError || isTransportFailure(err);
 }
 
-type FetchImpl = typeof globalThis.fetch;
+type FetchImpl = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 let fetchOverride: FetchImpl | null = null;
 
@@ -140,6 +140,18 @@ type UpstreamFailureLog = {
   error: (fields: { status: number | null; html: boolean }, event: string) => void;
 };
 
+type ResponseWithBody = Response & { body: NonNullable<Response['body']> };
+
+export async function requestChatCompletion(
+  url: string,
+  init: RequestInit,
+  opts: { log: UpstreamFailureLog; event: string; requireBody: true },
+): Promise<ResponseWithBody>;
+export async function requestChatCompletion(
+  url: string,
+  init: RequestInit,
+  opts: { log: UpstreamFailureLog; event: string; requireBody?: boolean },
+): Promise<Response>;
 export async function requestChatCompletion(
   url: string,
   init: RequestInit,
