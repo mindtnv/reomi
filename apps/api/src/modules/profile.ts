@@ -13,6 +13,7 @@ import {
 } from '@reomi/db';
 import { MAX_RETENTION, MIN_RETENTION, PLANT_SPECIES, type PlantSpecies } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin.ts';
+import { deleteAccountStorage } from '../media-gc.ts';
 
 const plantSpeciesSchema = t.Union([
   t.Literal('fern'),
@@ -141,17 +142,27 @@ export const profileModule = new Elysia({ prefix: '/profile' })
     },
     { auth: true },
   )
-  // Delete the account. ON DELETE CASCADE on every user-scoped FK takes care
-  // of the subtree in one statement; BetterAuth's own session/account rows
-  // go with the user row too.
+  // Delete the account. Object keys live only on the media and source rows,
+  // so those objects go first. A storage failure leaves the account in place
+  // and the same request can be retried. ON DELETE CASCADE then removes the
+  // rows. BetterAuth's session and account rows go with the user row.
   //
   // Requires the user to retype their current email as confirmation — cheap
   // protection against XSRF / accidental clicks.
   .delete(
     '/',
-    async ({ user, body, status }) => {
+    async ({ user, body, status, log }) => {
       if (body.confirmEmail.trim().toLowerCase() !== (user.email ?? '').toLowerCase()) {
         return status(400, { error: 'email_mismatch' });
+      }
+      try {
+        await deleteAccountStorage(user.id);
+      } catch (error) {
+        log.warn(
+          { event: 'profile.storage_cleanup_failed', userId: user.id, errName: error instanceof Error ? error.name : 'Error' },
+          'profile.storage_cleanup_failed',
+        );
+        return status(502, { error: 'storage_cleanup_failed' });
       }
       await db.delete(userTable).where(eq(userTable.id, user.id));
       return { ok: true };

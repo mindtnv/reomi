@@ -2,6 +2,7 @@ import { closeDb } from '@reomi/db';
 import { buildApp, type App } from './app.ts';
 import { env } from './env.ts';
 import { rootLogger, safeError } from './logger.ts';
+import { runMediaGc } from './media-gc.ts';
 import { createReceiptMaintenance } from './receipt-maintenance';
 import { cleanupUiActionReceipts } from './modules/ui-action-receipts';
 import { cleanupOperationRetryReceipts } from './modules/operation-retry';
@@ -22,6 +23,11 @@ const receiptMaintenance = createReceiptMaintenance(async () => {
   await cleanupUiActionReceipts(); await cleanupOperationRetryReceipts();
 }, error => rootLogger.warn({ err: safeError(error) }, 'receipts.cleanup_failed'));
 
+const mediaGc = createReceiptMaintenance(async () => {
+  const report = await runMediaGc();
+  rootLogger.info({ event: 'media.gc.completed', ...report }, 'media.gc.completed');
+}, error => rootLogger.warn({ err: safeError(error) }, 'media.gc.failed'), env.MEDIA_GC_INTERVAL_MS);
+
 const app = buildApp().listen(env.PORT, () => {
   rootLogger.info(
     { event: 'api.listening', port: env.PORT, corsOrigin: env.WEB_ORIGIN, nodeEnv: env.NODE_ENV },
@@ -32,18 +38,20 @@ const app = buildApp().listen(env.PORT, () => {
   void resumeSourceIngestOnStartup();
   void reconcileArtifactsOnStartup();
   receiptMaintenance.start();
+  if (env.NODE_ENV !== 'test' && env.MEDIA_GC_ENABLED) mediaGc.start();
   if (env.NODE_ENV !== 'test') startReminderScheduler();
 });
 
 const shutdown = createShutdownCoordinator({
   logger: rootLogger,
   timeoutMs: env.SHUTDOWN_TIMEOUT_MS,
-  stopServer: () => { receiptMaintenance.cancel(); return app.stop(); },
+  stopServer: () => { receiptMaintenance.cancel(); mediaGc.cancel(); return app.stop(); },
   workers: {
     index: (timeoutMs) => drainIndexQueue({ timeoutMs }),
     sourceIngest: (timeoutMs) => drainSourceIngest({ timeoutMs }),
     artifact: (timeoutMs) => drainArtifactGeneration({ timeoutMs }),
     receipts: () => receiptMaintenance.drain(),
+    mediaGc: () => mediaGc.drain(),
     reminder: () => drainReminders(),
   },
   closeDb,
