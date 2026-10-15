@@ -365,6 +365,6 @@ describe('reviews — per-deck preset config', () => {
     const after = await readProfile(cookie);
     expect(after.newIntroducedToday).toBe(0);
     expect(after.reviewsDoneToday).toBe(0);
-    expect(after.dailyCountsDate).toBeNull();
+    expect(after.dailyCountsDate).toBe(new Date().toISOString().slice(0, 10));
   });
 });

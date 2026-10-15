@@ -59,6 +59,7 @@ const TABLES = [
   'notification_deliveries',
   'push_subscriptions',
   'notification_settings',
+  'study_day_policy',
   'profile',
   'account',
   'session',

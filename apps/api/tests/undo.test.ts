@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { eq, sql } from 'drizzle-orm';
 import { cards, db, deckOptionsPreset, decks, profile, reviews } from '@reomi/db';
-import { plantStageFromStreak, todayISO } from '@reomi/shared';
+import { legacyOpenEpoch, legacyReviewEpochEnd, plantStageFromStreak, todayISO } from '@reomi/shared';
 import { buildApp } from '../src/app.ts';
 import { callApp, resetTestDb, seedBasicCard, signUpAndCookie, uniqueEmail } from './helpers.ts';
 
@@ -87,6 +87,10 @@ function profileMutateSet(p: Awaited<ReturnType<typeof rawProfile>>) {
     newIntroducedToday: p.newIntroducedToday,
     reviewsDoneToday: p.reviewsDoneToday,
     dailyCountsDate: p.dailyCountsDate,
+    studyEpochStart: p.studyEpochStart ? p.studyEpochStart.toISOString() : null,
+    studyEpochEnd: p.studyEpochEnd ? p.studyEpochEnd.toISOString() : null,
+    lastReviewEpochEnd: p.lastReviewEpochEnd ? p.lastReviewEpochEnd.toISOString() : null,
+    goalMetEpochStart: p.goalMetEpochStart ? p.goalMetEpochStart.toISOString() : null,
     updatedAt: p.updatedAt.toISOString(),
   };
 }
@@ -189,7 +193,7 @@ describe('reviews — undo', () => {
     const afterGrade = await rawProfile(userId);
     expect(afterGrade.newIntroducedToday).toBe(0);
     expect(afterGrade.reviewsDoneToday).toBe(0);
-    expect(afterGrade.dailyCountsDate).toBeNull();
+    expect(afterGrade.dailyCountsDate).toBe(new Date().toISOString().slice(0, 10));
 
     const undo = await callApp(app, 'POST', '/reviews/undo', { cookie });
     expect(undo.status).toBe(200);
@@ -440,9 +444,18 @@ describe('reviews — undo', () => {
     const { cookie, userId, cardId } = await setupCard();
     const today = todayISO();
     const yesterday = todayISO(new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000));
+    const opened = legacyOpenEpoch(yesterday, yesterday);
     await db
       .update(profile)
-      .set({ streakDays: 6, plantStage: 0, lastReviewDate: yesterday })
+      .set({
+        streakDays: 6,
+        plantStage: 0,
+        lastReviewDate: yesterday,
+        dailyCountsDate: yesterday,
+        studyEpochStart: opened!.start,
+        studyEpochEnd: opened!.end,
+        lastReviewEpochEnd: legacyReviewEpochEnd(yesterday),
+      })
       .where(eq(profile.userId, userId));
 
     const grade = await callApp(app, 'POST', '/reviews', {
@@ -487,9 +500,18 @@ describe('reviews — undo', () => {
     const { cookie, userId, cardId } = await setupCard();
     const today = todayISO();
     const yesterday = todayISO(new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000));
+    const opened = legacyOpenEpoch(yesterday, yesterday);
     await db
       .update(profile)
-      .set({ streakDays: 13, plantStage: 4, lastReviewDate: yesterday })
+      .set({
+        streakDays: 13,
+        plantStage: 4,
+        lastReviewDate: yesterday,
+        dailyCountsDate: yesterday,
+        studyEpochStart: opened!.start,
+        studyEpochEnd: opened!.end,
+        lastReviewEpochEnd: legacyReviewEpochEnd(yesterday),
+      })
       .where(eq(profile.userId, userId));
 
     const grade = await callApp(app, 'POST', '/reviews', {
