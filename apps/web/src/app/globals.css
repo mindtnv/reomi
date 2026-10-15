@@ -397,6 +397,23 @@ a, button { -webkit-tap-highlight-color: transparent; touch-action: manipulation
 .nn-topbar[data-wco='1'] :is(.nn-topbar-icon-button, .nn-topbar-search, .nn-topbar-create) { height: 30px; }
 .nn-bottom-tabs { display: none; }
 .nn-route-slot { padding-bottom: 0; }
+/* Safe area lives on the shell, outside the fixed-height floating topbar.
+   Padding it into that 60px border-box crushed the title in standalone. */
+.nn-app-shell[data-safe-area='1'] {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+@media (display-mode: standalone) {
+  .nn-auth-gate-skeleton {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+}
+@media (min-width: 720px) {
+  .nn-app-shell[data-safe-area='1'] { padding-bottom: env(safe-area-inset-bottom, 0px); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .nn-review-layout,
@@ -422,7 +439,7 @@ a, button { -webkit-tap-highlight-color: transparent; touch-action: manipulation
 }
 @media (max-width: 719.98px) {
   .nn-app-sidebar-slot { display: none; }
-  .nn-route-slot { padding-bottom: 68px; }
+  .nn-route-slot { padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)); }
   .nn-bottom-tabs { display: flex; }
   .nn-topbar {
     height: 55px;

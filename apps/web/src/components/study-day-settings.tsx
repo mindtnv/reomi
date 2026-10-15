@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
+import { TextInput } from '@/components/design-system/primitives';
+import { NNBtn } from '@/components/ui';
 import { api, ok } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 
@@ -53,6 +55,8 @@ export function StudyDaySettings({
   save?: (body: StudyDaySave) => Promise<unknown>;
 }) {
   const t = useT();
+  const zoneId = useId();
+  const minuteId = useId();
   const [choice, setChoice] = useState<StudyDayChoice | null>(null);
   const [zone, setZone] = useState('');
   const [minute, setMinute] = useState('');
@@ -107,35 +111,43 @@ export function StudyDaySettings({
   };
 
   if (!choice) {
-    return <p role="status">{error === 'load' ? t('settings.studyDay.loadError') : t('settings.studyDay.loading')}</p>;
+    return <p className="reomi-settings-note" role="status">{error === 'load' ? t('settings.studyDay.loadError') : t('settings.studyDay.loading')}</p>;
   }
 
   return (
-    <div style={{ display: 'grid', gap: 14 }}>
-      {choice.legacy ? <p>{t('settings.studyDay.legacy')}</p> : null}
-      {choice.takesEffectAt ? <p>{t('settings.studyDay.takesEffect', { when: formatInstant(choice.takesEffectAt) })}</p> : null}
-      <label style={{ display: 'grid', gap: 4, maxWidth: 280 }}>
-        {t('settings.studyDay.zone')}
-        <input aria-label={t('settings.studyDay.zone')} value={zone} onChange={(event) => setZone(event.target.value)} />
-      </label>
-      <label style={{ display: 'grid', gap: 4, maxWidth: 280 }}>
-        {t('settings.studyDay.rollover')}
-        <input
-          aria-label={t('settings.studyDay.rollover')}
-          type="number"
-          min={0}
-          max={1439}
-          step={1}
-          value={minute}
-          onChange={(event) => setMinute(event.target.value)}
-        />
-      </label>
-      <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{t('settings.studyDay.rolloverHint')}</div>
-      {error === 'save' ? <p role="alert">{t('settings.studyDay.saveError')}</p> : null}
-      {status ? <p role="status">{status}</p> : null}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button type="button" onClick={onSave}>{t('settings.studyDay.save')}</button>
-        <button type="button" onClick={() => { void apply({ timeZone: null, rolloverMinute: null }); }}>{t('settings.studyDay.reset')}</button>
+    <div className="reomi-settings-stack">
+      {choice.legacy ? <p className="reomi-settings-note">{t('settings.studyDay.legacy')}</p> : null}
+      {choice.takesEffectAt ? <p className="reomi-settings-note">{t('settings.studyDay.takesEffect', { when: formatInstant(choice.takesEffectAt) })}</p> : null}
+      <div className="reomi-settings-form-grid">
+        <div className="reomi-settings-field">
+          <label className="reomi-settings-field-label" htmlFor={zoneId}>{t('settings.studyDay.zone')}</label>
+          <TextInput
+            id={zoneId}
+            aria-label={t('settings.studyDay.zone')}
+            value={zone}
+            onChange={(event) => setZone(event.target.value)}
+          />
+        </div>
+        <div className="reomi-settings-field">
+          <label className="reomi-settings-field-label" htmlFor={minuteId}>{t('settings.studyDay.rollover')}</label>
+          <TextInput
+            id={minuteId}
+            aria-label={t('settings.studyDay.rollover')}
+            type="number"
+            min={0}
+            max={1439}
+            step={1}
+            value={minute}
+            onChange={(event) => setMinute(event.target.value)}
+          />
+          <p className="reomi-settings-note">{t('settings.studyDay.rolloverHint')}</p>
+        </div>
+      </div>
+      {error === 'save' ? <p className="reomi-settings-alert" role="alert">{t('settings.studyDay.saveError')}</p> : null}
+      {status ? <p className="reomi-settings-note" role="status">{status}</p> : null}
+      <div className="reomi-settings-actions">
+        <NNBtn variant="primary" onClick={onSave}>{t('settings.studyDay.save')}</NNBtn>
+        <NNBtn variant="soft" onClick={() => { void apply({ timeZone: null, rolloverMinute: null }); }}>{t('settings.studyDay.reset')}</NNBtn>
       </div>
     </div>
   );

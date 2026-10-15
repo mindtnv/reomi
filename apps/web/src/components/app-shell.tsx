@@ -4,7 +4,7 @@ import React, { useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useNN } from '@/lib/store';
-import { useUI, readSidebarCollapsed, readSidebarWidth, detectDisplayMode, readWindowControlsOverlay } from '@/lib/ui-store';
+import { useUI, readSidebarCollapsed, readSidebarWidth, detectDisplayMode, readWindowControlsOverlay, shellClearsSafeArea, useDisplayMode, useWindowControlsOverlay } from '@/lib/ui-store';
 import { SidebarResizeHandle } from './sidebar-resize-handle';
 import { NNSidebar } from './shell';
 import { BottomTabs } from './bottom-tabs';
@@ -32,6 +32,8 @@ const AppShellContent = ({ children }: { children: React.ReactNode }) => {
   const setSidebarWidth = useUI((s) => s.setSidebarWidth);
   const sidebarCollapsed = useUI((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUI((s) => s.setSidebarCollapsed);
+  const displayMode = useDisplayMode();
+  const windowControls = useWindowControlsOverlay();
   const bootstrapStatus = useNN((s) => s.bootstrapStatus);
   const bootstrapError = useNN((s) => s.bootstrapError);
   const bootstrap = useNN((s) => s.bootstrap);
@@ -91,6 +93,7 @@ const AppShellContent = ({ children }: { children: React.ReactNode }) => {
   return (
     <div
       className="nn-app-shell"
+      data-safe-area={shellClearsSafeArea(displayMode, windowControls.active) ? '1' : undefined}
       style={{
         display: 'flex',
         height: '100dvh',
