@@ -98,7 +98,7 @@ describe('browser storage migration', () => {
 
 const STORAGE_PREFIXES = [
   'nn:theme', 'nn:locale', 'nn:sidebar-collapsed', 'nn:sidebar-width',
-  'nn:review:inspector-width', 'nn:wco:hint', 'nn:notifications:enabled',
+  'nn:review:inspector-width', 'nn:wco:hint', 'nn:notifications:enabled', 'nn:pwa:install-dismissed',
   'nn:cards:columns:', 'nn:cards:filters-width', 'nn:cards:panel-width',
   'nn:decks:collapsed', 'nn:graph:edges', 'nn:chat:model', 'nn:chat:rail-width',
   'nn:chat:research', 'nn:assistant:drafts:v1:', 'nn:assistant:window',

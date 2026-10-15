@@ -16,6 +16,21 @@ export const env = {
   BETTER_AUTH_URL: required('BETTER_AUTH_URL'),
   BETTER_AUTH_SECRET: required('BETTER_AUTH_SECRET'),
   NODE_ENV: process.env.NODE_ENV ?? 'development',
+  // Optional Web Push (VAPID). Empty or absent disables push with 503
+  // push_disabled and leaves the rest of the API up. Read live so a process
+  // can observe keys without a module reload in tests.
+  get VAPID_PUBLIC_KEY() {
+    const value = process.env.VAPID_PUBLIC_KEY?.trim();
+    return value || undefined;
+  },
+  get VAPID_PRIVATE_KEY() {
+    const value = process.env.VAPID_PRIVATE_KEY?.trim();
+    return value || undefined;
+  },
+  get VAPID_SUBJECT() {
+    const value = process.env.VAPID_SUBJECT?.trim();
+    return value || 'https://app.reomi.ru';
+  },
   // Total application shutdown budget. Keep below the container stop grace.
   SHUTDOWN_TIMEOUT_MS: positiveNumber('SHUTDOWN_TIMEOUT_MS', 8000),
   // ── Media storage (M2) — S3-compatible (MinIO local / R2-S3 prod) ──────────

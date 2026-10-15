@@ -52,6 +52,7 @@ export const PERSISTENT_STORAGE_KEYS = [
   'nn:review:inspector-width',
   'nn:wco:hint',
   'nn:notifications:enabled',
+  'nn:pwa:install-dismissed',
   'nn:cards:columns:desktop',
   'nn:cards:columns:mobile',
   'nn:cards:filters-width',
