@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { AUTH_RATE_RULES, rateLimitCheck, rateLimitReset } from '../src/rate-limit.ts';
+import { AUTH_RATE_RULES, authRateRuleFor, rateLimitCheck, rateLimitReset } from '../src/rate-limit.ts';
 
 // These assertions bypass the NODE_ENV=test short-circuit by clearing state
 // and calling the pure checker with deterministic times.
@@ -58,6 +58,15 @@ describe('rateLimitCheck (pure)', () => {
     } finally {
       process.env.NODE_ENV = savedEnv;
     }
+  });
+
+  test('password reset posts share the forgot-password budget', () => {
+    expect(authRateRuleFor('POST', '/api/auth/request-password-reset')).toEqual(AUTH_RATE_RULES.forgot);
+    expect(authRateRuleFor('POST', '/api/auth/forget-password')).toEqual(AUTH_RATE_RULES.forgot);
+    expect(authRateRuleFor('POST', '/api/auth/forgot-password')).toEqual(AUTH_RATE_RULES.forgot);
+    expect(authRateRuleFor('GET', '/api/auth/request-password-reset')).toBeNull();
+    expect(authRateRuleFor('POST', '/api/auth/sign-in/email')).toEqual(AUTH_RATE_RULES.signIn);
+    expect(authRateRuleFor('POST', '/api/auth/reset-password')).toBeNull();
   });
 
   test('NODE_ENV=test short-circuits to allowed', () => {

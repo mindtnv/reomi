@@ -1,10 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { ApiError, apiErrorFromResponse } from '@/lib/api';
-// BetterAuth's endpoint name varies between versions — calling it via the
-// SDK would lock us to a specific method name. A bare `fetch` to the REST
-// path works on every version and needs zero type gymnastics.
+import { apiErrorFromResponse } from '@/lib/api';
+import { authFailureText, authFieldError, forgotPasswordOutcome, passwordResetRequestUrl } from '@/lib/auth-recovery';
 const API_BASE =
   typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL
     ? process.env.NEXT_PUBLIC_API_URL
@@ -20,33 +18,38 @@ export default function ForgotPasswordPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+    const fieldError = authFieldError({ mode: 'forgot', email });
+    if (fieldError) {
+      setError(fieldError);
+      return;
+    }
+    setLoading(true);
     try {
       const redirectTo =
         typeof window !== 'undefined'
           ? `${window.location.origin}/auth/reset-password`
           : '/auth/reset-password';
-      const res = await fetch(`${API_BASE}/api/auth/forget-password`, {
+      const res = await fetch(passwordResetRequestUrl(API_BASE), {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), redirectTo }),
       });
-      if (!res.ok && res.status !== 200 && res.status !== 204) {
-        // Rate limit or validation — show a generic message so we don't leak
-        // user-enumeration signals.
-        if (res.status === 429) {
-          const upstream = await apiErrorFromResponse(res, 'rate_limited');
-          throw new ApiError('Слишком много попыток. Подожди и попробуй ещё раз.', {
-            status: res.status,
-            requestId: upstream.requestId,
-          });
-        }
-        if (res.status >= 500) throw await apiErrorFromResponse(res, 'Не удалось отправить письмо.');
+      const outcome = forgotPasswordOutcome(res.status);
+      if (outcome === 'rate_limited') {
+        throw new Error(authFailureText({ status: res.status, fallback: 'Слишком много попыток. Подожди и попробуй ещё раз.' }));
       }
-      // Success is indistinguishable from "email doesn't exist" — intentional,
-      // so we always show the sent-confirmation.
+      if (outcome === 'failed') {
+        const upstream = await apiErrorFromResponse(res, 'Не удалось отправить письмо.');
+        const mapped = authFailureText({
+          status: res.status,
+          message: upstream.safeMessage,
+          fallback: '',
+        });
+        if (res.status >= 500 && !mapped) throw upstream;
+        throw new Error(mapped || 'Не удалось отправить письмо.');
+      }
       setSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Что-то пошло не так');
@@ -57,6 +60,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <form
+      noValidate
       onSubmit={submit}
       style={{
         width: 'min(420px, 100%)',
@@ -91,7 +95,6 @@ export default function ForgotPasswordPage() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
             autoComplete="email"
-            required
             style={inputStyle}
           />
         </label>
