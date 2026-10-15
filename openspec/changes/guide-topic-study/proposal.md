@@ -2,39 +2,41 @@
 
 ## Why
 
-Reomi can store a PDF, read one web page, chat about what is already in the library, and review cards with FSRS. It cannot take the sentence "I want to learn Kubernetes from scratch" and produce an ordered set of modules and pages. A new user has to invent that sequence, add each page through the library, and only then reach the reader, notebook, and review queue.
+Reomi can store a page, chat about what is already in the library, and review cards. It cannot turn "I want to learn Kubernetes" into an ordered set of modules and pages. The user has to invent that sequence and add each page by hand before the notebook and the reader are useful.
 
 ## What Changes
 
-- Add a topic study plan. One owned notebook holds at most one plan, and a plan is an ordered list of modules for a goal the user typed.
-- When chat is enabled, generate an unsaved draft from the goal and an optional level. The draft contains module titles, outcomes, earlier-module prerequisites, and suggested http(s) URLs. Generation does not fetch those URLs.
-- Let the user edit the draft and save it. The first save creates the notebook and the plan together. A later save replaces that notebook's modules and leaves existing library sources in place.
-- Add an explicit per-module action that turns accepted URLs into library sources, attaches them to the notebook, and records the module link. An owned URL source with the same normalized URL is reused.
-- Show the plan on the notebook. Each module's status is derived from the linked sources. Opening a source uses the existing reader.
+- The entry is the existing assistant chat. The user writes the goal in that chat. The assistant answers with a structured plan card that lists modules and http(s) URLs. The user changes the plan by sending another message. There is no new screen and no new dialog. The welcome screen stays as it is.
+- A plan card checks each suggested URL before the user sees it, and drops a URL that fails that check. The check does not insert a library item.
+- Confirmation uses the existing assistant confirm step. On apply, the assistant creates one ordinary notebook, stores the plan as that notebook's child, and ingests each accepted URL through the existing URL ingest. The page text is stored in the library, and each source is attached to the notebook. Reject creates nothing.
+- The notebook may show the saved plan on a tab. That tab opens a linked source in the existing reader. It does not collect the goal and it does not ask for URLs.
+- Storage stays the plan tables that already belong to one notebook. This revision adds no table.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `topic-study-plan`: an owned notebook plan that turns one learning goal into editable modules and explicitly accepted library sources.
+- `topic-study-plan`: an owned notebook plan that the assistant proposes in chat, confirms, and fills with ingested library pages.
 
 ### Modified Capabilities
 
-None. Library ingest, notebook membership, the reader, assistant confirmation, and the FSRS queue keep their current requirements.
+None. Library URL ingest, notebook membership, the reader, assistant confirmation, and the FSRS queue keep their current requirements.
 
 ## Impact
 
-- API and database. Additive plan tables, a draft route, a save route, and a per-module source action. Apply the migration and ship the API before the web. Rollback drops the new tables. Notebooks, sources, cards, and reviews stay.
-- Web. The welcome screen, the empty notebooks screen, and a notebook with no plan gain the plan flow. Copy ships in both locales.
-- AI. One non-streaming completion, with the same disabled and failure behavior as notebook overview. No new provider and no embedding requirement for the draft.
+- API and database. The additive plan tables from this change stay. The assistant gains a proposal and a confirmed write. Apply the existing migration and ship the API before the web. An old web build never opens a plan screen. Rollback drops only the plan tables. Notebooks, sources, cards, and reviews stay.
+- Web. The chat transcript renders the plan card inside the existing assistant. The notebook dock may gain a Plan tab. Copy ships in both locales. The welcome screen is unchanged.
+- AI. One non-streaming completion proposes the first card. A later message can revise that card without a second completion. Confirmation does not call the model again. Chat disabled means the assistant cannot propose a plan.
 
 ### Non-goals
 
+- A welcome action, a plan dialog, or a hand-entry form.
+- A new course root, a draft row, or any table beyond the plan that belongs to the notebook.
 - Generating cards, quizzes, or study guides from a module.
 - A home path that mixes unread material with due reviews.
 - Crawling a site, following links, or importing video.
 - Running commands, labs, or code.
 - Changing FSRS order, daily limits, or grades.
 - Making the existing library URL dialog reject duplicate URLs.
-- Changing the home and review redirect that still depends on having a deck. After save, the client opens the notebook. The existing reader can create a deck with the first card.
+- Changing the home and review redirect that still depends on having a deck. After confirmation, the client opens the notebook. The existing reader can create a deck with the first card.
 - Replacing notebook overview, study-guide artifacts, coverage, or the concept map.
