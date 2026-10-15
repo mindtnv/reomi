@@ -5,6 +5,7 @@ export interface StudyCounts {
   learningCount: number;
   reviewCount: number;
   suspendedCount: number;
+  dueNew: number;
   dueLearning: number;
   dueReview: number;
   nextLearningAt: string | null;

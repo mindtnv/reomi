@@ -46,6 +46,7 @@ import { toApiError } from '@/lib/resource-state';
 import { api, ok, type ApiError } from '@/lib/api';
 import { cardFromApi } from '@/lib/mappers';
 import { studyDateIso } from '@/lib/study-date';
+import { setDueStateGroups } from '@/lib/set-due-preview';
 
 const DEFAULT_CARDS_PAGE = 500;
 
@@ -656,8 +657,16 @@ export const NNCardsBrowser = () => {
   });
 
   const runSetDue = () => performBulk(async (ids) => {
+    const selectedIds = new Set(ids);
+    const groups = setDueStateGroups(rows.filter((card) => selectedIds.has(card.id)).map((card) => stateLabel(card.fsrs.state)));
+    const message = [
+      groups.includes('new') ? t('cards.actions.setDueNew') : null,
+      groups.includes('learning') ? t('cards.actions.setDueLearning') : null,
+      groups.includes('review') ? t('cards.actions.setDueReview') : null,
+    ].filter((line) => line !== null).join('\n');
     const value = await prompt({
       title: t('cards.actions.setDueTitle'), inputType: 'date',
+      message: message || undefined,
       defaultValue: new Date().toISOString().slice(0, 10),
       validate: (value) => studyDateIso(value) ? null : t('cards.actions.invalidDate'),
     });

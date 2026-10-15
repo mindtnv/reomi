@@ -74,6 +74,9 @@ const m = {
     forgetConfirm: 'Reset {n} cards to new? Their study progress will be cleared.',
     setDue: 'Set due',
     setDueTitle: 'Set due date',
+    setDueNew: 'New cards stay new and join today\'s queue only after this UTC day starts.',
+    setDueLearning: 'Learning and relearning cards keep their step and wait until this date.',
+    setDueReview: 'Review cards stay in review and wait until this date.',
     invalidDate: 'Enter a valid date',
   },
   panel: {

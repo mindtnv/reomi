@@ -787,7 +787,7 @@ export const cardsModule = new Elysia({ prefix: '/cards' })
       const fresh = await db
         .select()
         .from(cards)
-        .where(and(...base, eq(cards.state, 'new')))
+        .where(and(...base, eq(cards.state, 'new'), lte(cards.due, now)))
         .orderBy(asc(cards.createdAt), asc(cards.id))
         .limit(Math.min(newLimit, MAX_STUDY_QUEUE - due.length));
 
