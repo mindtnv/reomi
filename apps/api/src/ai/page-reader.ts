@@ -314,6 +314,64 @@ async function readBodyCapped(res: Response, cap: number): Promise<string> {
   return new TextDecoder('utf-8', { fatal: false }).decode(buf);
 }
 
+async function releaseResponse(res: Response): Promise<void> {
+  await res.body?.cancel().catch(() => {});
+}
+
+/**
+ * Liveness check for a suggested URL. HEAD, then GET when HEAD is not a 2xx.
+ * Uses the same static and DNS guards as DirectPageReader, follows redirects
+ * manually, and treats any final 2xx as live. A private hop or a network
+ * failure is not live. The body is cancelled; this does not read or store a page.
+ */
+export async function probePageUrl(raw: string): Promise<boolean> {
+  let current: URL;
+  try {
+    current = validatePageUrl(raw);
+    await assertPublicHost(current);
+  } catch {
+    return false;
+  }
+  if (await probePageMethod(current, 'HEAD')) return true;
+  return probePageMethod(current, 'GET');
+}
+
+async function probePageMethod(start: URL, method: 'HEAD' | 'GET'): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), env.ai.FETCH_PAGE_TIMEOUT_MS);
+  try {
+    let current = start;
+    const MAX_REDIRECTS = 3;
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      const res = await directFetchImpl(current.href, {
+        method,
+        redirect: 'manual',
+        headers: {
+          'user-agent': 'ReomiAgent/1.0 (study assistant; +https://github.com)',
+          accept: '*/*',
+        },
+        signal: controller.signal,
+      });
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get('location');
+        await releaseResponse(res);
+        if (!loc) return false;
+        current = validatePageUrl(new URL(loc, current).href);
+        await assertPublicHost(current);
+        continue;
+      }
+      const ok = res.ok;
+      await releaseResponse(res);
+      return ok;
+    }
+    return false;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export class DirectPageReader implements PageReader {
   async read(url: string, opts: PageReadOpts = {}): Promise<PageContent> {
     let current = validatePageUrl(url);

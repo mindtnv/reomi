@@ -20,6 +20,7 @@ import { mediaModule } from './modules/media.ts';
 import { aiModule, chatModule, contextualChatModule } from './modules/ai.ts';
 import { cardsSimilarModule, graphModule } from './modules/semantic.ts';
 import { notebooksModule, sourcesModule } from './modules/notebooks.ts';
+import { topicPlanDraftRoutes } from './ai/topic-plan-draft.ts';
 import { topicPlanRoutes } from './modules/topic-plan.ts';
 import { sourceStudyModule } from './modules/source-study.ts';
 import { sourceTextMarksModule } from './modules/source-text-marks.ts';
@@ -270,6 +271,7 @@ export function buildApp(options: BuildAppOptions = {}) {
     .use(chatModule)
     .use(contextualChatModule)
     .use(topicPlanRoutes)
+    .use(topicPlanDraftRoutes)
     .use(notebooksModule)
     .use(sourcesModule)
     .use(sourceStudyModule)
