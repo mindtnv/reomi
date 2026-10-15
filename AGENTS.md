@@ -26,7 +26,7 @@ All commands run from the repo root via **Bun workspaces**:
 
 Ports: web **3001**, api **3000**, postgres **5432**. Swagger UI at `http://localhost:3000/docs` — use it instead of curl when poking new endpoints.
 
-Prereqs: **Bun 1.4.2**, Docker, and a root `.env` (copy from `.env.example`). The pinned baseline is TypeScript 7.0.2, Next.js 16.3, React 19.3, Node 26 Current for the standalone web runtime, and PostgreSQL 18 + pgvector 0.8.2. Pull requests gate on OpenSpec validation + `bun run typecheck` + migration-faithful `bun run test:ci` + `bun run build` and a separate real-S3 round-trip job; pushes to `main` run the same gates while both production images build in parallel. No linter configured.
+Prereqs: **Bun 1.4.2**, Docker, and a root `.env` (copy from `.env.example`). The pinned baseline is TypeScript 7.0.2, Next.js 16.3, React 19.3, Node 26 Current for the standalone web runtime, and PostgreSQL 18 + pgvector 0.8.2. Pull requests gate on OpenSpec validation + `bun run typecheck` + `bun run lint` + migration-faithful `bun run test:ci` + `bun run build` and a separate real-S3 round-trip job; pushes to `main` run the same gates while both production images build in parallel. `bun run lint` rejects a native `input`, `select`, or `button` in `apps/web` JSX outside the design-system controls.
 
 ## OpenSpec
 
@@ -454,6 +454,7 @@ The `PATCH /decks/:id` handler also runs a cycle-guard on `parentId` changes. DB
 
 ## Conventions & gotchas
 
+- **Raw form controls are forbidden:** `apps/web` JSX must not use a native `input`, `select`, or `button`. Use `TextInput` or `Button` from `apps/web/src/components/design-system/primitives.tsx`, `NNBtn` from `apps/web/src/components/ui.tsx`, or `NNSelect`. `react/forbid-elements` in `eslint.config.mjs` enforces it. Allowed files are `apps/web/src/components/design-system/**`, `ui.tsx`, `nn-select.tsx`, and `*.{test,spec}.{tsx,jsx}`. `bun run lint` runs in the pull-request check job and on `main`. A pull request that changes UI includes screenshots of the changed screens. Screens that still use raw controls carry a file-level `eslint-disable` with a TODO until they move over.
 - **Client-everywhere for screens:** every `(app)/*/page.tsx` is `'use client'`. Server Components that call `auth.api.getSession()` for SSR are OK outside the app group, but the app shell depends on client state.
 - **`useSearchParams` + Suspense:** wrap consumers in `<Suspense fallback={null}>` (see `/editor` and `/auth/sign-in`).
 - **Don't split screens into client+server halves** to save bundle size — dynamic topbar subtitles depend on the store.

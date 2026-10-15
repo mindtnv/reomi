@@ -86,6 +86,8 @@ jobs:
         run: bun run db:migrate:apply:test
       - name: Typecheck
         run: bun run typecheck
+      - name: Lint
+        run: bun run lint
       - name: Test
         run: bun run test:ci
 
