@@ -1,20 +1,15 @@
 # Manual production screenshot walk. Reads the same E2E_EMAIL / E2E_PASSWORD
 # secrets as e2e-prod. Uploads PNG evidence only; traces and videos stay off.
+#
+# Dispatch only. The selected ref must be the repository default branch, and
+# the checkout is that branch. These secrets must not be injected into a
+# pull-request checkout: a later commit on that branch would be the code that
+# sees the password. PNG bytes are not part of the text secret scan.
 
 name: visual-audit
 
 on:
   workflow_dispatch:
-  # The dispatch endpoint only lists workflows that already exist on the default
-  # branch. This path filter runs the same job from a pull request that adds or
-  # edits the harness, which is how the first audit is captured before merge.
-  pull_request:
-    types: [opened, synchronize]
-    paths:
-      - .github/workflows/visual-audit.yml
-      - e2e/visual-audit.e2e.ts
-      - scripts/visual-audit.sh
-      - playwright.visual-audit.config.ts
 
 concurrency:
   group: visual-audit
@@ -23,10 +18,13 @@ concurrency:
 jobs:
   visual-audit:
     name: Production visual audit
+    if: "${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}"
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
