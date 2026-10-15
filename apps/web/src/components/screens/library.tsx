@@ -16,6 +16,7 @@
 // Inline styles + CSS vars + ui.tsx primitives only (no Tailwind).
 
 import { sourceOperationLabel } from '@/lib/source-operation-label';
+import { resolveMediaSrc } from '@/lib/media-url';
 import { useTransientLayer } from '@/lib/use-transient-layer';
 import { useNavigationGuard } from '@/components/navigation';
 import { useSmallAction } from '@/lib/use-small-action';
@@ -966,7 +967,7 @@ const CoverPlaceholder = ({ item, size, aspect }: { item: LibraryItem | { id: st
       {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={coverUrl!}
+          src={resolveMediaSrc(coverUrl!)}
           alt=""
           onError={() => setFailed(true)}
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}

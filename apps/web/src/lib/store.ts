@@ -254,8 +254,9 @@ interface State {
   /**
    * Upload an image to S3 (M2 Phase 4). Three-step (plan Decision A1): presign →
    * direct multipart POST to S3 (bytes never touch Bun) → finalize. Returns the
-   * relative media token `/m/{uuid}` to embed as `<img src=…>` (the only img-src
-   * shape the dual-edge sanitizer keeps) plus the media id.
+   * relative media token `/m/{uuid}` to embed as markdown (the only img-src
+   * shape the dual-edge sanitizer keeps). Display resolves that token through
+   * the session-checked media route. Plus the media id.
    */
   uploadMedia: (file: File) => Promise<{ token: string; mediaId: string }>;
 

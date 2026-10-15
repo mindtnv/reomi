@@ -44,8 +44,10 @@ services:
       timeout: 5s
       retries: 10
 
-  # One-shot: create the media bucket and make it public-read (download).
-  # Stored <img> tokens resolve to ${S3_PUBLIC_BASE_URL}/media/<uuid>.
+  # One-shot: create the media bucket and keep it private. Card images are
+  # read through the API session (`GET /media/:id/content`), not by anonymous
+  # GET of `media/<uuid>`. `anonymous set none` also locks a bucket that an
+  # older compose file had switched to public-read.
   createbuckets:
     image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
     container_name: neuronexus-createbuckets
@@ -56,8 +58,8 @@ services:
       /bin/sh -c "
       mc alias set local http://minio:9000 neuronexus neuronexus-secret &&
       mc mb --ignore-existing local/neuronexus-media &&
-      mc anonymous set download local/neuronexus-media &&
-      echo 'bucket neuronexus-media ready (public-read)';
+      mc anonymous set none local/neuronexus-media &&
+      echo 'bucket neuronexus-media ready (private)';
       "
 
 volumes:

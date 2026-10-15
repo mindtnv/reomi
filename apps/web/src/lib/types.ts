@@ -401,7 +401,7 @@ export interface LibraryItem {
   pageCount: number | null;
   byteSize: number | null;
   coverMediaId: string | null;
-  /** `/m/<uuid>` cover image URL (Next rewrite), or null for a placeholder. */
+  /** Stored `/m/<uuid>` cover token (resolved to a private read at display), or null. */
   coverUrl: string | null;
   notebookCount: number;
   cardCount: number;

@@ -261,8 +261,8 @@ const RichField = ({
       if (!alive.current || identity.current !== owner) return;
       // Insert MARKDOWN image syntax with the RELATIVE token only — markdown-it
       // renders it to `<img src="/m/<uuid>">`, the sole img-src shape the render
-      // edge's MEDIA_TOKEN_RE keeps; a Next `/m/:uuid` rewrite resolves it at
-      // display time. Alt is the file name (sans extension) for accessibility.
+      // edge's MEDIA_TOKEN_RE keeps. Display then loads the authenticated media
+      // route. Alt is the file name (sans extension) for accessibility.
       const alt = file.name.replace(/\.[^.]+$/, '').replace(/[\\\[\]]/g, '\\$&').replace(/[\r\n]/g, ' ');
       const snippet = `![${alt}](${token})`;
       const latest = ref.current?.value ?? original;

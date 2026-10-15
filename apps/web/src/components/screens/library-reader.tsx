@@ -23,6 +23,7 @@ import { useSearchParams } from 'next/navigation';
 import { useAppNavigation, useNavigationWorkspace, useWorkspaceState } from '@/components/navigation';
 import { NNBtn, NNIcon, NNLoadError, NNSkeleton } from '@/components/ui';
 import { api, ok, type ApiError } from '@/lib/api';
+import { resolveMediaSrc } from '@/lib/media-url';
 import { toApiError } from '@/lib/resource-state';
 import { useKnowledgeRefresh } from '@/lib/use-knowledge-refresh';
 import { canReadSource } from '@/lib/source-reading';
@@ -690,7 +691,7 @@ paddingLeft: 16 + wcoLeft, paddingRight: 16 + wcoRight,
     {coverUrl && (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={coverUrl}
+        src={resolveMediaSrc(coverUrl)}
         alt=""
         style={{ width: 22, height: 30, objectFit: 'cover', borderRadius: 3, flexShrink: 0, border: '1px solid var(--border)' }}
       />

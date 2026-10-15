@@ -24,7 +24,8 @@ export const env = {
   S3_BUCKET: required('S3_BUCKET'),
   S3_ACCESS_KEY_ID: required('S3_ACCESS_KEY_ID'),
   S3_SECRET_ACCESS_KEY: required('S3_SECRET_ACCESS_KEY'),
-  // Public read base for serving objects: `${S3_PUBLIC_BASE_URL}/${key}`.
+  // Object base URL. Card/cover bytes are not served from here; authenticated
+  // `GET /media/:id/content` is the read path. Anonymous bucket download stays off.
   S3_PUBLIC_BASE_URL: required('S3_PUBLIC_BASE_URL'),
   // MinIO needs path-style addressing; real S3/R2 use virtual-hosted by default.
   S3_FORCE_PATH_STYLE: (process.env.S3_FORCE_PATH_STYLE ?? 'true') === 'true',

@@ -23,6 +23,7 @@ import { useNN } from '@/lib/store';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useStickToBottom } from '@/lib/use-stick-to-bottom';
 import { assistantApi, api, ok } from '@/lib/api';
+import { resolveMediaSrc } from '@/lib/media-url';
 import { cardFromApi } from '@/lib/mappers';
 import type { Card } from '@/lib/types';
 import type { ConversationVM } from '@/lib/chat-threads';
@@ -323,7 +324,7 @@ function AssistantConversationView({ sessionKey, locale }: { sessionKey: string;
         {trigger?.kind === 'slash' && <AssistantPopup className="reomi-assistant-slash-layer" label={t('assistant.addContext')} focus={false} onClose={() => setTrigger(null)} portals={() => [textarea.current]}><SlashMenu commands={slashCommands} activeIndex={slashIndex} onPick={chooseSlash} onHover={setSlashIndex} isMobile={false} t={t}/></AssistantPopup>}
         {!compact && <div className="reomi-assistant-composer-context">{mentionChips}</div>}
         {session.attachments.length > 0 && <div className="reomi-assistant-attachments">{session.attachments.map((attachment,index) => <span key={index}>
-          {attachment.kind === 'image' && <img alt={attachment.name ?? ''} src={`/m/${attachment.mediaId}`}/>}{attachment.name}
+          {attachment.kind === 'image' && <img alt={attachment.name ?? ''} src={resolveMediaSrc(`/m/${attachment.mediaId}`)}/>}{attachment.name}
           <button aria-label={t('actions.delete')} onClick={() => a.controller.removeAttachment(sessionKey,attachment)}>×</button>
         </span>)}</div>}
         <textarea ref={textarea} readOnly={a.pageOpening} data-assistant-composer value={session.draft} maxLength={8000} rows={snapshot.presentation === 'floating' ? 1 : 2} placeholder={t('assistant.placeholder')}

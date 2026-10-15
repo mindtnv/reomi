@@ -12,14 +12,23 @@
 //                               A5); on a missing ContentLength → head_failed
 //                               (400, object NOT deleted); else flip verified=true.
 //   GET  /media               → list the caller's VERIFIED media rows.
+//   GET  /media/:id/content   → stream one VERIFIED object owned by the caller.
+//                               Anonymous → 401. Foreign, missing, or still
+//                               pending → 404 (no existence leak). The response
+//                               is private and short-cached; a repeat within the
+//                               window does not re-read S3, and If-None-Match
+//                               revalidation is a 304 without a storage read.
 //
-// Trust boundary: bytes never flow through Bun (plan Decision A1). The presign
-// policy binds size + Content-Type so S3 rejects oversize/wrong-type uploads
-// server-side; finalize re-verifies the real bytes (HEAD reports the
-// client-declared type, not a sniffed one — plan A6/C-4). SSRF is structurally
-// impossible: every storage call targets a key the server itself derived
-// (`media/{uuid}`), never a client-supplied URL. The uuid is bound to its owner
-// AT PRESIGN (the pending-row insert), closing the cross-user finalize gap.
+// Trust boundary: upload bytes never flow through Bun (plan Decision A1). The
+// presign policy binds size + Content-Type so S3 rejects oversize/wrong-type
+// uploads server-side; finalize re-verifies the real bytes (HEAD reports the
+// client-declared type, not a sniffed one — plan A6/C-4). Authorized reads do
+// stream the object (capped at MAX_MEDIA_BYTES) so the browser can cache a
+// stable same-session URL; they never redirect to an anonymous object URL.
+// SSRF is structurally impossible: every storage call targets a key the server
+// itself derived (`media/{uuid}`), never a client-supplied URL. The uuid is
+// bound to its owner AT PRESIGN (the pending-row insert), closing the
+// cross-user finalize gap. Read uses the same (id, userId) binding.
 
 import { Elysia, t } from 'elysia';
 import { and, desc, eq } from 'drizzle-orm';
@@ -28,7 +37,17 @@ import { MAX_MEDIA_BYTES, MEDIA_MIME_ALLOWLIST, newUuidV7 } from '@neuronexus/sh
 import { authPlugin } from '../auth-plugin.ts';
 import { requestLogFromContext } from '../logger.ts';
 import { env } from '../env.ts';
-import { deleteObject, headSize, presignUpload, sniffMagic } from '../storage.ts';
+import { deleteObject, headSize, presignUpload, readMediaObject, sniffMagic } from '../storage.ts';
+
+/**
+ * How long a browser may reuse an authorized image without rechecking the
+ * session. The content URL is stable, so this window collapses repeat paints
+ * (review reveal, library scroll) into one download. `Vary: Cookie` stops one
+ * session's cached bytes from being reused as another's. After it expires,
+ * ETag revalidation still skips S3 when the owner has not changed. 404 is
+ * `no-store` because that status is heuristically cacheable.
+ */
+const MEDIA_READ_MAX_AGE_SEC = 120;
 
 // Allowed image MIME types — single source of truth in @neuronexus/shared
 // (mirrored on the web pre-check). The server is the security boundary.
@@ -45,6 +64,46 @@ function isUniqueViolation(err: unknown): boolean {
 /** Ext-free, userId-free S3 key for a media uuid (plan C-1/A7). */
 function keyFor(mediaId: string): string {
   return `media/${mediaId}`;
+}
+
+function mediaEtag(mediaId: string): string {
+  return `"${mediaId}"`;
+}
+
+function ifNoneMatchSatisfied(header: string | null, etag: string): boolean {
+  if (!header) return false;
+  const weak = `W/${etag}`;
+  return header.split(',').some((part) => {
+    const value = part.trim();
+    return value === etag || value === weak;
+  });
+}
+
+function privateImageHeaders(etag: string, mime: string, size: number): Headers {
+  const headers = new Headers();
+  headers.set('content-type', mime);
+  headers.set('content-length', String(size));
+  headers.set('etag', etag);
+  headers.set('cache-control', `private, max-age=${MEDIA_READ_MAX_AGE_SEC}, must-revalidate`);
+  headers.set('vary', 'Cookie');
+  headers.set('content-disposition', 'inline');
+  headers.set('x-content-type-options', 'nosniff');
+  headers.set('cross-origin-resource-policy', 'same-site');
+  return headers;
+}
+
+function notFoundMedia(): Response {
+  return new Response(JSON.stringify({ error: 'not_found' }), {
+    status: 404,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+    },
+  });
+}
+
+function imageBytes(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 /**
@@ -232,4 +291,47 @@ export const mediaModule = new Elysia({ prefix: '/media' })
       return { items: rows };
     },
     { auth: true },
+  )
+  // Private read. The stored token `/m/<uuid>` is not a capability: the caller
+  // must own a verified row. Bytes stay on this response (stable URL, private
+  // cache) instead of a public object URL or a signature that changes the
+  // cache key on every view.
+  .get(
+    '/:id/content',
+    async ({ user, params, request }) => {
+      const mediaId = params.id;
+      const [row] = await db
+        .select({
+          id: media.id,
+          mime: media.mime,
+          verified: media.verified,
+        })
+        .from(media)
+        .where(and(eq(media.id, mediaId), eq(media.userId, user.id)))
+        .limit(1);
+      if (!row?.verified) return notFoundMedia();
+
+      const etag = mediaEtag(mediaId);
+      const cacheHeaders = {
+        etag,
+        'cache-control': `private, max-age=${MEDIA_READ_MAX_AGE_SEC}, must-revalidate`,
+        vary: 'Cookie',
+        'x-content-type-options': 'nosniff',
+        'cross-origin-resource-policy': 'same-site',
+      };
+      if (ifNoneMatchSatisfied(request.headers.get('if-none-match'), etag)) {
+        return new Response(null, { status: 304, headers: cacheHeaders });
+      }
+
+      const bytes = await readMediaObject(keyFor(mediaId));
+      if (!bytes) return notFoundMedia();
+      return new Response(imageBytes(bytes), {
+        status: 200,
+        headers: privateImageHeaders(etag, row.mime, bytes.byteLength),
+      });
+    },
+    {
+      auth: true,
+      params: t.Object({ id: t.String({ format: 'uuid' }) }),
+    },
   );

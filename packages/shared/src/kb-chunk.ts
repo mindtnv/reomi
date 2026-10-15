@@ -305,7 +305,8 @@ export type MessageAttachmentInput =
 
 /**
  * One persisted attachment on a user message row (server-resolved snapshot).
- * `token` is the public `/m/<uuid>` path the web client renders the image from.
+ * `token` is the stored `/m/<uuid>` path. It is not a public object URL;
+ * the web client resolves it to the session-checked media route at render time.
  */
 export type MessageAttachment =
   | { kind: 'image'; mediaId: string; token: string; mime: string; name?: string }
