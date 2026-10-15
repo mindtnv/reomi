@@ -5,6 +5,16 @@ name: visual-audit
 
 on:
   workflow_dispatch:
+  # The dispatch endpoint only lists workflows that already exist on the default
+  # branch. This path filter runs the same job from a pull request that adds or
+  # edits the harness, which is how the first audit is captured before merge.
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - .github/workflows/visual-audit.yml
+      - e2e/visual-audit.e2e.ts
+      - scripts/visual-audit.sh
+      - playwright.visual-audit.config.ts
 
 concurrency:
   group: visual-audit
