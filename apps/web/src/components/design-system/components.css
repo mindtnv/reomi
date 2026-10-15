@@ -1367,11 +1367,12 @@ body:has(.reomi-organized-deck-row[data-dragging]) { user-select: none; cursor: 
 .reomi-mcp-settings .reomi-segments > button { white-space: normal; }
 .reomi-mcp-token { padding: 14px 0 !important; }
 .reomi-mcp-connect { padding-top: 16px; border-top: 1px solid var(--panel-edge); }
-.reomi-mcp-connect > button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; padding: 0; border: 0; background: transparent; color: var(--text); font: 500 13px/1.4 var(--font-sans); cursor: pointer; }
-.reomi-mcp-connect > button svg { transition: transform var(--control-motion); }
-.reomi-mcp-connect > button[aria-expanded='true'] svg { transform: rotate(180deg); }
-.reomi-mcp-connect > button:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 3px; border-radius: 6px; }
-@media (prefers-reduced-motion: reduce) { .reomi-mcp-connect > button svg { transition: none; } }
+.reomi-mcp-connect > .reomi-button { height: auto; padding: 0; border: 0; white-space: normal; flex-shrink: 1; justify-content: space-between; gap: 12px; font: 500 13px/1.4 var(--font-sans); }
+.reomi-mcp-connect > .reomi-button .reomi-button-stack { width: 100%; }
+.reomi-mcp-connect > .reomi-button .reomi-button-content { display: flex; width: 100%; align-items: center; justify-content: space-between; }
+.reomi-mcp-connect > .reomi-button svg { transition: transform var(--control-motion); }
+.reomi-mcp-connect > .reomi-button[aria-expanded='true'] svg { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .reomi-mcp-connect > .reomi-button svg { transition: none; } }
 .reomi-mcp-connect > div { display: grid; gap: 10px; margin-top: 12px; }
 
 .reomi-settings-defaults > summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; font-weight: 500; cursor: pointer; }

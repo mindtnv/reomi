@@ -1,8 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { Field, SegmentedControl, TextInput } from '@/components/design-system/primitives';
+import { Button, Field, SegmentedControl, TextInput } from '@/components/design-system/primitives';
 import { NNBtn, NNIcon, NNSkeleton } from './ui';
 import { useT } from '@/lib/i18n';
 import { apiErrorFromResponse } from '@/lib/api';
@@ -102,10 +101,9 @@ export function McpSettings() {
       })}
     </div>
     <div className="reomi-mcp-connect">
-      <button type="button" aria-expanded={connectOpen} onClick={() => setConnectOpen(open => !open)}>
+      <Button variant="ghost" block trailing={<NNIcon name="chevd" size={16} />} aria-expanded={connectOpen} onClick={() => setConnectOpen(open => !open)}>
         <span>{t('settings.mcp.connect')}</span>
-        <NNIcon name="chevd" size={16} />
-      </button>
+      </Button>
       {connectOpen && <div>
       <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>{t('settings.mcp.environment')}</p>
       <code style={{ overflowWrap: 'anywhere', fontSize: 12 }}>{endpoint}</code>
