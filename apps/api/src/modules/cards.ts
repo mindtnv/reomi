@@ -25,9 +25,9 @@ import { authPlugin } from '../auth-plugin.ts';
 import { cardEvidenceFingerprint } from '../ai/card-evidence';
 import { internalReadDeckScope } from '../mcp/internal-read.ts';
 import { buildCardWhere } from './card-query-sql.ts';
-import { resolveDeckConfig } from './deck-config.ts';
 import { SORT_ORDERS, type SortOrder } from './filtered-decks.ts';
-import { loadStudyCounts, loadStudyOverview, studyAvailability, sumStudyCounts } from './study-summary.ts';
+import { allocateStudyScope, loadStudyCounts, loadStudyOverview } from './study-summary.ts';
+import { loadDeckSpend } from './deck-budget.ts';
 import { readAccountStudyDay, studyDaySnapshot } from './study-day.ts';
 
 export const MAX_STUDY_QUEUE = 500;
@@ -614,20 +614,12 @@ export const cardsModule = new Elysia({ prefix: '/cards' })
   //   2. New cards
   // Both lists respect `suspended = false`. Callers render the concatenation.
   //
-  // Limit VALUES come from `resolveDeckConfig` (per-deck preset → profile →
-  // ANKI_DEFAULTS) instead of hardcoded 20/200, and the GLOBAL per-user daily
-  // counter (`profile.{newIntroducedToday,reviewsDoneToday}` with a same-day
-  // guard) is subtracted so reloading the reviewer can't re-serve a fresh
-  // budget. Two paths:
-  //   • `?deckId=<id>` (scoped): subtree-aggregated (deck + descendants), limit
-  //     values from the TARGET deck's resolved config.
-  //   • no `deckId` (whole-collection, Decision 8 — the shipped reviewer path):
-  //     spans ALL the user's non-suspended cards, limits from
-  //     `resolveDeckConfig(null, …)` (profile / ANKI_DEFAULTS).
-  // Explicit `newLimit`/`reviewLimit` query params clamp DOWN to the derived
-  // daily-remaining (they can shrink a fetch, never exceed the daily budget).
-  // Envelope carries `mode: 'regular'`. (The `?filteredDeckId=` branch +
-  // `mode: 'filtered'` come in Phase 7.)
+  // Each deck's nearest preset (or the 20/200 default) caps that deck, and
+  // every ancestor caps it again. Study-all is the sum of those trees. Spend
+  // is the reviews committed in the open study epoch, so sibling presets do
+  // not share one counter. Explicit `newLimit`/`reviewLimit` query params
+  // clamp this response from the tail of that gather order. Learning steps
+  // stay outside the review cap. Envelope carries `mode: 'regular'`.
   .get(
     '/queue',
     async ({ user, query, status, request }) => {
@@ -734,71 +726,65 @@ export const cardsModule = new Elysia({ prefix: '/cards' })
         .limit(1);
       const snapshot = { userDecks, presetsById, profile: existingProfile ?? null };
       const { read: studyDay } = await readAccountStudyDay(user.id, existingProfile ?? null, now);
-      const consumedNew = studyDay.usedNew;
-      const consumedReviews = studyDay.usedReviews;
-
-      // Limit VALUES — scoped resolves the TARGET deck; whole-collection passes
-      // null so everything falls to profile / ANKI_DEFAULTS (Decision 8).
-      const cfg = resolveDeckConfig(deckId ?? null, snapshot);
-      let newLimit = Math.max(0, cfg.newPerDay - consumedNew);
-      let reviewLimit = Math.max(0, cfg.reviewsPerDay - consumedReviews);
-
-      // Explicit query params clamp DOWN to the daily-remaining (never above it).
-      if (query.newLimit !== undefined) {
-        newLimit = Math.min(newLimit, Number(query.newLimit));
-      }
-      if (query.reviewLimit !== undefined) {
-        reviewLimit = Math.min(reviewLimit, Number(query.reviewLimit));
-      }
-
-      const base = [eq(cards.userId, user.id), eq(cards.suspended, false)];
+      const [spend, countsByDeck] = await Promise.all([
+        loadDeckSpend(user.id, studyDay.startsAt, studyDay.endsAt),
+        loadStudyCounts(user.id, now),
+      ]);
       const allowed = internalReadDeckScope(request);
-      if (allowed !== undefined) base.push(allowed.length ? inArray(cards.deckId, [...allowed]) : sql`false`);
       const requestedSubtree = deckId ? [deckId, ...descendantIds(deckId, userDecks)] : null;
       const subtree = allowed === undefined ? requestedSubtree
         : requestedSubtree ? requestedSubtree.filter(id => allowed.includes(id)) : [...allowed];
-      if (subtree) {
-        // Scoped path: aggregate the deck + its whole subtree (descendants).
-        base.push(subtree.length ? inArray(cards.deckId, subtree) : sql`false`);
-      }
-      // Whole-collection path (no deckId): no extra filter — spans all the
-      // user's non-suspended cards.
+      const { allocation, summary } = allocateStudyScope(snapshot, spend, countsByDeck, deckId ?? null, now, {
+        include: subtree ? (id) => subtree.includes(id) : undefined,
+        clampNew: query.newLimit !== undefined ? Number(query.newLimit) : undefined,
+        clampReview: query.reviewLimit !== undefined ? Number(query.reviewLimit) : undefined,
+      });
+
+      const base = [eq(cards.userId, user.id), eq(cards.suspended, false)];
+      if (subtree) base.push(subtree.length ? inArray(cards.deckId, subtree) : sql`false`);
 
       // Learning steps are already introduced cards, not another daily review.
       const learning = await db.select().from(cards)
         .where(and(...base, inArray(cards.state, ['learning', 'relearning']), lte(cards.due, now)))
         .orderBy(asc(cards.due), asc(cards.id))
         .limit(MAX_STUDY_QUEUE);
-      const mature = await db
-        .select()
-        .from(cards)
-        .where(and(...base, eq(cards.state, 'review'), lte(cards.due, now)))
-        .orderBy(asc(cards.due), asc(cards.id))
-        .limit(Math.min(reviewLimit, MAX_STUDY_QUEUE - learning.length));
+      const gatherLimited = async (limits: Map<string, number>, state: 'review' | 'new') => {
+        const ids = allocation.order.filter((id) => (limits.get(id) ?? 0) > 0);
+        const groups = await Promise.all(ids.map((id) => db.select().from(cards).where(and(
+          ...base,
+          eq(cards.deckId, id),
+          eq(cards.state, state),
+          lte(cards.due, now),
+        )).orderBy(
+          ...(state === 'new' ? [asc(cards.createdAt), asc(cards.id)] : [asc(cards.due), asc(cards.id)]),
+        ).limit(limits.get(id)!)));
+        return groups.flat();
+      };
+      let room = MAX_STUDY_QUEUE - learning.length;
+      const mature: typeof learning = [];
+      for (const row of await gatherLimited(allocation.reviewByDeck, 'review')) {
+        if (room === 0) break;
+        mature.push(row);
+        room -= 1;
+      }
+      const fresh: typeof learning = [];
+      for (const row of await gatherLimited(allocation.newByDeck, 'new')) {
+        if (room === 0) break;
+        fresh.push(row);
+        room -= 1;
+      }
       const due = [...learning, ...mature];
 
-      // New cards — capped.
-      const fresh = await db
-        .select()
-        .from(cards)
-        .where(and(...base, eq(cards.state, 'new'), lte(cards.due, now)))
-        .orderBy(asc(cards.createdAt), asc(cards.id))
-        .limit(Math.min(newLimit, MAX_STUDY_QUEUE - due.length));
-
-      const [dueEnriched, freshEnriched, countsByDeck] = await Promise.all([
+      const [dueEnriched, freshEnriched] = await Promise.all([
         enrichCards(due),
         enrichCards(fresh),
-        loadStudyCounts(user.id, now),
       ]);
-      const scopeCounts = subtree
-        ? subtree.flatMap((id) => { const counts = countsByDeck.get(id); return counts ? [counts] : []; })
-        : countsByDeck.values();
       return {
         due: dueEnriched,
         new: freshEnriched,
         total: dueEnriched.length + freshEnriched.length,
         mode: 'regular' as const,
-        summary: studyAvailability(sumStudyCounts(scopeCounts), newLimit, reviewLimit, now),
+        summary,
         studyDay: studyDaySnapshot(studyDay),
       };
     },

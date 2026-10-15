@@ -158,7 +158,8 @@ export const NNReviewClassic = () => {
   }, []);
   const [busy, setBusy] = useState(false);
   const [mutationError, setMutationError] = useState<ApiError | null>(null);
-  const cardUnavailable = mutationError?.status === 404 || mutationError?.status === 409;
+  const dailyLimit = mutationError?.status === 409 && mutationError.safeMessage === 'daily_limit';
+  const cardUnavailable = !dailyLimit && (mutationError?.status === 404 || mutationError?.status === 409);
   const sessionSavedRef = useRef(false);
   const [undoBlocked, setUndoBlocked] = useState(false);
   const canUndo = session.history.length > 0 && !undoBlocked && !pendingOperation && !queueLoading;
@@ -374,7 +375,7 @@ export const NNReviewClassic = () => {
   }, [session.activeId, sessionMode, refreshQueue, resetAnswer]);
 
   const handleGrade = useCallback(async (rating: Rating) => {
-    if (!current || lockRef.current || queueLoading || !revealed || pendingPeek || (cardUnavailable&&!pendingOperationRef.current)) return;
+    if (!current || lockRef.current || queueLoading || !revealed || pendingPeek || ((cardUnavailable || dailyLimit) && !pendingOperationRef.current)) return;
     if(pendingOperationRef.current&&pendingOperationRef.current.rating!==rating)return;
     if (current.renderKind === 'typein' && !submitted) return;
     lockRef.current = true;
@@ -407,7 +408,7 @@ export const NNReviewClassic = () => {
       lockRef.current = false;
       if (mountedRef.current) setBusy(false);
     }
-  }, [current, grade, session, sessionMode, clockRevision, submitted, revealed, pendingPeek, cardUnavailable, firstSource, refreshQueue, resetAnswer, queueLoading, persist, router]);
+  }, [current, grade, session, sessionMode, clockRevision, submitted, revealed, pendingPeek, cardUnavailable, dailyLimit, firstSource, refreshQueue, resetAnswer, queueLoading, persist, router]);
 
   const handleUndo = useCallback(async () => {
     const last = session.history.at(-1);
@@ -705,10 +706,10 @@ export const NNReviewClassic = () => {
       {/* Card */}
       {sessionMode === 'filtered' && <p style={{ width: '100%', maxWidth: 760, fontSize: 12, color: 'var(--text-muted)', margin: '0 0 12px' }}>{t('review.customStudy.scheduleNotice')}</p>}
       {mutationError && <div role="alert" style={{ width: '100%', maxWidth: 760, marginBottom: 12, color: 'var(--rose-400)', fontSize: 13 }}>
-        {t(cardUnavailable ? 'review.cardChanged' : 'review.gradeFailed')}
+        {t(dailyLimit ? 'review.dailyLimit' : cardUnavailable ? 'review.cardChanged' : 'review.gradeFailed')}
         {pendingOperation && <NNBtn size="sm" variant="soft" disabled={busy||queueLoading} onClick={()=>void handleGrade(pendingOperation.rating)}>{t('review.recovery.retryGrade')}</NNBtn>}
         {cardUnavailable&&!pendingOperation&&typedAnswer&&<NNBtn size="sm" variant="ghost" onClick={()=>{setSession(previous=>({...previous,activeId:null,pending:previous.pending.filter(card=>card.id!==current.id)}));resetAnswer();setMutationError(null);needsReconciliation.current=false;refreshQueue();}}>{t('review.recovery.skipUnavailable')}</NNBtn>}
-        {cardUnavailable && <NNBtn size="sm" variant="soft" onClick={() => {acceptUpdated.current=true;needsReconciliation.current=true;setQueueAttempt((n) => n + 1);}}>{t('review.refreshQueue')}</NNBtn>}
+        {(cardUnavailable || dailyLimit) && <NNBtn size="sm" variant="soft" onClick={() => {acceptUpdated.current=true;needsReconciliation.current=true;setQueueAttempt((n) => n + 1);}}>{t('review.refreshQueue')}</NNBtn>}
       </div>}
       {busy && <div role="status" style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>{t('review.saving')}</div>}
       <div
@@ -1044,7 +1045,7 @@ export const NNReviewClassic = () => {
                 return (
                   <button
                     key={r.k}
-                    type="button" disabled={busy || queueLoading || cardUnavailable || Boolean(pendingOperation&&pendingOperation.rating!==r.k)}
+                    type="button" disabled={busy || queueLoading || cardUnavailable || dailyLimit || Boolean(pendingOperation&&pendingOperation.rating!==r.k)}
                     className="reomi-rating"
                     onClick={() => handleGrade(r.k)}
                     title={`${t(r.labelKey)} — ${t(`${r.labelKey}Hint`)} · ${r.k}`}
