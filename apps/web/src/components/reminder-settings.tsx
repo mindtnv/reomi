@@ -144,28 +144,28 @@ export function ReminderSettings({
           {denied ? <div>{t('settings.notifications.denied')}</div> : null}
         </div>
       </div>
-      <label>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <input type="checkbox" checked={choice.digestEnabled} onChange={(event) => setChoice({ ...choice, digestEnabled: event.target.checked })} />
         {t('settings.notifications.digest')}
       </label>
       <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{t('settings.notifications.digestDesc')}</div>
-      <label>
+      <label style={{ display: 'grid', gap: 4, maxWidth: 280 }}>
         {t('settings.notifications.hour')}
         <input aria-label={t('settings.notifications.hour')} type="number" min={0} max={23} value={choice.digestHour} onChange={(event) => setChoice({ ...choice, digestHour: Number(event.target.value) })} />
       </label>
-      <label>
+      <label style={{ display: 'grid', gap: 4, maxWidth: 280 }}>
         {t('settings.notifications.timezone')}
         <input aria-label={t('settings.notifications.timezone')} value={choice.timeZone} onChange={(event) => setChoice({ ...choice, timeZone: event.target.value })} />
       </label>
-      <label>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <input type="checkbox" checked={choice.streakWarningEnabled} onChange={(event) => setChoice({ ...choice, streakWarningEnabled: event.target.checked })} />
         {t('settings.notifications.streak')}
       </label>
-      <label>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <input type="checkbox" checked={choice.emailEnabled} onChange={(event) => setChoice({ ...choice, emailEnabled: event.target.checked })} />
         {t('settings.notifications.email')}
       </label>
-      <label>
+      <label style={{ display: 'grid', gap: 4, maxWidth: 280 }}>
         {t('settings.notifications.language')}
         <select aria-label={t('settings.notifications.language')} value={choice.locale} onChange={(event) => setChoice({ ...choice, locale: event.target.value === 'ru' ? 'ru' : 'en' })}>
           <option value="en">en</option>
