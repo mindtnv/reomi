@@ -12,7 +12,7 @@ import type { CardSourceLink } from '@/lib/types';
 import { NNBadge, NNIcon } from '@/components/ui';
 import { assistantApi, ok } from '@/lib/api';
 import { useT } from '@/lib/i18n';
-import { cardSourceHref } from '@/lib/card-source-link';
+import { cardSourceHref, followCardSourceHref } from '@/lib/card-source-link';
 import { useNN } from '@/lib/store';
 
 interface SourceLinksState {
@@ -85,7 +85,7 @@ export const SourceLinksPanel = ({ cardId }: { cardId: string }) => {
           const location = window.location.href;
           const fresh = (await reload()).find(link => link.id === item.id);
           if (!fresh?.sourceId || window.location.href !== location) return;
-          const href=cardSourceHref(fresh);if(href)router.push(href);
+          const href=cardSourceHref(fresh);if(href)followCardSourceHref(href,(path)=>router.push(path));
         };
         return (
           <button

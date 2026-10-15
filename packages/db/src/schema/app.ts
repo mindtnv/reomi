@@ -905,7 +905,7 @@ export const sources = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    kind: text('kind').notNull(), // 'pdf' | 'epub' | 'url' | 'text'
+    kind: text('kind').notNull(), // 'pdf' | 'epub' | 'url' | 'text' | 'youtube'
     title: text('title').notNull(),
     url: text('url'),
     storageKey: text('storage_key'),
@@ -938,6 +938,9 @@ export const sources = pgTable(
       .where(sql`${t.status} IN ('pending','parsing','indexing')`),
     index('sources_operation_recent_idx').on(t.userId, t.operationFinishedAt.desc(), t.id),
     index('sources_tags_gin_idx').using('gin', t.tags),
+    uniqueIndex('sources_youtube_url_uq')
+      .on(t.userId, t.url)
+      .where(sql`${t.kind} = 'youtube' AND ${t.status} NOT IN ('error', 'deleting')`),
   ],
 );
 
@@ -963,6 +966,7 @@ export const sourceChunks = pgTable(
     text: text('text').notNull(),
     page: integer('page'),
     heading: text('heading'),
+    startSeconds: integer('start_seconds'),
     tokenCount: integer('token_count'),
     embedded: boolean('embedded').notNull().default(false),
     sourceHash: text('source_hash'),

@@ -1639,7 +1639,9 @@ const WorkspaceSourceRow = ({
         ? 'notebooks.sources.kindEpub'
         : source.kind === 'url'
           ? 'notebooks.sources.kindUrl'
-          : 'notebooks.sources.kindText',
+          : source.kind === 'youtube'
+            ? 'notebooks.sources.kindYoutube'
+            : 'notebooks.sources.kindText',
   );
   const sublineParts: string[] = [];
   if (ready) {
@@ -2024,7 +2026,7 @@ const LibraryAttachPicker = ({
                         onChange={() => toggle(s.sourceId)}
                         style={{ width: 14, height: 14, accentColor: 'var(--accent-500)', flexShrink: 0, cursor: 'pointer' }}
                       />
-                      <NNIcon name={s.kind === 'url' ? 'link' : s.kind === 'text' ? 'edit' : 'book'} size={13} color="var(--text-muted)" />
+                      <NNIcon name={s.kind === 'youtube' ? 'play' : s.kind === 'url' ? 'link' : s.kind === 'text' ? 'edit' : 'book'} size={13} color="var(--text-muted)" />
                       <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }}>
                         {s.title}
                       </span>
@@ -2067,7 +2069,7 @@ const LibraryAttachPicker = ({
                       onChange={() => !already && toggle(it.id)}
                       style={{ width: 14, height: 14, accentColor: 'var(--accent-500)', flexShrink: 0, cursor: already ? 'default' : 'pointer' }}
                     />
-                    <NNIcon name={it.kind === 'url' ? 'link' : it.kind === 'text' ? 'edit' : 'book'} size={13} color="var(--text-muted)" />
+                    <NNIcon name={it.kind === 'youtube' ? 'play' : it.kind === 'url' ? 'link' : it.kind === 'text' ? 'edit' : 'book'} size={13} color="var(--text-muted)" />
                     <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }}>
                       {it.title}
                     </span>

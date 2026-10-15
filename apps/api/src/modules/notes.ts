@@ -1,8 +1,10 @@
 // Notes CRUD + card generation (Milestone 1, Phase 4).
 //
-//   POST   /notes        → create a note + generate one card per template
-//   PATCH  /notes/:id     → re-generate; FSRS preserved on surviving templateOrds
-//   DELETE /notes/:id     → delete (cascade drops cards via FK)
+//   POST   /notes            → create a note + generate one card per template
+//   GET    /notes/cardless   → notes whose cards were all deleted
+//   PATCH  /notes/:id        → re-generate; FSRS preserved on surviving templateOrds
+//   POST   /notes/:id/restore → recreate cards for a cardless note in a chosen deck
+//   DELETE /notes/:id        → delete (cascade drops cards via FK)
 //
 // Field values are lossless Markdown SOURCE, not safe HTML. The historical
 // sanitizeFieldValues helper copies source without interpreting its syntax.
@@ -13,7 +15,7 @@
 // deckId. FSRS is initialised per generated card via `newFsrsCard`.
 
 import { Elysia, ElysiaCustomStatusResponse, t, status as reply } from 'elysia';
-import { and, asc, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import { cards, db, decks, noteOperations, noteTypes, notes, type Db } from '@reomi/db';
 import {
   generateCards,
@@ -443,6 +445,94 @@ export async function createNoteForRequest(context: { user: { id: string }; body
       return result;
 }
 
+const cardlessNoteColumns = {
+  id: notes.id,
+  noteTypeId: notes.noteTypeId,
+  noteTypeName: noteTypes.name,
+  fieldValues: notes.fieldValues,
+  tags: notes.tags,
+  createdAt: notes.createdAt,
+  updatedAt: notes.updatedAt,
+};
+
+/** Owned notes with no generated cards. Card deletion does not remove the note. */
+export async function listCardlessNotes(userId: string) {
+  const items = await db
+    .select(cardlessNoteColumns)
+    .from(notes)
+    .innerJoin(noteTypes, eq(noteTypes.id, notes.noteTypeId))
+    .leftJoin(cards, and(eq(cards.noteId, notes.id), eq(cards.userId, notes.userId)))
+    .where(and(eq(notes.userId, userId), isNull(cards.id)))
+    .orderBy(desc(notes.updatedAt), desc(notes.id));
+  return { total: items.length, items };
+}
+
+function restoreStatus(error: string): 400 | 404 | 409 {
+  if (error === 'not_found' || error === 'note_type_not_found') return 404;
+  if (
+    error === 'note_has_cards' ||
+    error === 'note_changed' ||
+    error === 'note_type_changed' ||
+    error === 'note_deck_required' ||
+    error === 'preview_changed' ||
+    error === 'card_removal_confirmation_required'
+  ) return 409;
+  return 400;
+}
+
+/**
+ * Recreate cards for a note that has none. The caller chooses the deck.
+ * A note that already has a card is left unchanged.
+ */
+export async function restoreCardlessNote(userId: string, noteId: string, deckId: string, log: Logger = rootLogger) {
+  const deferred: string[] = [];
+  const result = await db.transaction(async (tx) => {
+    const [deck] = await tx.select({ id: decks.id }).from(decks)
+      .where(and(eq(decks.id, deckId), eq(decks.userId, userId))).limit(1);
+    if (!deck) return { ok: false as const, error: 'deck_not_found' };
+
+    const [peek] = await tx.select({ noteTypeId: notes.noteTypeId }).from(notes)
+      .where(and(eq(notes.id, noteId), eq(notes.userId, userId))).limit(1);
+    if (!peek) return { ok: false as const, error: 'not_found' };
+
+    const [type] = await tx.select().from(noteTypes).where(eq(noteTypes.id, peek.noteTypeId)).for('share');
+    if (!type || (type.userId !== null && type.userId !== userId)) return { ok: false as const, error: 'note_type_not_found' };
+
+    const [note] = await tx.select().from(notes)
+      .where(and(eq(notes.id, noteId), eq(notes.userId, userId))).for('update');
+    if (!note || note.noteTypeId !== type.id) return { ok: false as const, error: 'not_found' };
+
+    const [existing] = await tx.select({ id: cards.id }).from(cards)
+      .where(and(eq(cards.noteId, noteId), eq(cards.userId, userId))).limit(1);
+    if (existing) return { ok: false as const, error: 'note_has_cards' };
+
+    const resolved = await resolveNoteUpdate(userId, noteId, {}, tx);
+    if (!resolved.ok) return { ok: false as const, error: resolved.error };
+
+    const applied = await applyNoteUpdate(tx, {
+      userId,
+      noteId,
+      nextFieldValues: resolved.nextFieldValues,
+      nextTags: resolved.nextTags,
+      nextAcceptedAnswers: resolved.nextAcceptedAnswers,
+      generated: resolved.generated,
+      deckId,
+      expectedUpdatedAt: note.updatedAt,
+      expectedTypeUpdatedAt: type.updatedAt,
+    });
+    deferred.push(...applied.indexIds);
+    return { ok: true as const, note: applied.note, cards: applied.cards };
+  }).catch((error) => {
+    if (error instanceof NoteWriteConflict) return { ok: false as const, error: error.code };
+    throw error;
+  });
+
+  if (!result.ok) return result;
+  enqueueCardsForIndex(deferred, log);
+  log.info({ noteId, cardsGenerated: result.cards.length }, 'note.restore');
+  return result;
+}
+
 async function readOwnedNote(executor: Pick<Db, 'select'>, userId: string, noteId: string) {
   const [note] = await executor.select().from(notes).where(and(eq(notes.id, noteId), eq(notes.userId, userId))).limit(1);
   if (!note) return null;
@@ -507,6 +597,7 @@ export async function getNoteOperation(userId: string, operationId: string) {
 
 export const notesModule = new Elysia({ prefix: '/notes' })
   .use(authPlugin)
+  .get('/cardless', async ({ user }) => listCardlessNotes(user.id), { auth: true })
   .post('/', createNoteForRequest, { auth: true, body: noteCreateBody })
   .post('/operations/:operationId', (context) => createNoteOperation(context, context.params.operationId), {
     auth: true,
@@ -529,6 +620,15 @@ export const notesModule = new Elysia({ prefix: '/notes' })
     return { ...row, cards: generated };
   }, { auth: true, params: t.Object({ id: t.String({ format: 'uuid' }) }) })
   .post('/:id/preview', (context) => editNote({ ...context, body: { ...context.body, preview: true } }), noteEditOptions)
+  .post('/:id/restore', async ({ user, params, body, status, ...rest }) => {
+    const result = await restoreCardlessNote(user.id, params.id, body.deckId, requestLogFromContext({ user, params, body, status, ...rest }));
+    if (!result.ok) return status(restoreStatus(result.error), { error: result.error });
+    return { note: result.note, cards: result.cards };
+  }, {
+    auth: true,
+    params: t.Object({ id: t.String({ format: 'uuid' }) }),
+    body: t.Object({ deckId: t.String({ format: 'uuid' }) }),
+  })
   .delete(
     '/:id',
     async ({ user, params, status }) => {
