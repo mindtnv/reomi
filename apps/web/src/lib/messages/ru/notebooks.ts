@@ -295,6 +295,7 @@ const notebooks = {
     kindEpub: 'EPUB',
     kindUrl: 'Веб-страница',
     kindText: 'Текст',
+    kindYoutube: 'YouTube',
   },
 
   add: {
@@ -500,6 +501,8 @@ const notebooks = {
     fetch_failed: 'Не удалось загрузить этот URL.',
     unsupported_mime: 'Неподдерживаемый тип файла.',
     empty_source: 'Не найден читаемый текст.',
+    no_subtitles: 'У этого видео нет субтитров на языке ролика, русском или английском.',
+    video_unavailable: 'Это видео закрыто, удалено или недоступно.',
   },
 };
 

@@ -29,7 +29,7 @@ export async function captureReadEvidence(userId: string, observed: ReadEvidence
 async function resolveEvidence(userId: string, ids: string[], observed?: ReadEvidenceChunk[]): Promise<ChunkCardEvidenceSnapshot[]> {
   if (!ids.length) return [];
   const rows = await db.select({ id: sourceChunks.id, sourceId: sources.id, sourceTitle: sources.title,
-    text: sourceChunks.text, sourceHash: sourceChunks.sourceHash, position: sourceChunks.position, page: sourceChunks.page })
+    text: sourceChunks.text, sourceHash: sourceChunks.sourceHash, position: sourceChunks.position, page: sourceChunks.page, startSeconds: sourceChunks.startSeconds })
     .from(sourceChunks).innerJoin(sources,and(eq(sources.id,sourceChunks.sourceId),eq(sources.userId,userId)))
     .where(and(eq(sourceChunks.userId,userId),inArray(sourceChunks.id,ids)));
   if (rows.length !== ids.length) throw new Error('invalid_evidence');
@@ -40,7 +40,7 @@ async function resolveEvidence(userId: string, ids: string[], observed?: ReadEvi
       if (!read || read.text !== row.text || read.position !== row.position || (read.page ?? null) !== row.page) throw new Error('stale_evidence');
     }
     return { version:1, sourceId:row.sourceId, sourceTitle:evidenceExcerpt(row.sourceTitle,200), chunkId:id,
-      position:row.position, ...(row.page != null ? {page:row.page} : {}), quote:evidenceExcerpt(row.text,320), textHash:cardEvidenceFingerprint(row) };
+      position:row.position, ...(row.page != null ? {page:row.page} : {}), ...(row.startSeconds != null ? {startSeconds:row.startSeconds} : {}), quote:evidenceExcerpt(row.text,320), textHash:cardEvidenceFingerprint(row) };
   });
 }
 

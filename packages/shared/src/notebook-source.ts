@@ -5,7 +5,7 @@
 // the DB). Single source of truth, like MEDIA_MIME_ALLOWLIST / ANKI_DEFAULTS.
 
 /** Source categories the user can add to a notebook. */
-export const SOURCE_KINDS = ['pdf', 'epub', 'url', 'text'] as const;
+export const SOURCE_KINDS = ['pdf', 'epub', 'url', 'text', 'youtube'] as const;
 export type SourceKind = (typeof SOURCE_KINDS)[number];
 
 /** Source kinds that carry uploaded bytes (need presign→finalize). url/text don't. */
@@ -54,6 +54,8 @@ export const INGEST_ERROR_CODES = [
   'fetch_failed',
   'unsupported_mime',
   'empty_source',
+  'no_subtitles',
+  'video_unavailable',
 ] as const;
 export type IngestErrorCode = (typeof INGEST_ERROR_CODES)[number];
 

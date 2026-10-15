@@ -182,8 +182,8 @@ async function claimForParse(sourceId: string): Promise<Source | null> {
 async function parsePhase(source: Source, log: Logger): Promise<void> {
   try {
     const bytes = await loadBytes(source);
-    const { units, cover, imageUrl } = await parseSource({
-      kind: source.kind as 'pdf' | 'epub' | 'url' | 'text',
+    const { units, cover, imageUrl, fetchedTitle, language } = await parseSource({
+      kind: source.kind as 'pdf' | 'epub' | 'url' | 'text' | 'youtube',
       bytes,
       url: source.url ?? undefined,
       text: source.kind === 'text' ? await inlineTextFor(source.id) : undefined,
@@ -229,15 +229,23 @@ async function parsePhase(source: Source, log: Logger): Promise<void> {
             text: c.text,
             page: c.page ?? null,
             heading: c.heading ?? null,
+            startSeconds: c.startSeconds ?? null,
             tokenCount: c.tokenCount ?? null,
             embedded: false,
             sourceHash: computeSourceHash(c.text, model),
           })),
         );
       }
+      const title = fetchedTitle && /^https?:\/\//i.test(source.title) ? fetchedTitle.slice(0, 300) : undefined;
       await tx
         .update(sources)
-        .set({ chunkCount: chunks.length, charCount, updatedAt: new Date() })
+        .set({
+          chunkCount: chunks.length,
+          charCount,
+          ...(title ? { title } : {}),
+          ...(language && !source.language ? { language: language.slice(0, 32) } : {}),
+          updatedAt: new Date(),
+        })
         .where(eq(sources.id, source.id));
     });
 

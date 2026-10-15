@@ -304,6 +304,7 @@ const notebooks = {
     kindEpub: 'EPUB',
     kindUrl: 'Web page',
     kindText: 'Text',
+    kindYoutube: 'YouTube',
   },
 
   // Add-source dialog: kind picker + per-kind fields.
@@ -513,6 +514,8 @@ const notebooks = {
     fetch_failed: 'Could not fetch this URL.',
     unsupported_mime: 'Unsupported file type.',
     empty_source: 'No readable text found.',
+    no_subtitles: 'This video has no subtitles in the content language, Russian, or English.',
+    video_unavailable: 'This video is private, deleted, or unavailable.',
   },
 };
 

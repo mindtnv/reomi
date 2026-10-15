@@ -509,8 +509,11 @@ export interface CardSourceLink {
   messageId: string | null;
   sourceTitle: string | null;
   notebookTitle: string | null;
+  sourceKind?: string | null;
+  sourceUrl?: string | null;
   position: number | null;
   page: number | null;
+  startSeconds?: number | null;
   heading: string | null;
   snippet: string | null;
   createdAt: string;

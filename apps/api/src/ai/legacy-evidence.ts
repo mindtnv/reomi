@@ -10,9 +10,10 @@ export function evidenceExcerpt(text: string, limit: number): string {
 export const cardEvidenceFingerprint = (row: { text: string; sourceHash: string | null; position: number; page: number | null }) =>
   createHash('sha256').update(JSON.stringify([row.text, row.sourceHash, row.position, row.page])).digest('hex');
 
-export function legacyChunkEvidence(source: { id: string; title: string }, chunk: { id: string; text: string; sourceHash: string | null; position: number; page: number | null }): ChunkCardEvidenceSnapshot {
+export function legacyChunkEvidence(source: { id: string; title: string }, chunk: { id: string; text: string; sourceHash: string | null; position: number; page: number | null; startSeconds?: number | null }): ChunkCardEvidenceSnapshot {
   return { version: 1, kind: 'chunk', sourceId: source.id, sourceTitle: evidenceExcerpt(source.title, 200),
     chunkId: chunk.id, position: chunk.position, ...(chunk.page === null ? {} : { page: chunk.page }),
+    ...(chunk.startSeconds == null ? {} : { startSeconds: chunk.startSeconds }),
     quote: evidenceExcerpt(chunk.text, 320), textHash: cardEvidenceFingerprint(chunk) };
 }
 export function legacySourceEvidence(source: { id: string; title: string; updatedAt: Date }): QuotedCardEvidenceSnapshot {

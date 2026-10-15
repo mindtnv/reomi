@@ -74,11 +74,13 @@ const m = {
   peek: {
     from: 'из: «{title}»',
     fromPage: 'из: «{title}», стр. {n}',
+    fromTime: 'из: «{title}», {time}',
     fromUntitled: 'из источника',
     title: 'Откуда эта карточка',
     expand: 'Раскрыть полностью',
     loading: 'Загружаем фрагмент…',
     openInLibrary: 'Открыть в библиотеке',
+    openVideo: 'Открыть видео',
     dismiss: 'Понятно, дальше',
   },
   loading: {

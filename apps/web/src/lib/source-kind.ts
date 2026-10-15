@@ -11,13 +11,14 @@ import type { SourceKind } from '@reomi/shared';
 import type { BadgeTone } from '@/components/ui';
 
 /** Accent tone names (match the CSS `--<tone>-NNN` token families). */
-export type SourceKindTone = 'rose' | 'violet' | 'sky' | 'amber';
+export type SourceKindTone = 'rose' | 'violet' | 'sky' | 'amber' | 'lime';
 
 const SOURCE_KIND_TONE: Record<SourceKind, SourceKindTone> = {
   pdf: 'rose',
   epub: 'violet',
   url: 'sky',
   text: 'amber',
+  youtube: 'lime',
 };
 
 /** The bare tone name (e.g. 'rose') — for `var(--${tone}-500)` interpolation. */
