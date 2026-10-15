@@ -75,4 +75,6 @@ export const AI_COOLDOWN_MS = {
   harvest: 15_000,
   /** POST /notebooks/plan-drafts — per-user. */
   planDraft: 30_000,
+  /** GET /ai/chat-probe — per-user. */
+  chatProbe: 10_000,
 } as const;

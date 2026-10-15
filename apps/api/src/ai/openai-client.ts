@@ -19,6 +19,7 @@
 import type { Logger } from 'pino';
 import { env, embeddingEnabled, chatEnabled } from '../env.ts';
 import { rootLogger, summarizeUpstreamResponse } from '../logger.ts';
+import { requestChatCompletion } from './chat-upstream.ts';
 
 /** Thrown when an AI surface is invoked while its feature flag is off. */
 export class AiDisabledError extends Error {
@@ -370,21 +371,19 @@ export async function* chatStream(
   const log = opts.log ?? rootLogger;
   const started = performance.now();
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${apiKey}`,
+  const res = await requestChatCompletion(
+    url,
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${apiKey}`,
+      },
+      signal: opts.signal,
+      body: JSON.stringify({ model, messages, stream: true }),
     },
-    signal: opts.signal,
-    body: JSON.stringify({ model, messages, stream: true }),
-  });
-
-  if (!res.ok || !res.body) {
-    const upstream = await summarizeUpstreamResponse(res);
-    log.error({ upstream }, 'ai.chat.failed');
-    throw new Error(`chat_failed:${res.status}`);
-  }
+    { log, event: 'ai.chat.failed', requireBody: true },
+  );
 
   // Count of streamed SSE content deltas — NOT model tokens (no usage parsing in
   // streaming mode). Named `deltas` so the observability log isn't misleading.
@@ -458,33 +457,31 @@ export async function* chatStreamAgentic(
   const log = opts.log ?? rootLogger;
   const started = performance.now();
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${apiKey}`,
+  const res = await requestChatCompletion(
+    url,
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${apiKey}`,
+      },
+      signal: opts.signal,
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: true,
+        // Token accounting (C1). Kill-switch for gateways that reject the param —
+        // without it the usage chunk simply never arrives (graceful degrade).
+        ...(env.ai.CHAT_STREAM_USAGE !== 'false'
+          ? { stream_options: { include_usage: true } }
+          : {}),
+        ...(opts.tools && opts.tools.length > 0
+          ? { tools: opts.tools, tool_choice: opts.toolChoice ?? 'auto' }
+          : {}),
+      }),
     },
-    signal: opts.signal,
-    body: JSON.stringify({
-      model,
-      messages,
-      stream: true,
-      // Token accounting (C1). Kill-switch for gateways that reject the param —
-      // without it the usage chunk simply never arrives (graceful degrade).
-      ...(env.ai.CHAT_STREAM_USAGE !== 'false'
-        ? { stream_options: { include_usage: true } }
-        : {}),
-      ...(opts.tools && opts.tools.length > 0
-        ? { tools: opts.tools, tool_choice: opts.toolChoice ?? 'auto' }
-        : {}),
-    }),
-  });
-
-  if (!res.ok || !res.body) {
-    const upstream = await summarizeUpstreamResponse(res);
-    log.error({ upstream }, 'ai.chat.failed');
-    throw new Error(`chat_failed:${res.status}`);
-  }
+    { log, event: 'ai.chat.failed', requireBody: true },
+  );
 
   let deltas = 0;
 
@@ -569,21 +566,19 @@ export async function complete(messages: ChatMessage[], opts: CompleteOpts = {})
   const log = opts.log ?? rootLogger;
   const started = performance.now();
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${apiKey}`,
+  const res = await requestChatCompletion(
+    url,
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ model, messages }),
+      signal: opts.signal,
     },
-    body: JSON.stringify({ model, messages }),
-    signal: opts.signal,
-  });
-
-  if (!res.ok) {
-    const upstream = await summarizeUpstreamResponse(res);
-    log.error({ upstream }, 'ai.complete.failed');
-    throw new Error(`complete_failed:${res.status}`);
-  }
+    { log, event: 'ai.complete.failed' },
+  );
 
   const json = (await res.json()) as CompleteResponse;
   const content = json.choices?.[0]?.message?.content ?? '';

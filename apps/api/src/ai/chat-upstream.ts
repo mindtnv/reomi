@@ -1,6 +1,8 @@
 // One observation decides both the learner sentence and the chat probe.
 // The markup itself is never stored.
 
+import { env } from '../env.ts';
+
 export type ChatUpstreamObservation = {
   status: number | null;
   html: boolean;
@@ -114,4 +116,106 @@ export function learnerCodeForThrown(err: unknown): LearnerStreamCode {
 
 export function isChatUpstreamOutage(err: unknown): boolean {
   return err instanceof UpstreamChatError || isTransportFailure(err);
+}
+
+type FetchImpl = typeof globalThis.fetch;
+
+let fetchOverride: FetchImpl | null = null;
+
+export function __setChatUpstreamFetchForTests(impl: FetchImpl | null): void {
+  fetchOverride = impl;
+}
+
+export function chatUpstreamFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const impl = fetchOverride ?? globalThis.fetch;
+  return impl(input, init);
+}
+
+export function contentTypeIsHtml(header: string | null): boolean {
+  const mime = header?.split(';', 1)[0]?.trim().toLowerCase() ?? '';
+  return mime === 'text/html' || mime === 'application/xhtml+xml';
+}
+
+type UpstreamFailureLog = {
+  error: (fields: { status: number | null; html: boolean }, event: string) => void;
+};
+
+export async function requestChatCompletion(
+  url: string,
+  init: RequestInit,
+  opts: { log: UpstreamFailureLog; event: string; requireBody?: boolean },
+): Promise<Response> {
+  let res: Response;
+  try {
+    res = await chatUpstreamFetch(url, init);
+  } catch (err) {
+    if (isAbortError(err)) throw err;
+    opts.log.error({ status: null, html: false }, opts.event);
+    throw new UpstreamChatError({ status: null, html: false });
+  }
+  const html = contentTypeIsHtml(res.headers.get('content-type'));
+  if (!res.ok || html || (opts.requireBody && !res.body)) {
+    opts.log.error({ status: res.status, html }, opts.event);
+    await res.body?.cancel().catch(() => undefined);
+    throw new UpstreamChatError({ status: res.status, html });
+  }
+  return res;
+}
+
+const PROBE_TIMEOUT_MS = 10_000;
+const PROBE_PEEK_BYTES = 64;
+
+async function peekHtml(res: Response): Promise<boolean> {
+  const fromType = contentTypeIsHtml(res.headers.get('content-type'));
+  const body = res.body;
+  if (!body) return fromType;
+  const reader = body.getReader();
+  let fromBytes = false;
+  try {
+    const { value } = await reader.read();
+    if (value && value.byteLength > 0) {
+      const sample = value.subarray(0, PROBE_PEEK_BYTES);
+      const text = new TextDecoder('utf-8', { fatal: false }).decode(sample);
+      fromBytes = /^\s*</.test(text);
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+  return fromType || fromBytes;
+}
+
+export type ChatProbeBody =
+  | { ok: true }
+  | { ok: false; state: 'unavailable' | 'rejected' };
+
+type ProbeLog = {
+  info: (fields: { status: number | null; html: boolean; kind: ChatUpstreamVerdict['kind'] }, event: string) => void;
+};
+
+export async function probeChatUpstream(log: ProbeLog): Promise<ChatProbeBody> {
+  const base = env.ai.CHAT_BASE_URL.replace(/\/$/, '');
+  const observation = await observeChatModels(`${base}/models`, env.ai.CHAT_API_KEY ?? '');
+  const verdict = judgeChatUpstream(observation);
+  log.info(
+    { status: observation.status, html: observation.html, kind: verdict.kind },
+    'ai.chat.probe',
+  );
+  if (verdict.kind === 'reachable') return { ok: true };
+  if (verdict.kind === 'unavailable') return { ok: false, state: 'unavailable' };
+  return { ok: false, state: 'rejected' };
+}
+
+async function observeChatModels(url: string, apiKey: string): Promise<ChatUpstreamObservation> {
+  let res: Response;
+  try {
+    res = await chatUpstreamFetch(url, {
+      method: 'GET',
+      headers: { authorization: `Bearer ${apiKey}` },
+      redirect: 'manual',
+      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+    });
+  } catch {
+    return { status: null, html: false };
+  }
+  return { status: res.status, html: await peekHtml(res) };
 }
