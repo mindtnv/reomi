@@ -1,0 +1,53 @@
+# A workflow_run checkout is the default branch unless ref is head_sha.
+
+name: e2e-prod
+
+on:
+  workflow_run:
+    workflows: [deploy]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: e2e-prod
+  cancel-in-progress: true
+
+jobs:
+  e2e-prod:
+    name: Production smoke
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Cache bun packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Mask production password
+        env:
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+        run: |
+          if [ -n "${E2E_PASSWORD}" ]; then
+            echo "::add-mask::${E2E_PASSWORD}"
+          fi
+
+      - name: Production smoke
+        env:
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+        run: bun run e2e:prod

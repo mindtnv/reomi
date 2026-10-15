@@ -64,7 +64,7 @@ Production uses the same steps from sign-in onward. It does not sign up and does
 
 `bun run e2e` writes screenshots to `e2e/artifacts/` after the garden, sign-in, deck, saved card, review result, and statistics row. Capture the action and the resulting screen. A toast or a heading alone is not enough when the URL or the created row can be checked.
 
-Traces, video, and page snapshots stay off. A failed sign-in used to copy the password into `error-context.md` and a trace used to keep the session cookie. The password field is cleared before the next assertion. After the walk, the run greps `e2e/artifacts`, `test-results`, and `playwright-report` for that password and fails if it appears. Pull-request CI uploads the screenshots only. The production job uploads nothing and masks `E2E_PASSWORD`.
+Traces, video, and page snapshots stay off. A failed sign-in used to copy the password into `error-context.md` and a trace used to keep the session cookie. The password field is cleared before the next assertion. After the walk, the run greps `e2e/artifacts`, `test-results`, and `playwright-report` for that password and fails if it appears. Pull-request CI uploads the screenshots only. `.github/workflows/e2e-prod.yml` runs the production walk after the `deploy` workflow completes on `main` with conclusion `success`. It checks out `github.event.workflow_run.head_sha`, uses concurrency group `e2e-prod` with `cancel-in-progress: true`, masks `E2E_PASSWORD`, and uploads nothing.
 
 ## Cleanup
 
