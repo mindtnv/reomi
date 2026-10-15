@@ -17,7 +17,7 @@ import { db, decks } from '@reomi/db';
 import { authPlugin } from '../auth-plugin.ts';
 import { internalReadDeckScope } from '../mcp/internal-read.ts';
 import { descendantIds } from './cards.ts';
-import { dueForecast, retentionCurve } from './progress-stats.ts';
+import { deckBreakdown, dueForecast, retentionCurve, studyOverview } from './progress-stats.ts';
 
 /** Resolve an optional deckId query param to its owned subtree (or undefined). */
 async function resolveDeckScope(
@@ -30,6 +30,7 @@ async function resolveDeckScope(
     .select({ id: decks.id, parentId: decks.parentId, name: decks.name })
     .from(decks)
     .where(eq(decks.userId, userId));
+  if (!userDecks.some((deck) => deck.id === deckId)) return [];
   const ids = [deckId, ...descendantIds(deckId, userDecks)];
   return allowed ? ids.filter(id => allowed.includes(id)) : ids;
 }
@@ -62,5 +63,24 @@ export const statsModule = new Elysia({ prefix: '/stats' })
       const deckIds = await resolveDeckScope(user.id, query.deckId, internalReadDeckScope(request));
       return retentionCurve({ userId: user.id, deckIds, days: parseDays(query.days) });
     },
+    { auth: true, query: statsQuerySchema },
+  )
+  .get(
+    '/overview',
+    async ({ user, query, request }) => {
+      const deckIds = await resolveDeckScope(user.id, query.deckId, internalReadDeckScope(request));
+      const owned = !query.deckId || deckIds?.includes(query.deckId) === true;
+      return studyOverview({
+        userId: user.id,
+        deckIds,
+        targetDeckId: query.deckId ? (owned ? query.deckId : null) : undefined,
+        days: parseDays(query.days),
+      });
+    },
+    { auth: true, query: statsQuerySchema },
+  )
+  .get(
+    '/decks',
+    async ({ user, query }) => deckBreakdown(user.id, parseDays(query.days)),
     { auth: true, query: statsQuerySchema },
   );

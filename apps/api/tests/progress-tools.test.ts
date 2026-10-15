@@ -186,7 +186,8 @@ describe('progress read-tools', () => {
 
     const text = await toolResultText(convId);
     expect(text).toContain('Reviews: 3');
-    expect(text).toContain('Retention: 67%');
+    expect(text).toContain('Answer success: 67% (2/3 answers)');
+    expect(text).toContain('True retention: 50% (1/2 first daily reviews)');
     expect(text).toContain('Minutes: 3');
     expect(text).toContain('2 active day');
   });

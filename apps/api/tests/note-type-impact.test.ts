@@ -31,7 +31,7 @@ describe('note type impact and reconciliation', () => {
     const grade = await (await callApp(app, 'POST', '/reviews', { cookie, body: { cardId: forward.id, rating: 4 } })).json<any>();
     const reverseGrade = await callApp(app, 'POST', '/reviews', { cookie, body: { cardId: reverse.id, rating: 3 } });
     expect(reverseGrade.status).toBe(200);
-    const history = await (await callApp(app, 'GET', '/reviews', { cookie })).json<any[]>();
+    const history = (await (await callApp(app, 'GET', '/reviews', { cookie })).json<any>()).items;
     expect(history.filter((row) => row.cardId === reverse.id)).toHaveLength(1);
     const patch = { templates: [type.templates[0], { name: 'New question', ord: 1, frontTemplate: 'New {{Q}}', backTemplate: '{{A}}' }] };
     const previewResponse = await callApp(app, 'PATCH', `/note-types/${type.id}`, { cookie, body: { ...patch, preview: true } });

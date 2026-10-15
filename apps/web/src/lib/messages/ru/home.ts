@@ -23,6 +23,7 @@ const m = {
   stats: {
     cards: 'карт',
     retention: 'retention',
+    recall: 'успех',
     xp: 'XP',
   },
   activity: 'Активность',

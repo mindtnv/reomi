@@ -3,6 +3,7 @@
 // Drizzle schema; everything else (pure value types, enums, constants) lives here.
 
 export * from './fsrs.ts';
+export * from './study-metrics.ts';
 export * from './study.ts';
 export * from './gamification.ts';
 export * from './card-query.ts';

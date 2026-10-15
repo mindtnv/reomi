@@ -42,7 +42,7 @@ test('conversion maps fields and reversed template positions without transferrin
   const forward = converted.cards.find((card: any) => card.id === grade.card.id);
   expect(forward).toMatchObject({ templateOrd: 1, due: grade.card.due, stability: grade.card.stability, reps: grade.card.reps,
     noteId: created.note.id, noteType: { id: target.id }, note: { fieldValues: { Question: 'Question?', Answer: '**Answer**', Extra: 'Keep this source' }, tags: ['preserved'] } });
-  expect(await (await callApp(app, 'GET', '/reviews', { cookie })).json()).toHaveLength(1);
+  expect((await (await callApp(app, 'GET', '/reviews', { cookie })).json<any>()).items).toHaveLength(1);
 });
 
 test('discarded fields and replacement histories require the exact preview; new study invalidates it', async () => {

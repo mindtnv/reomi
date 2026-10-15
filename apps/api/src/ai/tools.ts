@@ -616,7 +616,7 @@ const studyStatsTool: Tool = {
         stats.heatmap[0]!,
       );
       const lines = [
-        `Reviews: ${stats.reviewCount} · Retention: ${stats.retentionPct!}% · Minutes: ${stats.studyMinutes}`,
+        `Reviews: ${stats.reviewCount} · Answer success: ${stats.answerSuccessPct}% (${stats.answerSuccessCount}/${stats.reviewCount} answers) · True retention: ${stats.trueRetentionPct}% (${stats.trueRetentionSuccessCount}/${stats.trueRetentionCount} first daily reviews) · Minutes: ${stats.studyMinutes}`,
         `Last ${stats.days}d: ${stats.reviewCount} reviews across ${activeDays} active day(s); busiest ${busiest.day} (${busiest.count}).`,
       ];
       if (scope === 'global' && stats.profile) {

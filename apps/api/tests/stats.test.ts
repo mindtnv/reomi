@@ -7,13 +7,15 @@
 // (same approach as progress-tools.test.ts).
 
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { cards as cardsTable, db, reviews } from '@reomi/db';
-import { eq } from 'drizzle-orm';
+import { cards as cardsTable, db, deckOptionsPreset, decks as decksTable, notes, reviews } from '@reomi/db';
+import { eq, sql } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import { callApp, resetTestDb, seedBasicCard, signUpAndCookie, uniqueEmail } from './helpers.ts';
 import {
   clampForecastDays,
+  dueForecast,
   RETENTION_BUCKETS,
+  studyOverview,
 } from '../src/modules/progress-stats.ts';
 
 const app = buildApp();
@@ -261,13 +263,20 @@ describe('GET /stats/retention', () => {
     expect(bucketByLabel(body, '90d+').count).toBe(1);
   });
 
-  test('sub-day gaps (learning steps) land in "<1d", not "1d"', async () => {
+  test('same UTC day collapses; a cross-midnight gap under 24h is "<1d"', async () => {
     const { cookie, userId } = await signUpAndCookie(app, uniqueEmail());
     const deckId = await freshDeck(cookie);
-    const c = await seedScheduledCard(cookie, deckId, { due: daysFromNow(1) });
-    const base = daysAgo(1);
-    await seedReview(userId, c, deckId, 1, base);
-    await seedReview(userId, c, deckId, 3, new Date(base.getTime() + 10 * 60000)); // +10 min
+    const sameDay = await seedScheduledCard(cookie, deckId, { due: daysFromNow(1) });
+    const noon = daysAgo(3);
+    noon.setUTCHours(12, 0, 0, 0);
+    await seedReview(userId, sameDay, deckId, 1, noon);
+    await seedReview(userId, sameDay, deckId, 3, new Date(noon.getTime() + 10 * 60000));
+
+    const crossed = await seedScheduledCard(cookie, deckId, { due: daysFromNow(1) });
+    const late = daysAgo(2);
+    late.setUTCHours(23, 30, 0, 0);
+    await seedReview(userId, crossed, deckId, 3, late);
+    await seedReview(userId, crossed, deckId, 3, new Date(late.getTime() + 60 * 60000));
 
     const body = await getRetention(cookie);
     expect(bucketByLabel(body, '<1d').count).toBe(1);
@@ -284,11 +293,11 @@ describe('GET /stats/retention', () => {
     expect(body.buckets.every((b) => b.count === 0)).toBe(true);
   });
 
-  test('retentionPct = share of rating>=3 within the bucket', async () => {
+  test('retentionPct counts Hard as success within the bucket', async () => {
     const { cookie, userId } = await signUpAndCookie(app, uniqueEmail());
     const deckId = await freshDeck(cookie);
-    // Three cards, each with a ~1-day gap; second grades 3, 3, 1 → 67%.
-    for (const rating of [3, 3, 1]) {
+    // Three cards, each with a ~1-day gap; second grades 2, 1, 1 → 33%.
+    for (const rating of [2, 1, 1]) {
       const c = await seedScheduledCard(cookie, deckId, { due: daysFromNow(1) });
       await seedReview(userId, c, deckId, 3, daysAgo(2));
       await seedReview(userId, c, deckId, rating, daysAgo(1));
@@ -297,7 +306,7 @@ describe('GET /stats/retention', () => {
     const body = await getRetention(cookie);
     const b = bucketByLabel(body, '1d');
     expect(b.count).toBe(3);
-    expect(b.retentionPct).toBe(67);
+    expect(b.retentionPct).toBe(33);
   });
 
   test('a review older than the window still serves as the LAG predecessor', async () => {
@@ -343,5 +352,173 @@ describe('GET /stats/retention', () => {
 
     const body = await getRetention(a.cookie);
     expect(body.buckets.every((bk) => bk.count === 0)).toBe(true);
+  });
+});
+
+interface OverviewBody {
+  answerCount: number;
+  answerSuccessCount: number;
+  answerSuccessPct: number | null;
+  trueRetentionCount: number;
+  trueRetentionPct: number | null;
+  series: { day: string; answerCount: number; answerSuccessPct: number | null; trueRetentionPct: number | null }[];
+  target: { status: 'uniform' | 'mixed'; retentionPct: number | null };
+  undoSnapshot?: unknown;
+}
+interface DeckBreakdownBody {
+  decks: {
+    id: string;
+    ownCards: number;
+    subtreeCards: number;
+    ownAnswerCount: number;
+    ownAnswerSuccessPct: number | null;
+    subtreeAnswerCount: number;
+    targetRetentionPct: number;
+  }[];
+}
+
+async function getOverview(cookie: string, query = ''): Promise<OverviewBody> {
+  const res = await callApp(app, 'GET', `/stats/overview${query}`, { cookie });
+  expect(res.status).toBe(200);
+  return res.json<OverviewBody>();
+}
+
+describe('GET /stats/overview and /stats/decks', () => {
+  beforeEach(async () => {
+    await resetTestDb();
+  });
+
+  test('one of each rating is 75% answer success, and a same-day repeat is not true retention', async () => {
+    const { cookie, userId } = await signUpAndCookie(app, uniqueEmail());
+    const deckId = await freshDeck(cookie);
+    for (const rating of [1, 2, 3, 4]) {
+      const cardId = await seedScheduledCard(cookie, deckId, { due: daysFromNow(1) });
+      await seedReview(userId, cardId, deckId, rating, new Date());
+    }
+    const repeated = await seedScheduledCard(cookie, deckId, { due: daysFromNow(1) });
+    const first = daysAgo(1);
+    first.setUTCHours(12, 0, 0, 0);
+    await seedReview(userId, repeated, deckId, 1, first);
+    await seedReview(userId, repeated, deckId, 3, new Date(first.getTime() + 60_000));
+
+    const body = await getOverview(cookie, '?days=7');
+    expect(JSON.stringify(body)).not.toContain('undoSnapshot');
+    const today = body.series.find((point) => point.answerCount === 4)!;
+    expect(today.answerSuccessPct).toBe(75);
+    const earlier = body.series.find((point) => point.day === first.toISOString().slice(0, 10))!;
+    expect(earlier.answerCount).toBe(2);
+    expect(earlier.answerSuccessPct).toBe(50);
+    expect(earlier.trueRetentionPct).toBe(0);
+    expect(body.series.filter((point) => point.answerCount === 0).every((point) => point.answerSuccessPct === null && point.trueRetentionPct === null)).toBe(true);
+    expect(body.answerSuccessPct).toBe(67);
+  });
+
+  test('UTC buckets stay on the UTC day under New York and Auckland', async () => {
+    const { userId, cookie } = await signUpAndCookie(app, uniqueEmail());
+    const deckId = await freshDeck(cookie);
+    const earlyCard = await seedScheduledCard(cookie, deckId, { due: daysFromNow(2) });
+    const lateCard = await seedScheduledCard(cookie, deckId, { due: daysFromNow(2) });
+    const early = daysAgo(2);
+    early.setUTCHours(0, 30, 0, 0);
+    const late = daysAgo(2);
+    late.setUTCHours(23, 30, 0, 0);
+    await seedReview(userId, earlyCard, deckId, 3, early);
+    await seedReview(userId, lateCard, deckId, 3, late);
+    const due = daysFromNow(1);
+    due.setUTCHours(0, 30, 0, 0);
+    await seedScheduledCard(cookie, deckId, { due });
+    const utcDay = early.toISOString().slice(0, 10);
+    const nextDay = new Date(early.getTime() + 86_400_000).toISOString().slice(0, 10);
+    const dueDay = due.toISOString().slice(0, 10);
+
+    for (const zone of ['America/New_York', 'Pacific/Auckland']) {
+      await db.transaction(async (tx) => {
+        await tx.execute(sql.raw(`SET LOCAL TIME ZONE '${zone}'`));
+        const overview = await studyOverview({ userId, days: 7 }, tx);
+        expect(overview.series.find((point) => point.day === utcDay)?.answerCount).toBe(2);
+        expect(overview.series.find((point) => point.day === nextDay)?.answerCount ?? 0).toBe(0);
+        const forecast = await dueForecast({ userId, days: 7 }, tx);
+        expect(forecast.buckets.find((bucket) => bucket.day === dueDay)?.count).toBe(1);
+        const dates = (await tx.execute(sql`
+          SELECT (timestamptz '2026-03-08 04:30:00+00' AT TIME ZONE 'UTC')::date AS spring,
+                 (timestamptz '2026-01-15 14:30:00+00' AT TIME ZONE 'UTC')::date AS winter
+        `)) as unknown as { spring: Date | string; winter: Date | string }[];
+        const spring = dates[0]!.spring instanceof Date ? dates[0]!.spring.toISOString().slice(0, 10) : String(dates[0]!.spring).slice(0, 10);
+        const winter = dates[0]!.winter instanceof Date ? dates[0]!.winter.toISOString().slice(0, 10) : String(dates[0]!.winter).slice(0, 10);
+        expect(spring).toBe('2026-03-08');
+        expect(winter).toBe('2026-01-15');
+      });
+    }
+  });
+
+  test('deck breakdown counts the full collection, and targets follow effective retention', async () => {
+    const { cookie, userId } = await signUpAndCookie(app, uniqueEmail());
+    const parent = await freshDeck(cookie, 'Parent');
+    const child = await freshDeck(cookie, 'Child', parent);
+    const other = await freshDeck(cookie, 'Other');
+    const unused = await freshDeck(cookie, 'Unused');
+    const seeded = await seedBasicCard(app, cookie, { deckId: parent, front: 'q', back: 'a' });
+    const [note] = await db.select({ noteTypeId: notes.noteTypeId }).from(notes).where(eq(notes.userId, userId)).limit(1);
+    await db.execute(sql`
+      WITH inserted AS (
+        INSERT INTO notes (user_id, note_type_id, field_values)
+        SELECT ${userId}, ${note!.noteTypeId}::uuid, '{"Front":"q","Back":"a"}'::jsonb
+        FROM generate_series(1, 100)
+        RETURNING id
+      )
+      INSERT INTO cards (user_id, deck_id, note_id)
+      SELECT ${userId}, ${parent}::uuid, id FROM inserted
+    `);
+    await db.execute(sql`
+      WITH inserted AS (
+        INSERT INTO notes (user_id, note_type_id, field_values)
+        SELECT ${userId}, ${note!.noteTypeId}::uuid, '{"Front":"q","Back":"a"}'::jsonb
+        FROM generate_series(1, 400)
+        RETURNING id
+      )
+      INSERT INTO cards (user_id, deck_id, note_id)
+      SELECT ${userId}, ${child}::uuid, id FROM inserted
+    `);
+    await db.update(cardsTable).set({ suspended: true }).where(eq(cardsTable.id, seeded.id));
+    const otherCard = await seedScheduledCard(cookie, other, { due: daysFromNow(1) });
+    await seedReview(userId, seeded.id, parent, 1, new Date());
+    await seedReview(userId, otherCard, other, 2, new Date());
+
+    const [parentPreset] = await db.insert(deckOptionsPreset).values({ userId, name: 'parent', desiredRetention: 0.8 }).returning({ id: deckOptionsPreset.id });
+    const [otherPreset] = await db.insert(deckOptionsPreset).values({ userId, name: 'other', desiredRetention: 0.95 }).returning({ id: deckOptionsPreset.id });
+    const [unusedPreset] = await db.insert(deckOptionsPreset).values({ userId, name: 'unused', desiredRetention: 0.5 }).returning({ id: deckOptionsPreset.id });
+    await db.update(decksTable).set({ presetId: parentPreset!.id }).where(eq(decksTable.id, parent));
+    await db.update(decksTable).set({ presetId: otherPreset!.id }).where(eq(decksTable.id, other));
+    await db.update(decksTable).set({ presetId: unusedPreset!.id }).where(eq(decksTable.id, unused));
+
+    const breakdown = await (await callApp(app, 'GET', '/stats/decks?days=30', { cookie })).json<DeckBreakdownBody>();
+    const byId = new Map(breakdown.decks.map((deck) => [deck.id, deck]));
+    const parentRow = byId.get(parent)!;
+    const childRow = byId.get(child)!;
+    const otherRow = byId.get(other)!;
+    const unusedRow = byId.get(unused)!;
+    expect(parentRow.ownCards + childRow.ownCards + otherRow.ownCards + unusedRow.ownCards).toBe(502);
+    expect(parentRow.ownCards).toBe(101);
+    expect(childRow.ownCards).toBe(400);
+    expect(parentRow.subtreeCards).toBe(501);
+    expect(childRow.subtreeCards).toBe(400);
+    expect(parentRow.subtreeCards + childRow.subtreeCards).toBeGreaterThan(501);
+    expect(unusedRow.ownCards).toBe(0);
+    expect(unusedRow.ownAnswerSuccessPct).toBeNull();
+    expect(parentRow.ownAnswerSuccessPct).toBe(0);
+    expect(otherRow.ownAnswerSuccessPct).toBe(100);
+    expect(parentRow.ownAnswerCount + otherRow.ownAnswerCount).toBe(2);
+    expect(parentRow.targetRetentionPct).toBe(80);
+    expect(childRow.targetRetentionPct).toBe(80);
+    expect(otherRow.targetRetentionPct).toBe(95);
+
+    const mixed = await getOverview(cookie);
+    expect(mixed.target).toEqual({ status: 'mixed', retentionPct: null });
+    const scoped = await getOverview(cookie, `?deckId=${parent}`);
+    expect(scoped.target).toEqual({ status: 'uniform', retentionPct: 80 });
+    expect(scoped.answerCount).toBe(1);
+    const foreign = await getOverview(cookie, '?deckId=00000000-0000-0000-0000-0000000000ff');
+    expect(foreign.answerCount).toBe(0);
+    expect(foreign.target).toEqual({ status: 'uniform', retentionPct: null });
   });
 });
