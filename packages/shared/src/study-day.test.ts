@@ -267,6 +267,159 @@ describe('study day clock', () => {
     expect(shown(spans.future[0]?.label ?? '')).toBe('2026-10-16');
   });
 
+  test('moving rollover later from midnight to 01:30 keeps one budget through the stub morning', () => {
+    const yesterday: StudyEpoch = {
+      start: at('2026-10-15T00:00:00.000Z'),
+      end: at('2026-10-16T00:00:00.000Z'),
+      label: '2026-10-15' as StudyEpoch['label'],
+    };
+    const ledger = opened(yesterday, { newIntroduced: 4, reviewsDone: 7 }, {
+      todayMinutes: 40,
+      streakDays: 13,
+      streakFreezes: 2,
+      dailyGoalMetCount: 2,
+      dailyGoalMetLabel: yesterday.label,
+      goalMetEpochStart: yesterday.start,
+      xp: 100,
+    });
+    const later = parseStudyDayPolicy({ timeZone: 'UTC', rolloverMinute: 90 });
+    const grade = {
+      introducedNew: false,
+      reviewedMature: true,
+      countTowardBudget: true,
+      ratingXp: 10,
+    };
+
+    const duringStub = resolveStudyEpoch(at('2026-10-16T00:30:00.000Z'), later, ledger);
+    expect(duringStub.kind).toBe('rolled');
+    expect(duringStub.boundariesCrossed).toBe(0);
+    expect(duringStub.newIntroduced).toBe(0);
+    expect(duringStub.reviewsDone).toBe(0);
+    expect(duringStub.epoch.start.toISOString()).toBe('2026-10-16T00:00:00.000Z');
+    expect(duringStub.epoch.end.toISOString()).toBe('2026-10-17T01:30:00.000Z');
+    expect(shown(duringStub.epoch.label)).toBe('2026-10-16');
+
+    const stubGrade = chargeStudyDay({
+      now: at('2026-10-16T00:30:00.000Z'),
+      policy: later,
+      ledger,
+      resolved: duringStub,
+      epochDurationMs: 60_000,
+      ...grade,
+    });
+    expect(stubGrade.ledger.streakDays).toBe(14);
+    expect(stubGrade.ledger.streakFreezes).toBe(2);
+    expect(stubGrade.freezeUsed).toBe(false);
+    expect(stubGrade.ledger.budget.newIntroduced).toBe(0);
+    expect(stubGrade.ledger.budget.reviewsDone).toBe(1);
+    expect(stubGrade.ledger.budget.epoch.start.toISOString()).toBe('2026-10-16T00:00:00.000Z');
+    expect(stubGrade.ledger.budget.epoch.end.toISOString()).toBe('2026-10-17T01:30:00.000Z');
+    expect(shown(stubGrade.ledger.budget.epoch.label)).toBe('2026-10-16');
+    expect(stubGrade.ledger.dailyGoalMetCount).toBe(2);
+    expect(stubGrade.ledger.goalMetEpochStart?.toISOString()).toBe('2026-10-15T00:00:00.000Z');
+    expect(shown(stubGrade.review.studyDay)).toBe('2026-10-16');
+
+    const afterRollover = resolveStudyEpoch(at('2026-10-16T02:00:00.000Z'), later, stubGrade.ledger);
+    expect(afterRollover.kind).toBe('same');
+    expect(afterRollover.reviewsDone).toBe(1);
+    expect(afterRollover.newIntroduced).toBe(0);
+    expect(afterRollover.boundariesCrossed).toBe(0);
+    expect(afterRollover.epoch.start.toISOString()).toBe('2026-10-16T00:00:00.000Z');
+    expect(afterRollover.epoch.end.toISOString()).toBe('2026-10-17T01:30:00.000Z');
+    expect(shown(afterRollover.epoch.label)).toBe('2026-10-16');
+
+    const continued = chargeStudyDay({
+      now: at('2026-10-16T02:00:00.000Z'),
+      policy: later,
+      ledger: stubGrade.ledger,
+      resolved: afterRollover,
+      epochDurationMs: 120_000,
+      ...grade,
+    });
+    expect(continued.ledger.streakDays).toBe(14);
+    expect(continued.freezeUsed).toBe(false);
+    expect(continued.ledger.streakFreezes).toBe(2);
+    expect(continued.ledger.budget.reviewsDone).toBe(2);
+    expect(continued.ledger.budget.epoch.end.toISOString()).toBe('2026-10-17T01:30:00.000Z');
+    expect(continued.ledger.goalMetEpochStart?.toISOString()).toBe('2026-10-15T00:00:00.000Z');
+
+    const skipped = resolveStudyEpoch(at('2026-10-16T02:00:00.000Z'), later, ledger);
+    expect(skipped.kind).toBe('rolled');
+    expect(skipped.boundariesCrossed).toBe(0);
+    expect(skipped.epoch.start.toISOString()).toBe('2026-10-16T00:00:00.000Z');
+    expect(skipped.epoch.end.toISOString()).toBe('2026-10-17T01:30:00.000Z');
+    expect(shown(skipped.epoch.label)).toBe('2026-10-16');
+    const skipCharge = chargeStudyDay({
+      now: at('2026-10-16T02:00:00.000Z'),
+      policy: later,
+      ledger,
+      resolved: skipped,
+      epochDurationMs: 60_000,
+      ...grade,
+    });
+    expect(skipCharge.ledger.streakDays).toBe(14);
+    expect(skipCharge.freezeUsed).toBe(false);
+    expect(skipCharge.ledger.streakFreezes).toBe(2);
+    expect(skipCharge.ledger.budget.reviewsDone).toBe(1);
+
+    const spans = studySpans({
+      now: at('2026-10-16T00:30:00.000Z'),
+      policy: later,
+      ledger,
+      pastDays: 1,
+      futureDays: 0,
+    });
+    expect(shown(spans.today.label)).toBe('2026-10-16');
+    expect(spans.today.start.toISOString()).toBe('2026-10-16T00:00:00.000Z');
+    expect(spans.today.end.toISOString()).toBe('2026-10-17T01:30:00.000Z');
+    expect(shown(spans.past[0]?.label ?? '')).toBe('2026-10-15');
+  });
+
+  test('a zone whose civil date is still yesterday does not open a second budget for that label', () => {
+    const yesterday: StudyEpoch = {
+      start: at('2026-10-15T00:00:00.000Z'),
+      end: at('2026-10-16T00:00:00.000Z'),
+      label: '2026-10-15' as StudyEpoch['label'],
+    };
+    const ledger = opened(yesterday, { newIntroduced: 4, reviewsDone: 7 }, {
+      todayMinutes: 40,
+      streakDays: 13,
+      streakFreezes: 2,
+      dailyGoalMetCount: 2,
+      dailyGoalMetLabel: yesterday.label,
+      goalMetEpochStart: yesterday.start,
+      xp: 100,
+    });
+    const newYork = parseStudyDayPolicy({ timeZone: 'America/New_York', rolloverMinute: 0 });
+    const resolved = resolveStudyEpoch(at('2026-10-16T00:30:00.000Z'), newYork, ledger);
+    expect(resolved.kind).toBe('rolled');
+    expect(resolved.boundariesCrossed).toBe(0);
+    expect(resolved.newIntroduced).toBe(0);
+    expect(resolved.reviewsDone).toBe(0);
+    expect(shown(resolved.epoch.label)).toBe('2026-10-16');
+    expect(resolved.epoch.start.toISOString()).toBe('2026-10-16T00:00:00.000Z');
+    expect(resolved.epoch.end.toISOString()).toBe('2026-10-17T04:00:00.000Z');
+
+    const charged = chargeStudyDay({
+      now: at('2026-10-16T00:30:00.000Z'),
+      policy: newYork,
+      ledger,
+      resolved,
+      epochDurationMs: 60_000,
+      introducedNew: false,
+      reviewedMature: true,
+      countTowardBudget: true,
+      ratingXp: 10,
+    });
+    expect(charged.ledger.streakDays).toBe(14);
+    expect(charged.freezeUsed).toBe(false);
+    expect(charged.ledger.streakFreezes).toBe(2);
+    expect(charged.ledger.budget.reviewsDone).toBe(1);
+    expect(charged.ledger.dailyGoalMetCount).toBe(2);
+    expect(charged.ledger.goalMetEpochStart?.toISOString()).toBe('2026-10-15T00:00:00.000Z');
+    expect(shown(charged.review.studyDay)).toBe('2026-10-16');
+  });
+
   test('the grade at the stored end rolls from zero counters and this card adds one', () => {
     const now = at('2026-10-16T00:00:00.000Z');
     const epoch: StudyEpoch = {
