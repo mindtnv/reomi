@@ -16,8 +16,8 @@ Each numbered section is one pull request. Land them in order. A later section s
 
 ## 3. Add accepted URLs
 
-- [ ] 3.1 Add failing tests for URL normalization, reuse of the oldest owned non-deleting match, create-and-attach of a new URL, a batch that stops at the library cap and the notebook source cap, a later ingest error that keeps the module link, and a foreign module that writes nothing. Verify no test creates a card.
-- [ ] 3.2 Implement `POST /notebooks/:id/plan/modules/:moduleId/sources` with the pure normalizer, the existing inline URL insert, and after-commit enqueue. Verify 3.1 passes, a retry of the same URL does not insert a second row, and a crash-shaped partial batch leaves the earlier rows reusable.
+- [x] 3.1 Add failing tests for URL normalization, reuse of the oldest owned non-deleting match, create-and-attach of a new URL, a batch that stops at the library cap and the notebook source cap, a later ingest error that keeps the module link, and a foreign module that writes nothing. Verify no test creates a card.
+- [x] 3.2 Implement `POST /notebooks/:id/plan/modules/:moduleId/sources` with the pure normalizer, the existing inline URL insert, and after-commit enqueue. Verify 3.1 passes, a retry of the same URL does not insert a second row, and a crash-shaped partial batch leaves the earlier rows reusable.
 
 ## 4. Open the plan from an empty account
 
