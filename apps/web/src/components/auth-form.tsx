@@ -3,10 +3,22 @@
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { signIn, signUp } from '@/lib/auth';
+import { authFailureText, authFieldError } from '@/lib/auth-recovery';
 import { NNBtn, NNLogo } from './ui';
 import { AppLink, useAppNavigation } from './navigation';
 
 type Mode = 'sign-in' | 'sign-up';
+
+function authClientError(error: { message?: string; code?: string; status?: number }): Error {
+  return new Error(
+    authFailureText({
+      status: error.status,
+      code: error.code,
+      message: error.message,
+      fallback: error.message || 'Что-то пошло не так',
+    }),
+  );
+}
 
 export function AuthForm({ mode }: { mode: Mode }) {
   const router = useAppNavigation();
@@ -21,15 +33,24 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    const fieldError = authFieldError({
+      mode: isSignIn ? 'sign-in' : 'sign-up',
+      email,
+      password,
+    });
+    if (fieldError) {
+      setError(fieldError);
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
       if (isSignIn) {
         const res = await signIn.email({ email, password });
-        if (res.error) throw new Error(res.error.message);
+        if (res.error) throw authClientError(res.error);
       } else {
         const res = await signUp.email({ email, password, name: name || email.split('@')[0] });
-        if (res.error) throw new Error(res.error.message);
+        if (res.error) throw authClientError(res.error);
       }
       const next = searchParams.get('next') || '/';
       router.replace(next);
@@ -42,6 +63,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
   return (
     <form
+      noValidate
       onSubmit={submit}
       style={{
         width: 'min(420px, 100%)',
@@ -86,7 +108,6 @@ export function AuthForm({ mode }: { mode: Mode }) {
         onChange={setEmail}
         placeholder="you@example.com"
         autoComplete="email"
-        required
       />
       <Field
         label="Пароль"
@@ -95,8 +116,6 @@ export function AuthForm({ mode }: { mode: Mode }) {
         onChange={setPassword}
         placeholder={isSignIn ? '••••••••' : 'Минимум 8 символов'}
         autoComplete={isSignIn ? 'current-password' : 'new-password'}
-        required
-        minLength={8}
       />
 
       {error && (
@@ -163,8 +182,6 @@ function Field({
   onChange,
   placeholder,
   autoComplete,
-  required,
-  minLength,
 }: {
   label: string;
   type: 'text' | 'email' | 'password';
@@ -172,8 +189,6 @@ function Field({
   onChange: (v: string) => void;
   placeholder?: string;
   autoComplete?: string;
-  required?: boolean;
-  minLength?: number;
 }) {
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -184,8 +199,6 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         autoComplete={autoComplete}
-        required={required}
-        minLength={minLength}
         style={{
           background: 'var(--surface-2)',
           border: '1px solid var(--border)',
