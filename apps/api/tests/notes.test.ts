@@ -220,13 +220,13 @@ describe('notes', () => {
     const grade = await (await callApp(app, 'POST', '/reviews', { cookie, body: { cardId, rating: 4 } })).json<any>();
     expect((await callApp(app, 'PATCH', `/cards/${cardId}`, { cookie, body: { deckId: destination } })).status).toBe(200);
     expect((await callApp(app, 'DELETE', `/decks/${original}`, { cookie })).status).toBe(200);
-    const history = (await (await callApp(app, 'GET', '/reviews', { cookie })).json<any>()).items;
+    const history = await (await callApp(app, 'GET', '/reviews', { cookie })).json<any[]>();
     expect(history).toHaveLength(1);
     expect(history[0]).toMatchObject({ id: grade.review.id, cardId, deckId: null, rating: 4 });
     const moved = await (await callApp(app, 'GET', `/cards/${cardId}`, { cookie })).json<any>();
     expect(moved).toMatchObject({ deckId: destination, due: grade.card.due, reps: grade.card.reps });
     const other = await signUpAndCookie(app, uniqueEmail());
-    expect((await (await callApp(app, 'GET', '/reviews', { cookie: other.cookie })).json<any>()).items).toEqual([]);
+    expect(await (await callApp(app, 'GET', '/reviews', { cookie: other.cookie })).json<any[]>()).toEqual([]);
   });
 
   test('text backfill is user-scoped and idempotent without changing source or FSRS', async () => {

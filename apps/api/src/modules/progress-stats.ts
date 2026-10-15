@@ -3,8 +3,9 @@
 // FIRST conjunct (Principle 4), the only cross-user boundary on these reads.
 //
 // `studyStats` is the only genuinely new server capability in this milestone: a
-// single GROUP BY `date_trunc('day', reviewed_at)` over `reviews`, plus (for the
-// global scope) a `profile` read for streak/level/xp. `cardProgress` reads the
+// single GROUP BY UTC day over `reviews`, plus (for the global scope) a
+// `profile` read for streak/level/xp. Time filters are timestamptz ranges on
+// `reviewed_at` so `(user_id, reviewed_at)` can serve them. `cardProgress` reads the
 // card's flat FSRS columns + its last-N review history (scoped by BOTH cardId AND
 // userId — defense-in-depth even though the card is loaded user-scoped, M4).
 //
@@ -81,7 +82,7 @@ export async function studyStats(args: StudyStatsArgs, executor: StatsExecutor =
   // deck returns "no reviews" rather than silently going global.
   const conds = [
     sql`user_id = ${userId}`,
-    sql`reviewed_at >= now() - ${`${days} days`}::interval`,
+    reviewedRange(rollingLower(days), rollingUpper()),
   ];
   if (deckScoped) {
     const ids = args.deckIds ?? [];
@@ -117,12 +118,13 @@ export async function studyStats(args: StudyStatsArgs, executor: StatsExecutor =
              ) AS rn
       FROM reviews
       WHERE ${scopeWhere(userId, deckScoped, args.deckIds)}
+        AND ${reviewedRange(rollingDayFloor(days), rollingUpper())}
     )
     SELECT count(*) AS cnt,
            sum(CASE WHEN rating >= 2 THEN 1 ELSE 0 END) AS remembered
     FROM ranked
     WHERE rn = 1
-      AND reviewed_at >= now() - ${`${days} days`}::interval
+      AND ${reviewedRange(rollingLower(days), rollingUpper())}
   `)) as unknown as { cnt: number | string; remembered: number | string }[];
 
   let reviewCount = 0;
@@ -214,15 +216,21 @@ interface ForecastRow {
   cnt: number | string;
 }
 
-/** Shared deck-scope predicate: deckIds=[] forces an empty result set. */
-function deckScopeConds(deckIds: string[] | undefined): SQL[] {
-  if (deckIds === undefined) return [];
-  if (deckIds.length === 0) return [sql`false`];
+/** Deck predicate. An empty id list matches nothing; undefined leaves the column open. */
+function deckSql(deckIds: string[] | undefined, column: SQL): SQL {
+  if (deckIds === undefined) return sql`true`;
+  if (deckIds.length === 0) return sql`false`;
   const list = sql.join(
     deckIds.map((id) => sql`${id}`),
     sql`, `,
   );
-  return [sql`deck_id IN (${list})`];
+  return sql`${column} IN (${list})`;
+}
+
+/** Shared deck-scope predicate: deckIds=[] forces an empty result set. */
+function deckScopeConds(deckIds: string[] | undefined): SQL[] {
+  if (deckIds === undefined) return [];
+  return [deckSql(deckIds, sql`deck_id`)];
 }
 
 /**
@@ -317,9 +325,9 @@ interface RetentionRow {
  * True retention by the elapsed gap since the previous counted review of the
  * same card. Only the first review of each card on each UTC day is counted, so
  * a same-day Again followed by Good does not create a short-interval success.
- * The first counted review of a card (gap IS NULL) is excluded. The time window
- * filters OUTSIDE the windowed CTE — filtering inside would make LAG lose the
- * previous review and mis-compute gaps at the window edge.
+ * The first counted review of a card (gap IS NULL) is excluded. Ranking reads
+ * the UTC days touched by the window; the predecessor is a separate lookup, so
+ * a review older than the window still sets the gap.
  */
 export async function retentionCurve(
   args: RetentionCurveArgs,
@@ -333,6 +341,7 @@ export async function retentionCurve(
     sql` AND `,
   );
 
+  const dayStart = sql`(date_trunc('day', f.reviewed_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')`;
   const rows = (await executor.execute(sql`
     WITH ranked AS (
       SELECT card_id, rating, reviewed_at, id,
@@ -342,12 +351,13 @@ export async function retentionCurve(
              ) AS rn
       FROM reviews
       WHERE ${innerWhere}
+        AND ${reviewedRange(rollingDayFloor(days), rollingUpper())}
     ),
-    seq AS (
-      SELECT rating, reviewed_at,
-             reviewed_at - LAG(reviewed_at) OVER (PARTITION BY card_id ORDER BY reviewed_at, id) AS gap
+    firsts AS (
+      SELECT card_id, rating, reviewed_at, id
       FROM ranked
       WHERE rn = 1
+        AND ${reviewedRange(rollingLower(days), rollingUpper())}
     )
     SELECT CASE
         WHEN gap < interval '1 day'   THEN 0
@@ -361,9 +371,32 @@ export async function retentionCurve(
       END AS bucket,
       count(*) AS cnt,
       sum(CASE WHEN rating >= 2 THEN 1 ELSE 0 END) AS remembered
-    FROM seq
+    FROM (
+      SELECT f.rating,
+             f.reviewed_at - prev.reviewed_at AS gap
+      FROM firsts f
+      LEFT JOIN LATERAL (
+        SELECT p.reviewed_at
+        FROM reviews p
+        WHERE p.user_id = ${userId}
+          AND p.card_id = f.card_id
+          AND p.reviewed_at < ${dayStart}
+          AND p.reviewed_at >= (
+            date_trunc('day', (
+              SELECT max(older.reviewed_at)
+              FROM reviews older
+              WHERE older.user_id = ${userId}
+                AND older.card_id = f.card_id
+                AND older.reviewed_at < ${dayStart}
+                AND ${deckSql(args.deckIds, sql`older.deck_id`)}
+            ) AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
+          )
+          AND ${deckSql(args.deckIds, sql`p.deck_id`)}
+        ORDER BY p.reviewed_at, p.id
+        LIMIT 1
+      ) prev ON true
+    ) seq
     WHERE gap IS NOT NULL
-      AND reviewed_at >= now() - ${`${days} days`}::interval
     GROUP BY 1
     ORDER BY 1
   `)) as unknown as RetentionRow[];
@@ -455,10 +488,36 @@ function shiftUtcDay(day: string, delta: number): string {
   return new Date(Date.UTC(year!, (month ?? 1) - 1, (date ?? 1) + delta)).toISOString().slice(0, 10);
 }
 
-function calendarWindow(days: number): SQL {
-  // `::integer` keeps the bound offset a date subtraction. An uncast parameter
-  // is planned as `date >= integer` inside BETWEEN.
-  return sql`(reviewed_at AT TIME ZONE 'UTC')::date BETWEEN (((now() AT TIME ZONE 'UTC')::date - ${days - 1}::integer)) AND (now() AT TIME ZONE 'UTC')::date`;
+/** UTC midnight of the current Postgres instant. Session TimeZone is not used. */
+function utcTodayStartSql(): SQL {
+  return sql`(date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')`;
+}
+
+function rollingLower(days: number): SQL {
+  return sql`now() - ${`${days} days`}::interval`;
+}
+
+/** A day past `now()` so a host clock slightly ahead of Postgres still counts. */
+function rollingUpper(): SQL {
+  return sql`now() + interval '1 day'`;
+}
+
+/** UTC midnight of the day that contains the rolling window start. */
+function rollingDayFloor(days: number): SQL {
+  return sql`(date_trunc('day', (${rollingLower(days)}) AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')`;
+}
+
+/** `reviewed_at` range. The column is not cast, so the user/time index applies. */
+function reviewedRange(start: SQL, end: SQL): SQL {
+  return sql`reviewed_at >= ${start} AND reviewed_at < ${end}`;
+}
+
+/** Inclusive UTC calendar window `[today-(days-1), tomorrow)`. */
+function calendarRange(days: number): SQL {
+  return reviewedRange(
+    sql`${utcTodayStartSql()} - ${days - 1}::integer * interval '1 day'`,
+    sql`${utcTodayStartSql()} + interval '1 day'`,
+  );
 }
 
 function averageGrade(sum: number, count: number): number | null {
@@ -551,7 +610,7 @@ export async function studyOverview(
   const days = clampDays(args.days);
   const userId = args.userId;
   const deckScoped = args.deckIds !== undefined;
-  const where = sql`${scopeWhere(userId, deckScoped, args.deckIds)} AND ${calendarWindow(days)}`;
+  const where = sql`${scopeWhere(userId, deckScoped, args.deckIds)} AND ${calendarRange(days)}`;
   const todayRows = (await executor.execute(sql`
     SELECT (now() AT TIME ZONE 'UTC')::date AS today
   `)) as unknown as { today: Date | string }[];
@@ -578,13 +637,13 @@ export async function studyOverview(
                ORDER BY reviewed_at, id
              ) AS rn
       FROM reviews
-      WHERE ${scopeWhere(userId, deckScoped, args.deckIds)}
+      WHERE ${where}
     )
     SELECT (reviewed_at AT TIME ZONE 'UTC')::date AS day,
            count(*) AS cnt,
            sum(CASE WHEN rating >= 2 THEN 1 ELSE 0 END) AS remembered
     FROM ranked
-    WHERE rn = 1 AND ${calendarWindow(days)}
+    WHERE rn = 1
     GROUP BY 1
   `)) as unknown as { day: Date | string; cnt: number | string; remembered: number | string }[];
   const hourRows = (await executor.execute(sql`
@@ -702,7 +761,7 @@ export async function deckBreakdown(
     FROM reviews
     WHERE user_id = ${userId}
       AND deck_id IS NOT NULL
-      AND ${calendarWindow(windowDays)}
+      AND ${calendarRange(windowDays)}
     GROUP BY deck_id
   `)) as unknown as { deckId: string; cnt: number | string; remembered: number | string; duration: number | string | null }[];
   const presetRows = (await executor.execute(sql`

@@ -154,12 +154,13 @@ describe('reviews', () => {
     const future = Date.now() + 60_000;
     const none = await (
       await callApp(app, 'GET', `/reviews?since=${future}`, { cookie })
-    ).json<{ items: unknown[] }>();
-    expect(none.items).toEqual([]);
-    const all = await (await callApp(app, 'GET', '/reviews', { cookie })).json<{ items: { undoSnapshot?: unknown }[]; nextCursor: string | null }>();
-    expect(all.items).toHaveLength(1);
-    expect(all.items[0]).not.toHaveProperty('undoSnapshot');
-    expect(all.nextCursor).toBeNull();
+    ).json<unknown>();
+    expect(none).toEqual([]);
+    const all = await (await callApp(app, 'GET', '/reviews', { cookie })).json<{ id: string; rating: number; undoSnapshot?: unknown }[]>();
+    expect(Array.isArray(all)).toBe(true);
+    expect(all).toHaveLength(1);
+    expect(all[0]).toHaveProperty('undoSnapshot');
+    expect(all[0]).toMatchObject({ rating: 3 });
   });
 
   test('GET /reviews pages without the undo snapshot', async () => {

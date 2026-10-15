@@ -99,12 +99,20 @@ async function render() {
   ));
 }
 
-function mockStats(body: ReturnType<typeof overview>) {
+function mockStats(
+  body: ReturnType<typeof overview>,
+  forecast: { days: number; overdueCount: number; total: number; buckets: { day: string; count: number }[] } = {
+    days: 30,
+    overdueCount: 0,
+    total: 0,
+    buckets: [],
+  },
+) {
   globalThis.fetch = adaptRecoveryFetch((async (url: unknown) => {
     const path = String(url);
     if (path.includes('/stats/overview')) return Response.json(body);
     if (path.includes('/stats/decks')) return Response.json({ days: 30, decks: [] });
-    if (path.includes('/stats/forecast')) return Response.json({ days: 30, overdueCount: 0, total: 0, buckets: [{ day: '2026-10-15', count: 0 }] });
+    if (path.includes('/stats/forecast')) return Response.json(forecast);
     if (path.includes('/stats/retention')) return Response.json({ days: 365, buckets: [] });
     return Response.json({});
   }) as unknown as typeof fetch);
@@ -116,6 +124,7 @@ function section(title: string): string {
 }
 
 test('stats screen renders Eden-revived UTC days and the peak hour the percentage uses', async () => {
+  const today = new Date().toISOString().slice(0, 10);
   mockStats(overview({
     answerCount: 4,
     answerSuccessCount: 3,
@@ -127,13 +136,20 @@ test('stats screen renders Eden-revived UTC days and the peak hour the percentag
     grades: { again: 1, hard: 1, good: 1, easy: 1 },
     series: [seriesPoint('2026-10-15', 4)],
     hours: hours({ index: 15, count: 4, success: 3 }),
-  }));
+  }), {
+    days: 30,
+    overdueCount: 0,
+    total: 4,
+    buckets: [{ day: today, count: 4 }],
+  });
   await render();
   expect(container.textContent).toContain('Oct 15');
   expect(container.textContent).toContain('3pm');
   expect(container.textContent).not.toContain('3pm–');
   expect(container.textContent).not.toContain('5pm');
   expect(container.textContent).toContain('75%');
+  expect(container.innerHTML).toContain(`${today}: 4`);
+  expect(container.innerHTML).not.toContain(`${today}: 0`);
 });
 
 test('grade shares are a dash when there are no reviews', async () => {

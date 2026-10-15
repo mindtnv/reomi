@@ -46,7 +46,7 @@ test('ordinary-to-custom preserves the exact card and history but still requires
   expect((await callApp(app, 'POST', `/note-types/${type.id}/kind`, { cookie, body: { ...body, confirmationToken: preview.confirmationToken } })).status).toBe(200);
   const after = await (await callApp(app, 'GET', `/cards/${card.id}`, { cookie })).json<any>();
   expect(after).toMatchObject({ id: card.id, due: card.due, reps: card.reps, stability: card.stability, renderKind: 'custom' });
-  expect((await (await callApp(app, 'GET', '/reviews', { cookie })).json<any>()).items).toHaveLength(1);
+  expect(await (await callApp(app, 'GET', '/reviews', { cookie })).json<any[]>()).toHaveLength(1);
 });
 
 test('invalid cloze and missing typed answer targets cannot apply; all routes stay owner scoped', async () => {

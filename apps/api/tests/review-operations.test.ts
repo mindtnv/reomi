@@ -22,7 +22,7 @@ test('a lost grade response is recoverable by operation identity without another
   expect(replay.review.id).toBe(saved.review.id);expect(replay.card).toEqual(saved.card);expect(replay.replayed).toBe(true);
   const receipt=await callApp(app,'GET',`/reviews/operations/${operationId}`,{cookie});
   expect(receipt.status).toBe(200);expect((await receipt.json<any>()).result.review.id).toBe(saved.review.id);
-  const reviews=(await(await callApp(app,'GET','/reviews',{cookie})).json<any>()).items;expect(reviews).toHaveLength(1);
+  const reviews=await(await callApp(app,'GET','/reviews',{cookie})).json<any[]>();expect(reviews).toHaveLength(1);
   const current=await(await callApp(app,'GET',`/cards/${card.id}`,{cookie})).json<any>();expect(current.reps).toBe(1);
 });
 test('concurrent retries serialize once and conflicting argument reuse is rejected',async()=>{
@@ -46,7 +46,7 @@ test('undo preserves the operation tombstone so retry cannot resurrect its grade
   const retry=await callApp(app,'POST',`/reviews/operations/${operationId}`,{cookie,body});expect(retry.status).toBe(409);
   expect((await retry.json<any>()).error).toBe('operation_reverted');
   const receipt=await(await callApp(app,'GET',`/reviews/operations/${operationId}`,{cookie})).json<any>();expect(receipt.status).toBe('reverted');
-  expect((await(await callApp(app,'GET','/reviews',{cookie})).json<any>()).items).toEqual([]);
+  expect(await(await callApp(app,'GET','/reviews',{cookie})).json<any[]>()).toEqual([]);
 });
 
 test('checkpoint history lookup is bounded, owner-scoped and excludes undo snapshots',async()=>{

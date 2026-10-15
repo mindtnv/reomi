@@ -33,7 +33,7 @@ describe('review safety', () => {
     expect(profile.xp).toBe(80);
     expect(profile.newIntroducedToday).toBe(8);
     expect(profile.todayMinutes).toBe(8);
-    const history = (await (await callApp(app, 'GET', '/reviews', { cookie })).json<any>()).items;
+    const history = await (await callApp(app, 'GET', '/reviews', { cookie })).json<any[]>();
     expect(history).toHaveLength(8);
   });
 
@@ -93,7 +93,7 @@ describe('review safety', () => {
       callApp(app, 'POST', '/reviews', { cookie, body: { cardId: next.id, rating: 4 } }),
     ]);
     expect(results.map((r) => r.status)).toEqual([200, 200]);
-    const history = (await (await callApp(app, 'GET', '/reviews', { cookie })).json<any>()).items;
+    const history = await (await callApp(app, 'GET', '/reviews', { cookie })).json<any[]>();
     const profile = await (await callApp(app, 'GET', '/profile', { cookie })).json<any>();
     expect(history).toHaveLength(1);
     expect(profile.xp).toBe(history.reduce((sum, r) => sum + ({ 3: 10, 4: 15 }[r.rating as 3 | 4] ?? 0), 0));

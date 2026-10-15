@@ -318,8 +318,10 @@ function parseReviewCursor(raw: string): { at: Date; id: string } | null {
 
 export const reviewsModule = new Elysia({ prefix: '/reviews' })
   .use(authPlugin)
-  // Paginated history. Explicit columns — undo snapshots stay on the grade row
-  // and are not part of this list. Order is reviewed_at DESC, id DESC.
+  // History. Deploy rolls the API out before the web app, and the previous
+  // client calls this with `since` only and maps the body as an array. That
+  // call stays an array (full rows, no page cap). `limit` or `cursor` selects
+  // the page object and omits undo snapshots. Order is reviewed_at DESC, id DESC.
   .get(
     '/',
     async ({ user, query, status }) => {
@@ -327,13 +329,21 @@ export const reviewsModule = new Elysia({ prefix: '/reviews' })
         ? new Date(/^\d+$/.test(query.since) ? Number(query.since) : query.since)
         : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
       if (!Number.isFinite(since.getTime())) return status(400, { error: 'invalid_since' });
+      const paged = (query.limit !== undefined && query.limit !== '') || (query.cursor !== undefined && query.cursor !== '');
+      const conds = [eq(reviews.userId, user.id), gte(reviews.reviewedAt, since)];
+      if (!paged) {
+        return db
+          .select()
+          .from(reviews)
+          .where(and(...conds))
+          .orderBy(desc(reviews.reviewedAt), desc(reviews.id));
+      }
       const limit = query.limit === undefined || query.limit === '' ? DEFAULT_REVIEWS_PAGE : Number(query.limit);
       if (!Number.isInteger(limit) || limit < 1 || limit > MAX_REVIEWS_PAGE) {
         return status(400, { error: 'invalid_limit' });
       }
       const cursor = query.cursor ? parseReviewCursor(query.cursor) : null;
       if (query.cursor && !cursor) return status(400, { error: 'invalid_cursor' });
-      const conds = [eq(reviews.userId, user.id), gte(reviews.reviewedAt, since)];
       if (cursor) {
         conds.push(
           or(
