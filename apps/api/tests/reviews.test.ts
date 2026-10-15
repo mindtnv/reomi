@@ -368,3 +368,264 @@ describe('reviews — per-deck preset config', () => {
     expect(after.dailyCountsDate).toBe(new Date().toISOString().slice(0, 10));
   });
 });
+
+type LeechGrade = {
+  card: { id: string; lapses: number; suspended: boolean; state: string };
+  review: { id: string; rating: number };
+  leeched: boolean;
+};
+
+async function gradeAgain(cookie: string, cardId: string): Promise<{ status: number; body: LeechGrade }> {
+  const res = await callApp(app, 'POST', '/reviews', {
+    cookie,
+    body: { cardId, rating: 1 },
+  });
+  return { status: res.status, body: await res.json<LeechGrade>() };
+}
+
+/** One Good finishes the default 10m relearning step and returns the card to review. */
+async function graduateRelearning(cookie: string, cardId: string, lapses: number): Promise<LeechGrade> {
+  const res = await callApp(app, 'POST', '/reviews', {
+    cookie,
+    body: { cardId, rating: 3 },
+  });
+  const body = await res.json<LeechGrade>();
+  expect(res.status).toBe(200);
+  expect(body.card.state).toBe('review');
+  expect(body.card.lapses).toBe(lapses);
+  expect(body.leeched).toBe(false);
+  expect(body.card.suspended).toBe(false);
+  return body;
+}
+
+async function reviewHistory(cookie: string): Promise<{ id: string; cardId: string; rating: number }[]> {
+  return (await callApp(app, 'GET', '/reviews', { cookie })).json();
+}
+
+/** A review-state card one lapse short of `lapses`. */
+async function armReviewCard(cookie: string, deckId: string, lapses: number): Promise<string> {
+  const card = await seedBasicCard(app, cookie, { deckId, front: 'q', back: 'a' });
+  await db
+    .update(cards)
+    .set({ state: 'review', lapses, stability: 10, difficulty: 5, reps: 5 })
+    .where(eq(cards.id, card.id));
+  return card.id;
+}
+
+describe('reviews — leech rediscovery', () => {
+  beforeEach(async () => {
+    await resetTestDb();
+  });
+
+  test('unsuspend then a later review fail suspends on the next half-threshold lapse', async () => {
+    const { cookie, userId } = await signUpAndCookie(app, uniqueEmail());
+    await callApp(app, 'GET', '/profile', { cookie });
+    const deckId = await makeDeck(cookie, 'leech-return');
+    const presetId = await insertPreset(userId, { leechThreshold: 4 });
+    await bindPreset(deckId, presetId);
+    const cardId = await armReviewCard(cookie, deckId, 3);
+
+    const first = await gradeAgain(cookie, cardId);
+    expect(first.status).toBe(200);
+    expect(first.body.card.lapses).toBe(4);
+    expect(first.body.leeched).toBe(true);
+    expect(first.body.card.suspended).toBe(true);
+
+    const returned = await (
+      await callApp(app, 'PATCH', `/cards/${cardId}`, { cookie, body: { suspended: false } })
+    ).json<{ lapses: number; suspended: boolean; state: string }>();
+    expect(returned.lapses).toBe(4);
+    expect(returned.suspended).toBe(false);
+    expect(returned.state).toBe('relearning');
+
+    const stillRelearning = await gradeAgain(cookie, cardId);
+    expect(stillRelearning.status).toBe(200);
+    expect(stillRelearning.body.card.lapses).toBe(4);
+    expect(stillRelearning.body.card.state).toBe('relearning');
+    expect(stillRelearning.body.leeched).toBe(false);
+    expect(stillRelearning.body.card.suspended).toBe(false);
+
+    await graduateRelearning(cookie, cardId, 4);
+    const between = await gradeAgain(cookie, cardId);
+    expect(between.status).toBe(200);
+    expect(between.body.card.lapses).toBe(5);
+    expect(between.body.card.state).toBe('relearning');
+    expect(between.body.leeched).toBe(false);
+    expect(between.body.card.suspended).toBe(false);
+
+    await graduateRelearning(cookie, cardId, 5);
+    const rediscovered = await gradeAgain(cookie, cardId);
+    expect(rediscovered.status).toBe(200);
+    expect(rediscovered.body.card.lapses).toBe(6);
+    expect(rediscovered.body.leeched).toBe(true);
+    expect(rediscovered.body.card.suspended).toBe(true);
+
+    const history = await reviewHistory(cookie);
+    expect(history.map((row) => row.rating)).toEqual([1, 3, 1, 3, 1, 1]);
+    expect(history.map((row) => row.cardId)).toEqual(Array(6).fill(cardId));
+    expect(history.map((row) => row.id)).toEqual(
+      expect.arrayContaining([
+        rediscovered.body.review.id,
+        between.body.review.id,
+        stillRelearning.body.review.id,
+        first.body.review.id,
+      ]),
+    );
+  });
+
+  test('lowering the threshold suspends on the next half-step of the new value', async () => {
+    const { cookie, userId } = await signUpAndCookie(app, uniqueEmail());
+    await callApp(app, 'GET', '/profile', { cookie });
+    const deckId = await makeDeck(cookie, 'leech-lower');
+    const presetId = await insertPreset(userId, { leechThreshold: 8 });
+    await bindPreset(deckId, presetId);
+    const cardId = await armReviewCard(cookie, deckId, 7);
+
+    const first = await gradeAgain(cookie, cardId);
+    expect(first.body.card.lapses).toBe(8);
+    expect(first.body.leeched).toBe(true);
+    expect(first.body.card.suspended).toBe(true);
+
+    await callApp(app, 'PATCH', `/cards/${cardId}`, { cookie, body: { suspended: false } });
+    const patched = await (
+      await callApp(app, 'PATCH', `/deck-options/${presetId}`, {
+        cookie,
+        body: { leechThreshold: 5 },
+      })
+    ).json<{ leechThreshold: number }>();
+    expect(patched.leechThreshold).toBe(5);
+
+    const stillStudying = await (
+      await callApp(app, 'GET', `/cards/${cardId}`, { cookie })
+    ).json<{ lapses: number; suspended: boolean }>();
+    expect(stillStudying).toMatchObject({ lapses: 8, suspended: false });
+    await graduateRelearning(cookie, cardId, 8);
+
+    const nine = await gradeAgain(cookie, cardId);
+    expect(nine.status).toBe(200);
+    expect(nine.body.card.lapses).toBe(9);
+    expect(nine.body.leeched).toBe(false);
+    expect(nine.body.card.suspended).toBe(false);
+
+    await graduateRelearning(cookie, cardId, 9);
+    const ten = await gradeAgain(cookie, cardId);
+    expect(ten.status).toBe(200);
+    expect(ten.body.card.lapses).toBe(10);
+    expect(ten.body.leeched).toBe(false);
+    expect(ten.body.card.suspended).toBe(false);
+
+    await graduateRelearning(cookie, cardId, 10);
+    const hit = await gradeAgain(cookie, cardId);
+    expect(hit.status).toBe(200);
+    expect(hit.body.card.lapses).toBe(11);
+    expect(hit.body.leeched).toBe(true);
+    expect(hit.body.card.suspended).toBe(true);
+
+    const history = await reviewHistory(cookie);
+    expect(history).toHaveLength(7);
+    expect(history.map((row) => row.rating)).toEqual([1, 3, 1, 3, 1, 3, 1]);
+    expect(history.map((row) => row.id)).toContain(first.body.review.id);
+  });
+
+  test('raising the threshold waits for the new multiple', async () => {
+    const { cookie, userId } = await signUpAndCookie(app, uniqueEmail());
+    await callApp(app, 'GET', '/profile', { cookie });
+    const deckId = await makeDeck(cookie, 'leech-raise');
+    const presetId = await insertPreset(userId, { leechThreshold: 4 });
+    await bindPreset(deckId, presetId);
+    const cardId = await armReviewCard(cookie, deckId, 3);
+
+    const first = await gradeAgain(cookie, cardId);
+    expect(first.body.leeched).toBe(true);
+    expect(first.body.card.lapses).toBe(4);
+
+    await callApp(app, 'PATCH', `/cards/${cardId}`, { cookie, body: { suspended: false } });
+    await callApp(app, 'PATCH', `/deck-options/${presetId}`, {
+      cookie,
+      body: { leechThreshold: 6 },
+    });
+    await graduateRelearning(cookie, cardId, 4);
+
+    const early = await gradeAgain(cookie, cardId);
+    expect(early.body.card.lapses).toBe(5);
+    expect(early.body.leeched).toBe(false);
+    expect(early.body.card.suspended).toBe(false);
+
+    await graduateRelearning(cookie, cardId, 5);
+    const hit = await gradeAgain(cookie, cardId);
+    expect(hit.body.card.lapses).toBe(6);
+    expect(hit.body.leeched).toBe(true);
+    expect(hit.body.card.suspended).toBe(true);
+
+    const history = await reviewHistory(cookie);
+    expect(history).toHaveLength(5);
+    expect(history.map((row) => row.rating)).toEqual([1, 3, 1, 3, 1]);
+    expect(history.map((row) => row.id)).toContain(first.body.review.id);
+  });
+
+  test('a threshold edit and a passing grade do not suspend or drop history', async () => {
+    const { cookie, userId } = await signUpAndCookie(app, uniqueEmail());
+    await callApp(app, 'GET', '/profile', { cookie });
+    const deckId = await makeDeck(cookie, 'leech-quiet');
+    const presetId = await insertPreset(userId, { leechThreshold: 4 });
+    await bindPreset(deckId, presetId);
+    const cardId = await armReviewCard(cookie, deckId, 3);
+
+    const first = await gradeAgain(cookie, cardId);
+    expect(first.body.card.suspended).toBe(true);
+    await callApp(app, 'PATCH', `/cards/${cardId}`, { cookie, body: { suspended: false } });
+    await callApp(app, 'PATCH', `/deck-options/${presetId}`, {
+      cookie,
+      body: { leechThreshold: 3 },
+    });
+
+    const afterEdit = await (
+      await callApp(app, 'GET', `/cards/${cardId}`, { cookie })
+    ).json<{ lapses: number; suspended: boolean }>();
+    expect(afterEdit).toMatchObject({ lapses: 4, suspended: false });
+
+    const passed = await callApp(app, 'POST', '/reviews', {
+      cookie,
+      body: { cardId, rating: 3 },
+    });
+    expect(passed.status).toBe(200);
+    const passedBody = await passed.json<LeechGrade>();
+    expect(passedBody.card.lapses).toBe(4);
+    expect(passedBody.leeched).toBe(false);
+    expect(passedBody.card.suspended).toBe(false);
+
+    const history = await reviewHistory(cookie);
+    expect(history).toHaveLength(2);
+    expect(history.map((row) => row.rating)).toEqual([3, 1]);
+    expect(history.map((row) => row.id)).toContain(first.body.review.id);
+  });
+
+  test('already past a lowered threshold suspends on the next half-step', async () => {
+    const { cookie, userId } = await signUpAndCookie(app, uniqueEmail());
+    await callApp(app, 'GET', '/profile', { cookie });
+    const deckId = await makeDeck(cookie, 'leech-already');
+    const presetId = await insertPreset(userId, { leechThreshold: 8 });
+    await bindPreset(deckId, presetId);
+    const cardId = await armReviewCard(cookie, deckId, 5);
+
+    await callApp(app, 'PATCH', `/deck-options/${presetId}`, {
+      cookie,
+      body: { leechThreshold: 4 },
+    });
+    const before = await (
+      await callApp(app, 'GET', `/cards/${cardId}`, { cookie })
+    ).json<{ lapses: number; suspended: boolean }>();
+    expect(before).toMatchObject({ lapses: 5, suspended: false });
+
+    const six = await gradeAgain(cookie, cardId);
+    expect(six.status).toBe(200);
+    expect(six.body.card.lapses).toBe(6);
+    expect(six.body.leeched).toBe(true);
+    expect(six.body.card.suspended).toBe(true);
+
+    const history = await reviewHistory(cookie);
+    expect(history).toHaveLength(1);
+    expect(history.map((row) => row.rating)).toEqual([1]);
+    expect(history[0]?.cardId).toBe(cardId);
+  });
+});
