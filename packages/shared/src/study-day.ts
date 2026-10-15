@@ -410,24 +410,48 @@ export function resolveStudyEpoch(now: Date, policy: StudyDayPolicy, ledger: Stu
     };
   }
 
-  return epochAfterFrozenEnd(now, policy, ledger.budget.epoch.end);
+  return epochAfterFrozenEnd(now, policy, ledger.budget.epoch.end, ledger.budget.epoch.label);
 }
 
-function epochAfterFrozenEnd(now: Date, policy: StudyDayPolicy, frozenEnd: Date): ResolvedEpoch {
+function labelForBudget(start: Date, policy: StudyDayPolicy, closedLabel: StudyDayLabel): StudyDayLabel {
+  const label = civilLabel(start, zoneName(policy));
+  if (label <= closedLabel) return shiftLabel(closedLabel, 1);
+  return label;
+}
+
+function endOfBudget(start: Date, policy: StudyDayPolicy, label: StudyDayLabel): Date {
+  const zone = zoneName(policy);
+  let cursor = start;
+  for (;;) {
+    const end = nextBoundaryAfter(cursor, policy);
+    if (civilLabel(end, zone) !== label) return end;
+    cursor = end;
+  }
+}
+
+function epochAfterFrozenEnd(
+  now: Date,
+  policy: StudyDayPolicy,
+  frozenEnd: Date,
+  closedLabel: StudyDayLabel,
+): ResolvedEpoch {
   let start = new Date(frozenEnd.getTime());
   let crossed = 0;
+  let previousLabel = closedLabel;
   for (;;) {
-    const end = nextBoundaryAfter(start, policy);
+    const label = labelForBudget(start, policy, previousLabel);
+    const end = endOfBudget(start, policy, label);
     if (now.getTime() < end.getTime()) {
       return {
         kind: 'rolled',
-        epoch: { start, end, label: civilLabel(start, zoneName(policy)) },
+        epoch: { start, end, label },
         newIntroduced: 0,
         reviewsDone: 0,
         boundariesCrossed: crossed,
       };
     }
     crossed += 1;
+    previousLabel = label;
     start = end;
   }
 }

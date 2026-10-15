@@ -25,6 +25,11 @@ The system SHALL use one configurable study-day boundary and explain collection,
 - **THEN** the start, the end, and the counters stay unchanged
 - **AND** the saved zone takes effect at `2026-10-16T00:00:00.000Z`
 
+#### Scenario: Later rollover after the stored end
+- **WHEN** the open UTC midnight epoch labeled `2026-10-15` has ended and the saved rollover is minute 90
+- **THEN** `2026-10-16T00:30:00.000Z` and `2026-10-16T02:00:00.000Z` share one budget labeled `2026-10-16` from `2026-10-16T00:00:00.000Z` until `2026-10-17T01:30:00.000Z`
+- **AND** yesterday's goal credit stays on `2026-10-15`, a grade in the stub and a later grade the same morning increment the streak once, and skipping the stub does not spend a freeze
+
 ### Requirement: Reversible scheduling controls
 The system SHALL distinguish daily bury, sibling bury, suspension, reset and set-due, provide predictable learning and new-card ordering, and disclose preset effects.
 
