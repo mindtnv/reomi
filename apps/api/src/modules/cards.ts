@@ -34,17 +34,27 @@ import { SORT_ORDERS, type SortOrder } from './filtered-decks.ts';
 import { allocateStudyScope, loadStudyCounts, loadStudyOverview } from './study-summary.ts';
 import { loadDeckSpend } from './deck-budget.ts';
 import { readAccountStudyDay, readDatabaseNow, studyDaySnapshot } from './study-day.ts';
+import { withUserRevisionLock, writeNoteDocument } from './note-revisions.ts';
 
 export const MAX_STUDY_QUEUE = 500;
 
 async function replaceBulkTags(userId: string, scope: SQL, incoming: readonly string[], mode: 'add' | 'remove'): Promise<number> {
   return db.transaction(async (tx) => {
+    await withUserRevisionLock(tx, userId);
     const rows = await tx
-      .select({ id: notes.id, tags: notes.tags })
+      .select({
+        id: notes.id,
+        userId: notes.userId,
+        fieldValues: notes.fieldValues,
+        acceptedAnswers: notes.acceptedAnswers,
+        noteTypeId: notes.noteTypeId,
+        tags: notes.tags,
+        updatedAt: notes.updatedAt,
+      })
       .from(notes)
       .where(and(eq(notes.userId, userId), sql`${notes.id} IN (SELECT ${cards.noteId} FROM ${cards} WHERE ${scope})`))
       .for('update');
-    const plans: { id: string; tags: string[] }[] = [];
+    const plans: { note: (typeof rows)[number]; tags: string[] }[] = [];
     for (const row of rows) {
       const next = [...row.tags];
       if (mode === 'add') {
@@ -61,11 +71,13 @@ async function replaceBulkTags(userId: string, scope: SQL, incoming: readonly st
         next.length = 0;
         next.push(...kept);
       }
-      if (next.length !== row.tags.length || next.some((tag, index) => tag !== row.tags[index])) plans.push({ id: row.id, tags: next });
+      if (next.length !== row.tags.length || next.some((tag, index) => tag !== row.tags[index])) plans.push({ note: row, tags: next });
     }
-    const updatedAt = sql`greatest(${notes.updatedAt} + interval '1 millisecond', ${new Date().toISOString()}::timestamptz)`;
     for (const plan of plans) {
-      await tx.update(notes).set({ tags: plan.tags, updatedAt }).where(and(eq(notes.id, plan.id), eq(notes.userId, userId)));
+      await writeNoteDocument(tx, plan.note, {
+        tags: plan.tags,
+        updatedAt: new Date(Math.max(Date.now(), plan.note.updatedAt.getTime() + 1)),
+      });
     }
     return plans.length;
   });

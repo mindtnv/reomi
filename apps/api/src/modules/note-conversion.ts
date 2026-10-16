@@ -10,6 +10,7 @@ import { defFromRow } from './note-types';
 import { applyRegeneration, loadRegenerationCards, planRegeneration, regenerationImpact, regenerationToken, type RegenerationPlan } from './card-regeneration';
 import { enqueueCardsForIndex } from './notes';
 import { enrichCards } from './cards';
+import { withUserRevisionLock, writeNoteDocument } from './note-revisions';
 
 const MAX_NOTES = 200;
 const MAX_CARDS = 2000;
@@ -29,6 +30,7 @@ const body = t.Object({
 async function convert(userId: string, input: NoteConversionInput, previewOnly: boolean, log: Logger) {
   if (input.sourceTypeId === input.targetTypeId) throw new ConversionError('conversion_same_type');
   const result = await db.transaction(async (tx) => {
+    await withUserRevisionLock(tx, userId);
     // Stable type -> note -> card lock order, shared with ordinary note writes.
     const types = await tx.select().from(noteTypes).where(and(inArray(noteTypes.id, [input.sourceTypeId, input.targetTypeId]),
       or(eq(noteTypes.userId, userId), isNull(noteTypes.userId)))).orderBy(asc(noteTypes.id)).for('share');
@@ -115,8 +117,13 @@ async function convert(userId: string, input: NoteConversionInput, previewOnly: 
     const indexIds: string[] = [];
     for (const note of selected) {
       const now = new Date(Math.max(Date.now(), note.updatedAt.getTime() + 1));
-      await tx.update(notes).set({ noteTypeId: target.id, fieldValues: valuesByNote.get(note.id)!, acceptedAnswers: discardAlternatives ? [] : note.acceptedAnswers, updatedAt: now })
-        .where(and(eq(notes.id, note.id), eq(notes.userId, userId)));
+      await writeNoteDocument(tx, {
+        id: note.id, userId: note.userId, fieldValues: note.fieldValues, tags: note.tags,
+        acceptedAnswers: note.acceptedAnswers, noteTypeId: note.noteTypeId, updatedAt: note.updatedAt,
+      }, {
+        noteTypeId: target.id, fieldValues: valuesByNote.get(note.id)!,
+        acceptedAnswers: discardAlternatives ? [] : note.acceptedAnswers, updatedAt: now,
+      });
       indexIds.push(...await applyRegeneration(tx, { userId, noteId: note.id, plan: plans.get(note.id)!, deckId: newDeck?.id ?? byNote.get(note.id)?.[0]?.deckId, now }));
     }
     const finalCards = await tx.select().from(cards).where(and(eq(cards.userId, userId), inArray(cards.noteId, input.noteIds)));

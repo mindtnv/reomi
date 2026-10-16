@@ -1,9 +1,13 @@
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { cards, db, noteRevisions, notes } from '@reomi/db';
 import { desc, eq } from 'drizzle-orm';
 import { buildApp } from '../src/app';
 import { canonicalNoteDocument, NOTE_REVISION_MAX_BYTES } from '../src/modules/note-revisions';
 import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers';
+
+const repoRoot = resolve(import.meta.dir, '../../..');
 
 const app = buildApp();
 beforeEach(resetTestDb);
@@ -210,4 +214,159 @@ describe('note text revisions', () => {
     expect((await saved.json<any>()).note.fieldValues.A).toBe('tiny');
     expect(await storedRevisions(created.note.id)).toHaveLength(0);
   });
+
+  test('bulk tag changes record the previous tags and leave the card schedule and render cache', async () => {
+    const { cookie, type, created } = await fixture();
+    const cardId = created.cards[0].id as string;
+    expect((await callApp(app, 'POST', '/reviews', { cookie, body: { cardId, rating: 3 } })).status).toBe(200);
+    const before = (await db.select().from(cards).where(eq(cards.noteId, created.note.id))).map(cardCache)
+      .sort((left, right) => left.id < right.id ? -1 : 1);
+    const added = await callApp(app, 'POST', '/cards/bulk', { cookie, body: {
+      action: 'addTag', cardIds: created.cards.map((card: { id: string }) => card.id), payload: { tag: 'biology' },
+    } });
+    expect(added.status).toBe(200);
+    expect((await added.json<any>()).updated).toBe(1);
+    expect((await storedRevisions(created.note.id)).map((row) => row.tags)).toEqual([[]]);
+    const again = await callApp(app, 'POST', '/cards/bulk', { cookie, body: {
+      action: 'addTag', cardIds: [cardId], payload: { tag: 'biology' },
+    } });
+    expect(again.status).toBe(200);
+    expect((await again.json<any>()).updated).toBe(0);
+    expect(await storedRevisions(created.note.id)).toHaveLength(1);
+    const removed = await callApp(app, 'POST', '/cards/bulk', { cookie, body: {
+      action: 'removeTag', cardIds: [cardId], payload: { tag: 'biology' },
+    } });
+    expect(removed.status).toBe(200);
+    const history = await storedRevisions(created.note.id);
+    expect(history.map((row) => row.tags)).toEqual([['biology'], []]);
+    const afterBulk = (await db.select().from(cards).where(eq(cards.noteId, created.note.id))).map(cardCache)
+      .sort((left, right) => left.id < right.id ? -1 : 1);
+    expect(afterBulk).toEqual(before);
+
+    const [note] = await db.select().from(notes).where(eq(notes.id, created.note.id));
+    const tagged = history.find((row) => row.tags[0] === 'biology')!;
+    const restored = await callApp(app, 'POST', `/notes/${created.note.id}/revisions/${tagged.id}/restore`, { cookie, body: {
+      expectedUpdatedAt: note!.updatedAt.toISOString(), expectedTypeUpdatedAt: type.updatedAt,
+    } });
+    expect(restored.status).toBe(200);
+    expect((await restored.json<any>()).note.tags).toEqual(['biology']);
+    const after = (await db.select().from(cards).where(eq(cards.id, cardId)))[0]!;
+    const graded = before.find((card) => card.id === cardId)!;
+    expect(schedule(after)).toEqual({
+      due: graded.due, stability: graded.stability, difficulty: graded.difficulty,
+      reps: graded.reps, lapses: graded.lapses, state: graded.state,
+    });
+  });
+
+  test('renaming a field records the previous field values', async () => {
+    const { cookie, type, created } = await fixture();
+    const renamed = await callApp(app, 'PATCH', `/note-types/${type.id}`, { cookie, body: {
+      fields: type.fields.map((field: { name: string }) => field.name === 'Q' ? { ...field, name: 'Question' } : field),
+    } });
+    expect(renamed.status).toBe(200);
+    const rows = await storedRevisions(created.note.id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.fieldValues).toEqual({ Q: 'question', A: 'answer' });
+    expect(rows[0]!.noteTypeId).toBe(type.id);
+    const card = await (await callApp(app, 'GET', `/cards/${created.cards[0].id}`, { cookie })).json<any>();
+    expect(card.note.fieldValues).toEqual({ Question: 'question', A: 'answer' });
+  });
+
+  test('converting a note records the previous field document', async () => {
+    const { cookie, type, created } = await fixture();
+    const target = await (await callApp(app, 'POST', '/note-types', { cookie, body: { name: 'Target', kind: 'custom',
+      fields: [{ name: 'Question', ord: 0 }, { name: 'Answer', ord: 1 }],
+      templates: [{ name: 'Forward', ord: 0, frontTemplate: '{{Question}}', backTemplate: '{{Answer}}' }],
+    } })).json<any>();
+    const input = {
+      noteIds: [created.note.id], sourceTypeId: type.id, targetTypeId: target.id,
+      sourceVersion: type.updatedAt, targetVersion: target.updatedAt, preserveUnmappedFields: true,
+      fieldMap: { Question: 'Q', Answer: 'A' },
+      templateMap: { [target.templates[0].id]: type.templates[0].id },
+    };
+    const preview = await (await callApp(app, 'POST', '/notes/convert/preview', { cookie, body: input })).json<any>();
+    const converted = await callApp(app, 'POST', '/notes/convert', { cookie, body: { ...input, confirmationToken: preview.confirmationToken } });
+    expect(converted.status).toBe(200);
+    const [row] = await storedRevisions(created.note.id);
+    expect(row).toMatchObject({
+      fieldValues: { Q: 'question', A: 'answer' }, noteTypeId: type.id, tags: [], acceptedAnswers: [],
+    });
+    expect((await converted.json<any>()).cards[0].note.fieldValues).toEqual({ Question: 'question', Answer: 'answer' });
+  });
+
+  test('only the revision module assigns note field values or tags', () => {
+    const offenders = productionSources().flatMap((file) => {
+      const text = stripComments(readFileSync(file, 'utf8'));
+      const relativePath = relative(repoRoot, file);
+      const problems: string[] = [];
+      if (relativePath !== 'apps/api/src/modules/note-revisions.ts' && assignsNoteDocument(text)) problems.push(`${relativePath} assigns note fields or tags`);
+      const allowed = relativePath === 'apps/api/src/modules/note-revisions.ts' || relativePath === 'packages/db/src/schema/app.ts';
+      if (!allowed && /\bnoteRevisions\b/.test(text)) problems.push(`${relativePath} queries noteRevisions`);
+      return problems;
+    });
+    expect(offenders).toEqual([]);
+  });
 });
+
+function cardCache(card: typeof cards.$inferSelect) {
+  return {
+    id: card.id,
+    due: card.due.toISOString(),
+    stability: card.stability,
+    difficulty: card.difficulty,
+    reps: card.reps,
+    lapses: card.lapses,
+    state: card.state,
+    renderText: card.renderText,
+    renderFrontText: card.renderFrontText,
+    renderBackText: card.renderBackText,
+    updatedAt: card.updatedAt.toISOString(),
+  };
+}
+
+function productionSources(): string[] {
+  const roots = ['apps/api/src', 'apps/web/src', 'packages/db/src', 'packages/shared/src', 'packages/auth/src'];
+  const files: string[] = [];
+  for (const root of roots) {
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) walk(path);
+        else if (path.endsWith('.ts') && !path.endsWith('.test.ts')) files.push(path);
+      }
+    };
+    walk(resolve(repoRoot, root));
+  }
+  return files;
+}
+
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
+function assignsNoteDocument(source: string): boolean {
+  let from = 0;
+  while (from < source.length) {
+    const at = source.indexOf('update(notes)', from);
+    if (at < 0) return false;
+    const setAt = source.indexOf('.set(', at);
+    if (setAt >= 0 && setAt - at < 400) {
+      const arg = balanced(source, setAt + 4);
+      if (/\b(?:fieldValues|tags)\b/.test(arg)) return true;
+    }
+    from = at + 'update(notes)'.length;
+  }
+  return false;
+}
+
+function balanced(source: string, open: number): string {
+  let depth = 0;
+  for (let i = open; i < source.length; i++) {
+    if (source[i] === '(') depth++;
+    else if (source[i] === ')') {
+      depth--;
+      if (depth === 0) return source.slice(open + 1, i);
+    }
+  }
+  return source.slice(open);
+}
