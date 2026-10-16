@@ -612,4 +612,22 @@ describe('reviews — undo', () => {
     const rows = await db.select().from(reviews).where(eq(reviews.userId, userId));
     expect(rows.length).toBe(1);
   });
+
+  test('burying a different card leaves an unrelated grade undoable', async () => {
+    const { cookie, cardId, deckId } = await setupCard();
+    const other = await seedBasicCard(app, cookie, { deckId, front: 'other', back: 'card' });
+    const before = cardMutateSet(await rawCard(cardId));
+    const graded = await callApp(app, 'POST', '/reviews', { cookie, body: { cardId, rating: 3 } });
+    expect(graded.status).toBe(200);
+    const buried = await callApp(app, 'POST', '/cards/holds', {
+      cookie, body: { action: 'bury', cardIds: [other.id] },
+    });
+    expect(buried.status).toBe(200);
+    expect(cardMutateSet(await rawCard(cardId))).not.toEqual(before);
+    const undo = await callApp(app, 'POST', '/reviews/undo', { cookie });
+    expect(undo.status).toBe(200);
+    expect(cardMutateSet(await rawCard(cardId))).toEqual(before);
+    expect(cardMutateSet(await rawCard(other.id)).suspended).toBe(false);
+    expect((await rawCard(other.id)).updatedAt.toISOString()).toBe(cardMutateSet(await rawCard(other.id)).updatedAt);
+  });
 });

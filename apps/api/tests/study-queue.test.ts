@@ -226,4 +226,20 @@ describe('study queue', () => {
     const [unchanged] = await db.select().from(profile).where(eq(profile.userId, userId));
     expect(unchanged!.dailyCountsDate).toBe(yesterday);
   });
+
+  test('a buried due card leaves the regular queue and a future learning hold is named', async () => {
+    const { cookie, deckId } = await setup();
+    const due = await seedBasicCard(app, cookie, { deckId, front: 'Due' });
+    const later = await seedBasicCard(app, cookie, { deckId, front: 'Later' });
+    await db.update(cards).set({ state: 'learning', due: new Date(Date.now() + 600_000) }).where(eq(cards.id, later.id));
+    const buried = await callApp(app, 'POST', '/cards/holds', {
+      cookie, body: { action: 'bury', cardIds: [due.id, later.id] },
+    });
+    expect(buried.status).toBe(200);
+    const queue = await (await callApp(app, 'GET', '/cards/queue', { cookie })).json<any>();
+    expect(queue.due).toEqual([]);
+    expect(queue.new).toEqual([]);
+    expect(queue.heldCardIds.sort()).toEqual([due.id, later.id].sort());
+    expect(queue.summary).toMatchObject({ buriedCount: 2, dueBuried: 1, nextLearningAt: null, learningCount: 0 });
+  });
 });
