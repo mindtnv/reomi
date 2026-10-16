@@ -233,8 +233,12 @@ async function captureSettings(page: Page, index: ShotRecord[], prefix: string) 
 
   for (const tab of settingsTabs) {
     const select = page.locator('.reomi-settings-mobile-nav select');
+    const sectionPicker = page.locator('.reomi-settings-mobile-nav .reomi-select');
     if (await select.isVisible().catch(() => false)) {
       await select.selectOption(tab.id);
+    } else if (await sectionPicker.isVisible().catch(() => false)) {
+      await sectionPicker.click();
+      await page.getByRole('option', { name: tab.name, exact: true }).click();
     } else {
       await page.getByRole('tab', { name: tab.name, exact: true }).click();
     }
