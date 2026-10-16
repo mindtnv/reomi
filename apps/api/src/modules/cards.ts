@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia';
-import { and, asc, desc, eq, gt, inArray, lt, lte, ne, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, lt, lte, ne, or, sql, type SQL } from 'drizzle-orm';
 import {
   cardSources,
   cards,
@@ -19,6 +19,9 @@ import {
   parseCardQuery,
   CardQueryError,
   fsrsResetColumns,
+  NOTE_TAG_MAX_COUNT,
+  NoteTagError,
+  normalizeNoteTags,
   type CardQueryNode,
 } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin.ts';
@@ -31,6 +34,40 @@ import { loadDeckSpend } from './deck-budget.ts';
 import { readAccountStudyDay, studyDaySnapshot } from './study-day.ts';
 
 export const MAX_STUDY_QUEUE = 500;
+
+async function replaceBulkTags(userId: string, scope: SQL, incoming: readonly string[], mode: 'add' | 'remove'): Promise<number> {
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .select({ id: notes.id, tags: notes.tags })
+      .from(notes)
+      .where(and(eq(notes.userId, userId), sql`${notes.id} IN (SELECT ${cards.noteId} FROM ${cards} WHERE ${scope})`))
+      .for('update');
+    const plans: { id: string; tags: string[] }[] = [];
+    for (const row of rows) {
+      const next = [...row.tags];
+      if (mode === 'add') {
+        const seen = new Set(next);
+        for (const tag of incoming) {
+          if (seen.has(tag)) continue;
+          if (next.length >= NOTE_TAG_MAX_COUNT) throw new NoteTagError('too_many_tags');
+          seen.add(tag);
+          next.push(tag);
+        }
+      } else {
+        const drop = new Set(incoming);
+        const kept = next.filter((tag) => !drop.has(tag));
+        next.length = 0;
+        next.push(...kept);
+      }
+      if (next.length !== row.tags.length || next.some((tag, index) => tag !== row.tags[index])) plans.push({ id: row.id, tags: next });
+    }
+    const updatedAt = sql`greatest(${notes.updatedAt} + interval '1 millisecond', ${new Date().toISOString()}::timestamptz)`;
+    for (const plan of plans) {
+      await tx.update(notes).set({ tags: plan.tags, updatedAt }).where(and(eq(notes.id, plan.id), eq(notes.userId, userId)));
+    }
+    return plans.length;
+  });
+}
 
 // ── Card read-payload enrichment (M1 Phase 5a) ────────────────────────────────
 //
@@ -956,42 +993,20 @@ export const cardsModule = new Elysia({ prefix: '/cards' })
           return { updated: updated.length, cards: updated };
         }
 
-        case 'addTag': {
-          const tag = body.payload?.tag;
-          if (!tag) return status(400, { error: 'tag_required' });
-          // Tags are note-level (Anki-correct): resolve the notes of the selected
-          // cards, then array_append where the tag isn't already present (dedup).
-          // Scoped to the user via the card ownership filter on the subquery.
-          const noteScope = sql`${notes.id} IN (SELECT ${cards.noteId} FROM ${cards} WHERE ${scope})`;
-          const updated = await db
-            .update(notes)
-            .set({ tags: sql`array_append(${notes.tags}, ${tag})`, updatedAt: new Date() })
-            .where(
-              and(
-                eq(notes.userId, user.id),
-                noteScope,
-                sql`NOT (${notes.tags} @> ARRAY[${tag}]::text[])`,
-              ),
-            )
-            .returning({ id: notes.id });
-          // No RAG re-index: tags live on the `notes` table and tag-filtered
-          // retrieval JOINs the live notes row, so a chunk re-index would be a
-          // no-op churn write (kb_chunk carries no tag/meta column).
-          return { updated: updated.length };
-        }
-
+        case 'addTag':
         case 'removeTag': {
           const tag = body.payload?.tag;
           if (!tag) return status(400, { error: 'tag_required' });
-          const noteScope = sql`${notes.id} IN (SELECT ${cards.noteId} FROM ${cards} WHERE ${scope})`;
-          const updated = await db
-            .update(notes)
-            .set({ tags: sql`array_remove(${notes.tags}, ${tag})`, updatedAt: new Date() })
-            .where(and(eq(notes.userId, user.id), noteScope))
-            .returning({ id: notes.id });
-          // No RAG re-index (see addTag): tag-filtered retrieval reads live
-          // notes, so re-indexing here would only churn the chunk.
-          return { updated: updated.length };
+          const parsed = normalizeNoteTags(tag);
+          if (!parsed.ok) return status(400, { error: parsed.error });
+          if (parsed.tags.length === 0) return status(400, { error: 'tag_required' });
+          try {
+            const updated = await replaceBulkTags(user.id, scope, parsed.tags, body.action === 'addTag' ? 'add' : 'remove');
+            return { updated };
+          } catch (error) {
+            if (error instanceof NoteTagError) return status(400, { error: error.code });
+            throw error;
+          }
         }
       }
     },
@@ -1012,7 +1027,7 @@ export const cardsModule = new Elysia({ prefix: '/cards' })
         payload: t.Optional(
           t.Object({
             deckId: t.Optional(t.String({ format: 'uuid' })),
-            tag: t.Optional(t.String({ minLength: 1, maxLength: 128 })),
+            tag: t.Optional(t.String({ minLength: 1, maxLength: 4096 })),
             setDue: t.Optional(t.String()),
           }),
         ),

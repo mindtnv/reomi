@@ -35,6 +35,7 @@ import {
   fieldPlainText,
   typedAnswerField,
   acceptedAnswerVariants,
+  normalizeNoteTags,
   ClozeSyntaxError,
   renameFieldValues,
   type FieldValues,
@@ -594,10 +595,8 @@ const CardFormEditor = ({
     setFieldValues((prev) => ({ ...prev, [name]: markdown }));
   }, []);
 
-  const tags = useMemo(
-    () => tagsText.split(',').map((s) => s.trim()).filter(Boolean),
-    [tagsText],
-  );
+  const parsedTags = useMemo(() => normalizeNoteTags(tagsText), [tagsText]);
+  const tags = parsedTags.ok ? parsedTags.tags : [];
 
 
 
@@ -703,6 +702,10 @@ const CardFormEditor = ({
     }
     if (generation.cards.length === 0) {
       setError(t(isCloze ? 'editor.errors.clozeRequired' : 'editor.errors.noCards'));
+      return false;
+    }
+    if (!parsedTags.ok) {
+      setError(t(parsedTags.error === 'tag_too_long' ? 'editor.errors.tagTooLong' : 'editor.errors.tooManyTags'));
       return false;
     }
     }

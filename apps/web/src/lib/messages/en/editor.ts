@@ -154,6 +154,8 @@ const m = {
     pickDeck: 'Pick a deck first.',
     pickNoteType: 'Pick a note type first.',
     frontRequired: 'The first field cannot be empty.',
+    tagTooLong: 'A tag can be at most 128 characters.',
+    tooManyTags: 'A note can have at most 100 tags.',
     saveFailed: 'Save failed.',
     deleteFailed: 'Delete failed.',
   },

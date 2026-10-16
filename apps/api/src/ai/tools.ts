@@ -39,6 +39,7 @@ import {
   MAX_NOTES_PER_NOTEBOOK,
   NOTE_CONTENT_MAX,
   NOTE_TITLE_MAX,
+  normalizeNoteTags,
   type ConfirmImpact,
   type FieldValues,
   type SourceCitation,
@@ -1831,8 +1832,18 @@ function parseFieldValues(
   return { ok: true, fieldValues };
 }
 
-function parseTags(raw: unknown): string[] {
-  return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : [];
+function parseTags(raw: unknown, label = 'create_card: '): { ok: true; tags: string[] } | { ok: false; error: string } {
+  if (!Array.isArray(raw)) return { ok: true, tags: [] };
+  const normalized = normalizeNoteTags(raw.filter((item): item is string => typeof item === 'string'));
+  if (!normalized.ok) return { ok: false, error: `${label}${normalized.error}` };
+  return normalized;
+}
+
+function replacementTags(raw: unknown): { ok: true; tags?: string[] } | { ok: false; error: string } {
+  if (!Array.isArray(raw)) return { ok: true };
+  const normalized = normalizeNoteTags(raw.filter((item): item is string => typeof item === 'string'));
+  if (!normalized.ok) return { ok: false, error: `edit_card: ${normalized.error}` };
+  return { ok: true, tags: normalized.tags };
 }
 
 /** Coerce/validate the raw create args into typed inputs (no DB access). The
@@ -1857,6 +1868,7 @@ function parseCreateCardArgs(
     return [...new Map(raw.map(item => [`${item.sourceId}:${item.quote}`,{sourceId:item.sourceId,quote:item.quote}])).values()];
   };
   const sharedTags = parseTags(args.tags);
+  if (!sharedTags.ok) return sharedTags;
   const evidenceIds = (raw: unknown): string[] | null => raw === undefined ? []
     : Array.isArray(raw) && raw.length <= env.ai.CARD_SOURCE_LINK_CAP && raw.every(id => typeof id === 'string' && isUuidArg(id)) ? [...new Set(raw)] as string[] : null;
 
@@ -1875,11 +1887,12 @@ function parseCreateCardArgs(
       const item = args.cards[i] as { fieldValues?: unknown; tags?: unknown; evidenceChunkIds?: unknown; evidenceQuotes?: unknown } | null;
       const parsed = parseFieldValues(item?.fieldValues, `cards[${i}]: `);
       if (!parsed.ok) return parsed;
-      const itemTags = parseTags(item?.tags);
+      const itemTags = parseTags(item?.tags, `create_card: cards[${i}]: `);
+      if (!itemTags.ok) return itemTags;
       const evidenceChunkIds = evidenceIds(item?.evidenceChunkIds);
       const evidenceQuotes = quotes(item?.evidenceQuotes);
       if (!evidenceChunkIds || !evidenceQuotes || evidenceChunkIds.length + evidenceQuotes.length > env.ai.CARD_SOURCE_LINK_CAP) return { ok: false, error: 'invalid_evidence' };
-      entries.push({ evidenceQuotes, evidenceChunkIds, fieldValues: parsed.fieldValues, tags: itemTags.length > 0 ? itemTags : sharedTags });
+      entries.push({ evidenceQuotes, evidenceChunkIds, fieldValues: parsed.fieldValues, tags: itemTags.tags.length > 0 ? itemTags.tags : sharedTags.tags });
     }
     return { ok: true, deckId, noteTypeRef, entries };
   }
@@ -1889,7 +1902,7 @@ function parseCreateCardArgs(
   const evidenceChunkIds = evidenceIds(args.evidenceChunkIds);
   const evidenceQuotes = quotes(args.evidenceQuotes);
   if (!evidenceChunkIds || !evidenceQuotes || evidenceChunkIds.length + evidenceQuotes.length > env.ai.CARD_SOURCE_LINK_CAP) return { ok: false, error: 'invalid_evidence' };
-  return { ok: true, deckId, noteTypeRef, entries: [{ evidenceQuotes, evidenceChunkIds, fieldValues: single.fieldValues, tags: sharedTags }] };
+  return { ok: true, deckId, noteTypeRef, entries: [{ evidenceQuotes, evidenceChunkIds, fieldValues: single.fieldValues, tags: sharedTags.tags }] };
 }
 
 /** Compact `Name (fields: A, B)` listing of the caller's available note types. */
@@ -2255,6 +2268,8 @@ const editCard: Tool = {
     if (!editsFields && !movesOrSuspends) {
       return { ok: false, error: 'edit_card: nothing to change (pass fieldValues/tags/deckId/suspended)' };
     }
+    const parsedTags = replacementTags(args.tags);
+    if (!parsedTags.ok) return parsedTags;
     if (editsFields) {
       const noteRes = await resolveEditNote(ctx.userId, args);
       if (!noteRes.ok) return noteRes;
@@ -2302,12 +2317,11 @@ const editCard: Tool = {
       // Deck-move / suspend only — count-neutral.
       return moveImpact;
     }
+    const parsedTags = replacementTags(args.tags);
     const noteRes = await resolveEditNote(ctx.userId, args);
-    if (!noteRes.ok) return moveImpact;
+    if (!noteRes.ok || !parsedTags.ok) return moveImpact;
     const fieldValues = mergeFieldValues(noteRes.current, args.fieldValues);
-    const tags = Array.isArray(args.tags)
-      ? args.tags.filter((x): x is string => typeof x === 'string')
-      : undefined;
+    const tags = parsedTags.tags;
     // C8 — what exactly changes, for the confirm card's before/after rows.
     const fieldDiffs = diffFieldValues(noteRes.current, fieldValues);
     const previews: ToolImpact = {
@@ -2338,12 +2352,12 @@ const editCard: Tool = {
 
     // 1) Field/tags edit → regenerate the note's cards (FSRS-on-survivors).
     if (editsFields) {
+      const parsedTags = replacementTags(args.tags);
+      if (!parsedTags.ok) return { ok: false, error: parsedTags.error };
       const noteRes = await resolveEditNote(ctx.userId, args);
       if (!noteRes.ok) return { ok: false, error: noteRes.error };
       const fieldValues = mergeFieldValues(noteRes.current, args.fieldValues);
-      const tags = Array.isArray(args.tags)
-        ? args.tags.filter((x): x is string => typeof x === 'string')
-        : undefined;
+      const tags = parsedTags.tags;
       const resolved = await resolveNoteUpdate(ctx.userId, noteRes.noteId, { fieldValues, tags });
       if (!resolved.ok) return { ok: false, error: `edit_card: ${resolved.error}` };
 

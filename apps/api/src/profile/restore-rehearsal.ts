@@ -14,6 +14,7 @@ import {
   studyDayPolicy,
   user as userTable,
 } from '@reomi/db';
+import { NoteTagError, normalizeNoteTags } from '@reomi/shared';
 import {
   EXPORT_MAX_BYTES,
   type StudySnapshot,
@@ -37,7 +38,7 @@ export interface ApplySuccess {
 
 export interface ApplyFailure {
   ok: false;
-  error: 'incoherent_snapshot' | 'target_not_empty' | 'user_missing' | 'export_too_large';
+  error: 'incoherent_snapshot' | 'target_not_empty' | 'user_missing' | 'export_too_large' | 'tag_too_long' | 'too_many_tags';
 }
 
 function currentDatabaseUrl(): string {
@@ -73,6 +74,12 @@ function asDate(value: unknown): Date | null {
 
 function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.map((item) => String(item)) : [];
+}
+
+function normalizedSnapshotTags(value: unknown): string[] {
+  const tags = normalizeNoteTags(asStringArray(value));
+  if (!tags.ok) throw new NoteTagError(tags.error);
+  return tags.tags;
 }
 
 function decksInParentOrder(rows: StudySnapshot['decks']): StudySnapshot['decks'] {
@@ -185,7 +192,7 @@ async function insertSnapshot(
       noteTypeId: noteTypeIds.get(requestedTypeId) ?? requestedTypeId,
       fieldValues: row.fieldValues as typeof notes.$inferInsert.fieldValues,
       acceptedAnswers: asStringArray(row.acceptedAnswers),
-      tags: asStringArray(row.tags),
+      tags: normalizedSnapshotTags(row.tags),
       createdAt: asDate(row.createdAt) ?? new Date(),
       updatedAt: asDate(row.updatedAt) ?? new Date(),
     });
@@ -348,30 +355,35 @@ export async function applyStudySnapshot(input: unknown): Promise<ApplySuccess |
     return { ok: false, error: 'export_too_large' };
   }
 
-  return db.transaction(async (tx) => {
-    await tx.execute(sql`select id from "user" where id = ${snapshot.user.id} for update`);
-    const [account] = await tx
-      .select({ id: userTable.id })
-      .from(userTable)
-      .where(eq(userTable.id, snapshot.user.id));
-    if (!account) return { ok: false, error: 'user_missing' };
-    if ((await occupiedStudyRows(tx, snapshot.user.id)) > 0) {
-      return { ok: false, error: 'target_not_empty' };
-    }
-    await insertSnapshot(tx, snapshot);
-    return {
-      ok: true,
-      elapsedMs: Date.now() - started,
-      counts: {
-        presets: snapshot.presets.length,
-        decks: snapshot.decks.length,
-        filteredDecks: snapshot.filteredDecks.length,
-        noteTypes: snapshot.noteTypes.length,
-        notes: snapshot.notes.length,
-        cards: snapshot.cards.length,
-        reviews: snapshot.reviews.length,
-        media: snapshot.media.length,
-      },
-    };
-  });
+  try {
+    return await db.transaction(async (tx) => {
+      await tx.execute(sql`select id from "user" where id = ${snapshot.user.id} for update`);
+      const [account] = await tx
+        .select({ id: userTable.id })
+        .from(userTable)
+        .where(eq(userTable.id, snapshot.user.id));
+      if (!account) return { ok: false, error: 'user_missing' };
+      if ((await occupiedStudyRows(tx, snapshot.user.id)) > 0) {
+        return { ok: false, error: 'target_not_empty' };
+      }
+      await insertSnapshot(tx, snapshot);
+      return {
+        ok: true,
+        elapsedMs: Date.now() - started,
+        counts: {
+          presets: snapshot.presets.length,
+          decks: snapshot.decks.length,
+          filteredDecks: snapshot.filteredDecks.length,
+          noteTypes: snapshot.noteTypes.length,
+          notes: snapshot.notes.length,
+          cards: snapshot.cards.length,
+          reviews: snapshot.reviews.length,
+          media: snapshot.media.length,
+        },
+      };
+    });
+  } catch (error) {
+    if (error instanceof NoteTagError) return { ok: false, error: error.code };
+    throw error;
+  }
 }
