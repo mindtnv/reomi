@@ -335,6 +335,23 @@ export const cards = pgTable(
   ],
 );
 
+// One hold per card. card_id is the primary key, so a second uuid is unused.
+export const cardHolds = pgTable(
+  'card_holds',
+  {
+    cardId: uuid('card_id').primaryKey().references(() => cards.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    buriedUntil: timestamp('buried_until', { withTimezone: true }).notNull(),
+    reason: text('reason').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check('card_holds_reason_chk', sql`${t.reason} in ('user', 'sibling')`),
+    index('card_holds_user_until_idx').on(t.userId, t.buriedUntil),
+  ],
+);
+
 // ── reviews ─────────────────────────────────────────────────────────────────
 // Append-only history of every grade. Useful for stats, heatmap, FSRS retuning.
 

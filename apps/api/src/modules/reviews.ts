@@ -30,6 +30,7 @@ import {
 import { authPlugin } from '../auth-plugin.ts';
 import { budgetDecksFromSnapshot, loadDeckSpend, pathRemaining } from './deck-budget.ts';
 import { resolveDeckConfig } from './deck-config.ts';
+import { loadActiveHolds } from './card-holds.ts';
 import { ledgerFromProfile, loadStudyPolicy } from './study-day.ts';
 
 const stateFromLabel: Record<string, State> = {
@@ -92,6 +93,8 @@ async function gradeReview(user:{id:string;name?:string|null}, body:GradeInput, 
     ) return status(409, { error: 'card_changed' });
 
     const now = new Date(Math.max(Date.now(), card.updatedAt.getTime() + 1, (existingProfile?.updatedAt.getTime() ?? 0) + 1));
+    const held = await loadActiveHolds([card.id], now, tx);
+    if (held.has(card.id)) return status(409, { error: 'card_held' });
     const policy = await loadStudyPolicy(user.id, tx);
     const ledger = ledgerFromProfile(existingProfile ?? null);
     let resolved;

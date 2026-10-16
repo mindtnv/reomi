@@ -427,8 +427,8 @@ describe('POST /cards/holds', () => {
     const buried = await postHold(cookie, { action: 'bury', cardIds: [card.id] });
     expect(buried.status).toBe(409);
     expect(await buried.json()).toMatchObject({ error: 'epoch_mismatch' });
-    const queue = await (await callApp(app, 'GET', '/cards/queue', { cookie })).json<any>();
-    expect(queueIds(queue)).toContain(card.id);
+    const listed = await (await callApp(app, 'GET', '/cards?due=true', { cookie })).json<{ items: { id: string }[] }>();
+    expect(listed.items.map((row) => row.id)).toContain(card.id);
     await expect(holdReason(card.id)).resolves.toBeNull();
   });
 

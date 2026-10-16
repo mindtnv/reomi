@@ -316,6 +316,13 @@
       "when": 1792083556995,
       "tag": "0044_study_day",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1792127867305,
+      "tag": "0045_card_holds",
+      "breakpoints": true
     }
   ]
 }

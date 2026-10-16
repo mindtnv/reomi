@@ -46,6 +46,7 @@ function card(overrides: Partial<CardLike> = {}): CardLike {
     stability: 0,
     difficulty: 0,
     scheduledDays: 0,
+    hold: null,
     ...overrides,
   };
 }
