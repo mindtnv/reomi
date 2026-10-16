@@ -24,6 +24,8 @@ export interface DraftModule {
   outcome: string;
   prerequisiteIndexes: number[];
   urls: string[];
+  /** True when every candidate was a docs root, so the module still needs a teaching page. */
+  needsPages?: boolean;
 }
 
 function draftPrompt(goal: string, level: string | null, locale: 'en' | 'ru'): string {
@@ -79,16 +81,24 @@ export function readPlanModules(
       }
     }
 
-    const urls: string[] = [];
+    const deep: string[] = [];
+    const roots: string[] = [];
     if (Array.isArray(record.urls)) {
       for (const value of record.urls) {
-        if (urls.length >= URL_CANDIDATES) break;
+        if (deep.length >= URL_CANDIDATES) break;
         if (typeof value !== 'string') continue;
         const normalized = normalizePlanUrl(value);
-        if (!normalized || urls.includes(normalized)) continue;
-        urls.push(normalized);
+        if (!normalized) continue;
+        if (isDocsRootUrl(normalized)) {
+          if (!roots.includes(normalized) && roots.length < URL_CANDIDATES) roots.push(normalized);
+          continue;
+        }
+        if (!deep.includes(normalized)) deep.push(normalized);
       }
     }
+    // A docs root is not a teaching page. Keep it in the list only when the
+    // module has nothing deeper, so the probe can reject a live root.
+    const urls = deep.length > 0 ? deep : roots;
     modules.push({ title, outcome, prerequisiteIndexes, urls });
   }
   return modules;
@@ -111,15 +121,36 @@ export function parseDraftModules(raw: string): DraftModule[] | null {
   return readPlanModules((parsed as { modules: unknown[] }).modules, { min: MODULE_MIN, max: MODULE_MAX });
 }
 
-async function keepLiveUrls(urls: string[]): Promise<string[]> {
+function isDocsRootUrl(url: string): boolean {
+  try {
+    const path = new URL(url).pathname;
+    return path === '/' || path === '';
+  } catch {
+    return false;
+  }
+}
+
+async function keepLiveUrls(urls: string[]): Promise<{ urls: string[]; needsPages: boolean }> {
   const checks = await Promise.all(urls.map(async (url) => ({ url, live: await probePageUrl(url) })));
-  return checks.filter((check) => check.live).map((check) => check.url).slice(0, URL_MAX);
+  const live = checks.filter((check) => check.live).map((check) => check.url);
+  const deep = live.filter((url) => !isDocsRootUrl(url));
+  if (deep.length > 0) return { urls: deep.slice(0, URL_MAX), needsPages: false };
+  // A live root passes the probe. It is still not a page to store.
+  if (urls.some(isDocsRootUrl)) return { urls: [], needsPages: true };
+  return { urls: live.slice(0, URL_MAX), needsPages: false };
 }
 
 export async function probePlanModules(modules: DraftModule[]): Promise<DraftModule[]> {
   const probed: DraftModule[] = [];
   for (const module of modules) {
-    probed.push({ ...module, urls: await keepLiveUrls(module.urls) });
+    const kept = await keepLiveUrls(module.urls);
+    probed.push({
+      title: module.title,
+      outcome: module.outcome,
+      prerequisiteIndexes: module.prerequisiteIndexes,
+      urls: kept.urls,
+      ...(kept.needsPages ? { needsPages: true } : {}),
+    });
   }
   return probed;
 }
