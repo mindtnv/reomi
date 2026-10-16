@@ -138,9 +138,14 @@ export function cardFromApi(row: any): Card {
 function holdFromApi(value: unknown): Card['hold'] {
   if (!value || typeof value !== 'object') return null;
   const hold = value as { until?: unknown; reason?: unknown };
-  if (typeof hold.until !== 'string' || !hold.until) return null;
+  const until = typeof hold.until === 'string' && hold.until.length > 0
+    ? hold.until
+    : hold.until instanceof Date && Number.isFinite(hold.until.getTime())
+      ? hold.until.toISOString()
+      : null;
+  if (!until) return null;
   if (hold.reason !== 'user' && hold.reason !== 'sibling') return null;
-  return { until: hold.until, reason: hold.reason };
+  return { until, reason: hold.reason };
 }
 
 /** Grade/undo return bare scheduling rows, without the embedded content. */

@@ -62,3 +62,14 @@ test('reloading a live card with an active hold removes it before treating the q
   expect(recovered.stale).toBeNull();
   expect(recovered.view.typedAnswer).toBe('');
 });
+
+test('a revived hold deadline stays an active ISO instant on the card', () => {
+  const until = new Date('2026-10-17T00:00:00.000Z');
+  const revived = cardFromApi({
+    id: 'held', deckId: 'deck', noteId: 'note-held', state: 'new',
+    due: new Date(now).toISOString(), updatedAt: new Date(now).toISOString(), createdAt: new Date(now).toISOString(),
+    hold: { until, reason: 'user' },
+  });
+  expect(revived.hold).toEqual({ until: until.toISOString(), reason: 'user' });
+  expect(holdIsActive(revived.hold, until.getTime() - 1)).toBe(true);
+});
