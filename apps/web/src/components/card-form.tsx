@@ -74,16 +74,28 @@ const inputStyle: React.CSSProperties = {
 
 type NoteRevisionRow = { id: string; revisedAt: string | Date; noteTypeId: string; label: string };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 function noteRevisionRows(value: unknown): NoteRevisionRow[] {
-  if (!value || typeof value !== 'object' || !Array.isArray((value as { items?: unknown }).items)) return [];
-  return (value as { items: unknown[] }).items.flatMap((item) => {
-    if (!item || typeof item !== 'object') return [];
-    const row = item as Record<string, unknown>;
-    const revisedAt = row.revisedAt;
-    if (typeof row.id !== 'string' || typeof row.noteTypeId !== 'string' || typeof row.label !== 'string') return [];
+  if (!isRecord(value) || !Array.isArray(value.items)) return [];
+  return value.items.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const revisedAt = item.revisedAt;
+    if (typeof item.id !== 'string' || typeof item.noteTypeId !== 'string' || typeof item.label !== 'string') return [];
     if (typeof revisedAt !== 'string' && !(revisedAt instanceof Date)) return [];
-    return [{ id: row.id, noteTypeId: row.noteTypeId, label: row.label, revisedAt }];
+    return [{ id: item.id, noteTypeId: item.noteTypeId, label: item.label, revisedAt }];
   });
+}
+
+type RestoredNoteDocument = {
+  note?: { fieldValues?: FieldValues; tags?: string[]; acceptedAnswers?: string[]; updatedAt?: string | Date };
+  cards?: unknown[];
+};
+
+function isRestoredNoteDocument(value: unknown): value is RestoredNoteDocument {
+  return isRecord(value) && 'note' in value && 'cards' in value;
 }
 
 function revisionStamp(value: string | Date, locale: string) {
@@ -593,7 +605,7 @@ const CardFormEditor = ({
 
   const loadRevisions = useCallback(async (noteId: string) => {
     try {
-      return noteRevisionRows(await ok(await (api as any).notes({ id: noteId }).revisions.get()));
+      return noteRevisionRows(await ok(await api.notes({ id: noteId }).revisions.get()));
     } catch {
       return [];
     }
@@ -857,7 +869,7 @@ const CardFormEditor = ({
     },
   });
 
-  const applyRevisionResult = (result: { note?: { fieldValues?: FieldValues; tags?: string[]; acceptedAnswers?: string[]; updatedAt?: string | Date }; cards?: unknown[] }) => {
+  const applyRevisionResult = (result: RestoredNoteDocument) => {
     const updated = useNN.getState().acceptRecoveredNote(ownerId, result);
     const saved = updated.find((next) => next.id === editing?.id) ?? updated[0];
     const note = saved?.note ?? result.note;
@@ -885,26 +897,28 @@ const CardFormEditor = ({
     setRestoringId(item.id);
     setError(null);
     try {
-      const body = { expectedUpdatedAt: baseVersion, expectedTypeUpdatedAt: activeNoteType?.updatedAt };
-      const preview = await ok(await (api as any).notes({ id: editing.noteId }).revisions({ revisionId: item.id }).restore.post({ ...body, preview: true }));
+      const expectedUpdatedAt = baseVersion;
+      const expectedTypeUpdatedAt = activeNoteType?.updatedAt;
+      if (typeof expectedUpdatedAt !== 'string' || typeof expectedTypeUpdatedAt !== 'string') return;
+      const body = { expectedUpdatedAt, expectedTypeUpdatedAt };
+      const preview = await ok(await api.notes({ id: editing.noteId }).revisions({ revisionId: item.id }).restore.post({ ...body, preview: true }));
       if (!mounted.current) return;
-      if (preview && typeof preview === 'object' && 'impact' in preview) {
-        const impact = preview as CardRegenerationPreview;
-        if (impact.impact.willDeleteCards > 0) {
-          const details = impact.impact.removedCards.map((removed) => `• ${removed.front} (${removed.reviews})`).join('\n');
+      if ('impact' in preview) {
+        if (preview.impact.willDeleteCards > 0) {
+          const details = preview.impact.removedCards.map((removed) => `• ${removed.front} (${removed.reviews})`).join('\n');
           if (!(await confirm({ title: t('noteTypes.impact.title'), danger: true,
-            message: `${t('noteTypes.impact.counts', { create: impact.impact.willCreateCards, keep: impact.impact.willKeepCards,
-              remove: impact.impact.willDeleteCards, reviews: impact.impact.willDeleteReviews })}\n\n${details}`,
+            message: `${t('noteTypes.impact.counts', { create: preview.impact.willCreateCards, keep: preview.impact.willKeepCards,
+              remove: preview.impact.willDeleteCards, reviews: preview.impact.willDeleteReviews })}\n\n${details}`,
           }))) return;
           if (!mounted.current) return;
         }
-        const applied = await ok(await (api as any).notes({ id: editing.noteId }).revisions({ revisionId: item.id }).restore.post({
-          ...body, ...(impact.impact.willDeleteCards > 0 ? { confirmationToken: impact.confirmationToken } : {}),
-        }));
-        if (!mounted.current) return;
+        const applied = await ok(await api.notes({ id: editing.noteId }).revisions({ revisionId: item.id }).restore.post(
+          preview.impact.willDeleteCards > 0 ? { ...body, confirmationToken: preview.confirmationToken } : body,
+        ));
+        if (!mounted.current || !isRestoredNoteDocument(applied)) return;
         applyRevisionResult(applied);
-      } else if (preview && typeof preview === 'object' && 'note' in preview && 'cards' in preview) {
-        applyRevisionResult(preview as { note: { fieldValues?: FieldValues }; cards: unknown[] });
+      } else if (isRestoredNoteDocument(preview)) {
+        applyRevisionResult(preview);
       }
       const items = await loadRevisions(editing.noteId);
       if (mounted.current) setRevisions(items);
