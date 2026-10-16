@@ -1,5 +1,18 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { conversations, db, media, messages, notebookNotes, notebooks, sources } from '@reomi/db';
+import {
+  conversations,
+  db,
+  mcpActions,
+  media,
+  messages,
+  notebookArtifacts,
+  notebookNotes,
+  notebooks,
+  noteTypes,
+  personalAccessTokens,
+  sourceChunks,
+  sources,
+} from '@reomi/db';
 import { newUuidV7 } from '@reomi/shared';
 import { __resetMediaGcForTests, runMediaGc, type MediaGcOptions } from '../src/media-gc.ts';
 import { __setObjectDeleterForTests, __setObjectListerForTests, type ObjectListQuery } from '../src/storage.ts';
@@ -125,7 +138,7 @@ describe('media GC', () => {
     expect(await mediaIds()).toEqual([]);
   });
 
-  test('keeps verified images that a note, cover, attachment, or notebook note still uses', async () => {
+  test('keeps a verified image stored in each server sink', async () => {
     const email = uniqueEmail('refs');
     const { cookie, userId } = await signUpAndCookie(app, email);
     await callApp(app, 'GET', '/profile', { cookie });
@@ -135,11 +148,17 @@ describe('media GC', () => {
     const inCover = await insertMedia(userId, old, true);
     const inChat = await insertMedia(userId, old, true);
     const inNotebook = await insertMedia(userId, old, true);
+    const inArtifact = await insertMedia(userId, old, true);
+    const inOverview = await insertMedia(userId, old, true);
+    const inPreview = await insertMedia(userId, old, true);
+    const inChunk = await insertMedia(userId, old, true);
+    const inTemplate = await insertMedia(userId, old, true);
     const orphan = await insertMedia(userId, old, true);
     const fresh = await insertMedia(userId, young, true);
 
     await seedNote(app, cookie, { deckId: deck.id, fields: { Front: `see ![](/m/${inNote})`, Back: 'answer' } });
-    await insertSource(userId, { createdAt: young, verified: true, status: 'ready', storage: false, coverMediaId: inCover });
+    const coverSource = await insertSource(userId, { createdAt: young, verified: true, status: 'ready', storage: false, coverMediaId: inCover });
+    await db.insert(sourceChunks).values({ userId, sourceId: coverSource, position: 0, text: `figure ![](/m/${inChunk})` });
     const [conversation] = await db.insert(conversations).values({ userId }).returning({ id: conversations.id });
     await db.insert(messages).values({
       conversationId: conversation!.id,
@@ -148,7 +167,11 @@ describe('media GC', () => {
       content: 'attached',
       attachments: [{ kind: 'image', mediaId: inChat, token: `/m/${inChat}`, mime: 'image/png' }],
     });
-    const [notebook] = await db.insert(notebooks).values({ userId, title: 'Notes' }).returning({ id: notebooks.id });
+    const [notebook] = await db.insert(notebooks).values({
+      userId,
+      title: 'Notes',
+      overview: `cover ![](/m/${inOverview})`,
+    }).returning({ id: notebooks.id });
     await db.insert(notebookNotes).values({
       userId,
       notebookId: notebook!.id,
@@ -157,11 +180,43 @@ describe('media GC', () => {
       kind: 'manual',
       ownerKind: 'notebook',
     });
+    await db.insert(notebookArtifacts).values({
+      userId,
+      notebookId: notebook!.id,
+      type: 'summary',
+      title: 'Guide',
+      contentMd: `see ![](/m/${inArtifact})`,
+      sourceIds: [],
+    });
+    const [token] = await db.insert(personalAccessTokens).values({
+      userId,
+      name: 'gc',
+      tokenHash: `gc-${inPreview}`,
+      prefix: 'nn_pat_',
+      expiresAt: new Date(now.getTime() + HOUR),
+    }).returning({ id: personalAccessTokens.id });
+    await db.insert(mcpActions).values({
+      userId,
+      tokenId: token!.id,
+      tool: 'create_card',
+      args: {},
+      preview: { note: `/m/${inPreview}` },
+      expiresAt: new Date(now.getTime() + HOUR),
+    });
+    await db.insert(noteTypes).values({
+      userId,
+      name: 'Illustrated',
+      kind: 'basic',
+      fields: [{ name: 'Front', ord: 0 }, { name: 'Back', ord: 1 }],
+      templates: [{ name: 'Card', ord: 0, frontTemplate: `<img src="/m/${inTemplate}">`, backTemplate: '{{Back}}' }],
+    });
 
     const report = await runMediaGc(gc);
     expect(report.unreferencedMedia).toBe(1);
     expect(deleted).toEqual([`media/${orphan}`]);
-    expect(await mediaIds()).toEqual([fresh, inChat, inCover, inNote, inNotebook].sort());
+    expect(await mediaIds()).toEqual([
+      fresh, inArtifact, inChat, inChunk, inCover, inNote, inNotebook, inOverview, inPreview, inTemplate,
+    ].sort());
   });
 
   test('deletes an old ownerless object and skips live, young, and foreign keys', async () => {
