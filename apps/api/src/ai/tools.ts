@@ -69,6 +69,7 @@ import {
   cardContent,
 } from '../modules/cards.ts';
 import { cardProgress, dueForecast, studyStats } from '../modules/progress-stats.ts';
+import { readDatabaseNow } from '../modules/study-day.ts';
 import { parseCardQuery, CardQueryError } from '@reomi/shared';
 import { env } from '../env.ts';
 import { safeError, safeLogUrl } from '../logger.ts';
@@ -754,7 +755,7 @@ const listDecks: Tool = {
   },
   async execute(ctx): Promise<ToolResult> {
     try {
-      const now = new Date();
+      const now = await readDatabaseNow();
       const decksWithCounts = await listDecksWithCounts(ctx.userId, now);
       if (decksWithCounts.length === 0) {
         return { ok: true, text: 'The user has no decks yet.' };
@@ -909,7 +910,7 @@ const browseCards: Tool = {
         sortField: sortSpec.field,
         dir: sortSpec.dir,
         limit,
-        now: new Date(),
+        now: await readDatabaseNow(),
         deckScope,
         // Tool always returns the first page (compact) — no cursor exposure.
       });

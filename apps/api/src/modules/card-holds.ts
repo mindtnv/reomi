@@ -37,7 +37,7 @@ function isHoldReason(value: string): value is HoldReason {
   return value === 'user' || value === 'sibling';
 }
 
-/** `buried_until > instant`. `instant` is a host clock or, in a forecast bucket, that span's start. */
+/** `buried_until > instant`. Callers pass the database instant, or a forecast span's start. */
 export function excludeActiveHolds(cardId: SQLWrapper, instant: Date | SQL): SQL {
   const at = instant instanceof Date ? sql`${instant.toISOString()}::timestamptz` : instant;
   return sql`not exists (select 1 from card_holds h where h.card_id = ${cardId} and h.buried_until > ${at})`;

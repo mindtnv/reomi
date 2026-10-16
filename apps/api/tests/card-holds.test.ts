@@ -302,6 +302,27 @@ describe('POST /cards/holds', () => {
     expect(detail.hold).toBeNull();
   });
 
+  test('a grade succeeds when the database clock is past the hold and the host clock is still behind it', async () => {
+    const { cookie, userId, deckId } = await setup();
+    const card = await seedBasicCard(app, cookie, { deckId, front: 'Skew' });
+    const buriedUntil = new Date(Date.now() + 60_000);
+    const databaseNow = new Date(buriedUntil.getTime() + 1);
+    await db.execute(sql`
+      INSERT INTO card_holds (card_id, user_id, buried_until, reason)
+      VALUES (${card.id}::uuid, ${userId}, ${buriedUntil.toISOString()}::timestamptz, 'user')
+    `);
+    __setDatabaseNowForTests(databaseNow);
+    try {
+      const queue = await (await callApp(app, 'GET', '/cards/queue', { cookie })).json<any>();
+      expect(queueIds(queue)).toEqual([card.id]);
+      const grade = await callApp(app, 'POST', '/reviews', { cookie, body: { cardId: card.id, rating: 3 } });
+      expect(grade.status).toBe(200);
+      expect(await reviewRows(userId)).toHaveLength(1);
+    } finally {
+      __setDatabaseNowForTests(null);
+    }
+  });
+
   test('suspended wins over an active hold in the counts', async () => {
     const { cookie, deckId } = await setup();
     const paused = await seedBasicCard(app, cookie, { deckId, front: 'Paused' });

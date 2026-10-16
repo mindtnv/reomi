@@ -14,6 +14,7 @@ import { env } from '../env.ts';
 import { rootLogger } from '../logger.ts';
 import { isRuntimeShuttingDown, reminderWorkerState } from '../runtime-state.ts';
 import { loadStudyOverview } from '../modules/study-summary.ts';
+import { readDatabaseNow } from '../modules/study-day.ts';
 import { digestCopy, isLocalHourDue, streakCopy, type ReminderLocale } from './copy.ts';
 import {
   buildPushPayload,
@@ -303,7 +304,7 @@ async function processUser(
   const locale: ReminderLocale = settings.locale === 'ru' ? 'ru' : 'en';
   const link = reviewUrl();
   if (settings.digestEnabled && digestDue) {
-    const overview = await loadStudyOverview(settings.userId, now);
+    const overview = await loadStudyOverview(settings.userId, await readDatabaseNow());
     if (overview.overall.totalAvailable > 0) {
       const copy = digestCopy(locale, overview.overall.totalAvailable, link);
       await sendKind(settings, emailAddress, 'due_digest', copy, overview.overall.totalAvailable, now, email, push);
