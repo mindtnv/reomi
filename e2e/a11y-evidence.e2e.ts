@@ -42,10 +42,14 @@ async function deleteCreatedDeck(page: Page, deckName: string) {
   await expect(row).toHaveCount(0);
 }
 
+const DESKTOP_VIEWPORT = { width: 1280, height: 800 } as const;
+
 async function setZoom(page: Page, zoom: '100%' | '200%' | '400%') {
-  await page.evaluate((value) => {
-    document.documentElement.style.zoom = value;
-  }, zoom);
+  const factor = zoom === '400%' ? 4 : zoom === '200%' ? 2 : 1;
+  await page.setViewportSize({
+    width: DESKTOP_VIEWPORT.width / factor,
+    height: DESKTOP_VIEWPORT.height / factor,
+  });
 }
 
 async function expectInViewport(locator: Locator) {
@@ -53,14 +57,16 @@ async function expectInViewport(locator: Locator) {
   let last: unknown;
   for (let index = 0; index < Math.max(count, 1); index += 1) {
     const item = locator.nth(index);
-    await item.evaluate((node) => {
-      node.scrollIntoView({ block: 'center', inline: 'nearest' });
-    });
-    try {
-      await expect(item).toBeInViewport({ ratio: 1, timeout: 5_000 });
-      return;
-    } catch (error) {
-      last = error;
+    for (const block of ['nearest', 'start'] as const) {
+      await item.evaluate((node, alignment) => {
+        node.scrollIntoView({ block: alignment, inline: 'nearest' });
+      }, block);
+      try {
+        await expect(item).toBeInViewport({ ratio: 1, timeout: 5_000 });
+        return;
+      } catch (error) {
+        last = error;
+      }
     }
   }
   throw last;
@@ -196,12 +202,15 @@ test('local chromium walk records machine facts and leaves the human items open'
 
     await test.step('zoom the review controls', async () => {
       const again = page.getByRole('button', { name: 'Again' });
-      const reviews = page.locator('.reomi-review-inspector').getByText('Reviews', { exact: true });
+      const inspectorReviews = page.locator('.reomi-review-inspector').getByText('Reviews', { exact: true });
       const pre = page.locator('.reomi-review-question pre');
       for (const zoom of ['200%', '400%'] as const) {
         await setZoom(page, zoom);
+        const history = (await inspectorReviews.isVisible())
+          ? inspectorReviews
+          : page.getByRole('button', { name: 'Card information', exact: true });
         await expectInViewport(again);
-        await expectInViewport(reviews);
+        await expectInViewport(history);
       }
       await setZoom(page, '400%');
       const scrollsInside = await pre.evaluate((node) => node.scrollWidth > node.clientWidth);

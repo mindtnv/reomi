@@ -410,9 +410,11 @@ body:has(.nn-sidebar-resizer[data-dragging='true']) { user-select: none; cursor:
 .reomi-review-meta-row > a:hover { background: var(--surface-2); }
 .reomi-review-actions { padding: 14px 24px; background: transparent; border-top-color: var(--panel-edge); }
 .reomi-rating { padding: 13px 16px; min-height: 64px; border: 1px solid transparent; border-radius: 14px; background: var(--surface); color: var(--text); display: flex; flex-direction: column; align-items: flex-start; gap: 7px; font-family: var(--font-sans); cursor: pointer; transition: background 140ms ease, border-color 140ms ease; }
+.reomi-rating-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; }
+.reomi-rating-hint { min-height: 0; }
 .reomi-rating:hover { background: color-mix(in srgb, var(--rating-color) 8%, var(--surface)); border-color: color-mix(in srgb, var(--rating-color) 45%, var(--surface)); }
 .reomi-rating:focus-visible { outline: 2px solid var(--rating-color); outline-offset: 2px; }
-@media(max-width:719.98px) { .reomi-notebook-workspace { border-radius: 14px; } .reomi-rating { min-height: 60px; padding: 10px 8px; } }
+@media(max-width:719.98px) { .reomi-notebook-workspace { border-radius: 14px; } .reomi-rating { min-height: 60px; padding: 10px 8px; } .reomi-rating-grid { gap: 6px; } .reomi-rating-hint { min-height: 28px; } }
 @media(prefers-reduced-motion:reduce) { .reomi-rating { transition: none; } }
 
 .reomi-notebook-workspace .nn-nb-welcome-icon + h1 { font-family: var(--font-sans) !important; font-weight: 550 !important; font-size: 26px !important; letter-spacing: -.5px !important; }
@@ -857,6 +859,21 @@ body:has(.reomi-resize-handle[data-dragging='true']) { user-select: none; cursor
 .reomi-pdf-toolbar :is(button,input):focus-visible { outline: 2px solid var(--accent-500); outline-offset: -2px; }
 @media(pointer:coarse) { .reomi-pdf-toolbar, .reomi-reader-workspace .reomi-pdf-toolbar { --reader-control: 40px; } }
 @media(prefers-reduced-transparency:reduce), (prefers-contrast:more), (forced-colors:active) { .reomi-pdf-toolbar, .reomi-reader-workspace .reomi-pdf-toolbar { background: var(--surface); backdrop-filter: none; -webkit-backdrop-filter: none; } }
+@media (max-height: 360px) {
+  .nn-topbar:not([data-wco='1']) { height: 40px; margin-top: 0; margin-bottom: 0; }
+  .reomi-editor-workspace.reomi-page-surface { margin-bottom: 0; padding: 8px; overflow: auto; }
+  .reomi-editor-workspace .reomi-card-editor,
+  .reomi-editor-workspace .reomi-card-form[data-actions='footer'] { overflow: visible !important; flex: none; min-height: min-content; }
+  .reomi-editor-workspace .reomi-card-form[data-actions='footer'] > .reomi-card-form-scroll { overflow: visible !important; flex: none; }
+  .reomi-review-layout { margin-bottom: 0; overflow: auto; }
+  .reomi-review-panels { display: block; min-height: min-content; }
+  .reomi-review-workspace { overflow: visible; flex: none; min-height: min-content; margin-bottom: 0; }
+  .reomi-review-scroll, .reomi-review-actions { flex: none; overflow: visible; }
+  .reomi-review-actions { padding: 6px 8px; }
+  .reomi-review-actions .reomi-rating { min-height: 0; padding: 6px 8px; gap: 2px; }
+  .reomi-rating-grid { grid-template-columns: 1fr; gap: 6px; }
+  .reomi-rating-hint { min-height: 0; }
+}
 /* Actions sit outside the editable scroll area, so they never cover field content. */
 .reomi-card-form[data-actions='footer'] { min-height: 0; overflow: hidden !important; }
 .reomi-card-form[data-actions='footer'] > .reomi-card-form-scroll { flex: 1; min-height: 0; overflow: auto !important; padding-top: 12px !important; }

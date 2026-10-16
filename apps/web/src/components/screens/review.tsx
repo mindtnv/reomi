@@ -1035,14 +1035,7 @@ export const NNReviewClassic = () => {
           </div>
 
           {showRatings && previews ? (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: isMobile ? 6 : 10,
-                width: '100%',
-              }}
-            >
+            <div className="reomi-rating-grid">
               {RATINGS.map((r) => {
                 const preview = previews.cards[r.k];
                 return (
@@ -1078,7 +1071,7 @@ export const NNReviewClassic = () => {
                         {t(r.labelKey)}
                       </span>
                     </div>
-                    <span style={{ fontSize: 11, lineHeight: 1.25, minHeight: isMobile ? 28 : undefined, color: 'var(--text-muted)' }}>
+                    <span className="reomi-rating-hint" style={{ fontSize: 11, lineHeight: 1.25, color: 'var(--text-muted)' }}>
                       {t(`${r.labelKey}Hint`)}
                     </span>
                     <div
