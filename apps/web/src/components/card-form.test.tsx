@@ -530,6 +530,31 @@ describe('editor draft recovery', () => {
     expect(created).toMatchObject({ deckId: 'deck-2', noteTypeId: other.id, tags: ['two', 'tags'], fieldValues: { Front: 'A new unsaved question', Back: 'Answer' } });
     expect(readEditorDraft(draftScope)).toBeNull();
   });
+  test('a restored tag string is normalized the same way as the API before create', async () => {
+    const other = noteTypeFromApi({ ...BASIC_NOTE_TYPE, id: 'other-type', name: 'Other type', isBuiltin: false });
+    useNN.setState({ noteTypes: [noteTypeFromApi(BASIC_NOTE_TYPE), other], decks: [...useNN.getState().decks, { id: 'deck-2', name: 'Second', color: 'sky', species: 'fern', createdAt: 0 }] });
+    writeEditorDraft({ ...draftScope, entityId: 'new' }, { fieldValues: { Front: 'Tagged question', Back: 'Answer' }, deckId: 'deck-2', noteTypeId: other.id,
+      tagsText: '  Grammar , grammar, Grammar, a, b, caf\u00e9, cafe\u0301, hello   world, gram\u0000mar', acceptedAnswersText: '', noteType: other }, null);
+    await render({ card: null });
+    await act(async () => button('editor.draft.restore').click());
+    let created: any;
+    globalThis.fetch = adaptRecoveryFetch((async (_url: any, init: any) => { created = JSON.parse(init.body); return Response.json({ error: 'offline' }, { status: 503 }); }) as typeof fetch);
+    await act(async () => button('actions.create').click());
+    expect(created.tags).toEqual(['Grammar', 'grammar', 'a', 'b', 'hello world', 'caf\u00e9']);
+  });
+  test('an over-long tag is refused in the editor before the request', async () => {
+    const other = noteTypeFromApi({ ...BASIC_NOTE_TYPE, id: 'other-type', name: 'Other type', isBuiltin: false });
+    useNN.setState({ noteTypes: [noteTypeFromApi(BASIC_NOTE_TYPE), other], decks: [...useNN.getState().decks, { id: 'deck-2', name: 'Second', color: 'sky', species: 'fern', createdAt: 0 }] });
+    writeEditorDraft({ ...draftScope, entityId: 'new' }, { fieldValues: { Front: 'Too long', Back: 'Answer' }, deckId: 'deck-2', noteTypeId: other.id,
+      tagsText: 'a'.repeat(129), acceptedAnswersText: '', noteType: other }, null);
+    await render({ card: null });
+    await act(async () => button('editor.draft.restore').click());
+    let created = false;
+    globalThis.fetch = adaptRecoveryFetch((async () => { created = true; return Response.json({ error: 'offline' }, { status: 503 }); }) as typeof fetch);
+    await act(async () => button('actions.create').click());
+    expect(created).toBe(false);
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain('editor.errors.tagTooLong');
+  });
   test('restoring through another direction does not move the note back to its old deck', async () => {
     useNN.setState({ decks: [...useNN.getState().decks, { id: 'deck-2', name: 'Second', color: 'sky', species: 'fern', createdAt: 0 }] });
     await render(); await changeFront('Shared note draft'); await flushDraft();
