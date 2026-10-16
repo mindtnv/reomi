@@ -18,8 +18,12 @@ type MachineObservation = { observed: string; expected: string };
 type RejectsMachine = MachineObservation extends Parameters<typeof disposition>[0] ? never : true;
 const rejectsMachine: RejectsMachine = true;
 
-test('focusLabel keeps the longest rating prefix and leaves other names raw', () => {
-  expect(focusLabel('1 Again Forgot ≈ 10m')).toEqual({ kind: 'label', label: '1 Again' });
+test('focusLabel reads the glued rating text the button exposes', () => {
+  expect(focusLabel('1AgainForgot≈ 1 min')).toEqual({ kind: 'label', label: '1 Again' });
+  expect(focusLabel('2HardRecalled with effort≈')).toEqual({ kind: 'label', label: '2 Hard' });
+  expect(focusLabel('3GoodRecalled≈')).toEqual({ kind: 'label', label: '3 Good' });
+  expect(focusLabel('4EasyEffortless≈')).toEqual({ kind: 'label', label: '4 Easy' });
+  expect(focusLabel('1 Again Forgot ≈ 10m')).toEqual({ kind: 'raw', text: '1 Again Forgot ≈ 10m' });
   expect(focusLabel('Show answer · Space')).toEqual({ kind: 'raw', text: 'Show answer · Space' });
 });
 
