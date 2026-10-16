@@ -45,6 +45,7 @@ import { defFromRow } from './note-types.ts';
 import { enqueueIndex } from '../ai/index-queue.ts';
 import { applyRegeneration, loadRegenerationCards, NoteWriteConflict, planRegeneration, regenerationImpact, regenerationToken } from './card-regeneration';
 import { actionHash } from './ui-action-receipts.ts';
+import { listNoteRevisions, readNoteRevision, sameNoteDocument, withUserRevisionLock, writeNoteDocument } from './note-revisions.ts';
 
 /** A Drizzle transaction handle (the arg passed to `db.transaction(async (tx) => …)`). */
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
@@ -291,8 +292,9 @@ export interface NoteUpdateInput {
   now?: Date;
 }
 
-/** Lock type -> note -> cards, the same order as note-type reconciliation. */
+/** User revision lock, then type, then note, then cards. */
 export async function prepareNoteUpdate(tx: Tx, input: NoteUpdateInput) {
+  await withUserRevisionLock(tx, input.userId);
   const [initial] = await tx.select().from(notes).where(and(eq(notes.id, input.noteId), eq(notes.userId, input.userId)));
   if (!initial) throw new NoteWriteConflict('note_changed');
   const [type] = await tx.select().from(noteTypes).where(eq(noteTypes.id, initial.noteTypeId)).for('share');
@@ -314,9 +316,12 @@ export async function prepareNoteUpdate(tx: Tx, input: NoteUpdateInput) {
 export async function applyNoteUpdate(tx: Tx, input: NoteUpdateInput, prepared?: Awaited<ReturnType<typeof prepareNoteUpdate>>) {
   const state = prepared ?? await prepareNoteUpdate(tx, input);
   const now = new Date(Math.max((input.now ?? new Date()).getTime(), state.note.updatedAt.getTime() + 1));
-  const [updatedNote] = await tx.update(notes)
-    .set({ acceptedAnswers: input.nextAcceptedAnswers ?? state.note.acceptedAnswers, fieldValues: input.nextFieldValues, tags: input.nextTags, updatedAt: now })
-    .where(and(eq(notes.id, input.noteId), eq(notes.userId, input.userId))).returning();
+  const updatedNote = await writeNoteDocument(tx, state.note, {
+    acceptedAnswers: input.nextAcceptedAnswers ?? state.note.acceptedAnswers,
+    fieldValues: input.nextFieldValues,
+    tags: input.nextTags,
+    updatedAt: now,
+  });
   const indexIds = await applyRegeneration(tx, { userId: input.userId, noteId: input.noteId,
     plan: state.plan, deckId: state.deckId, moveToDeckId: input.deckId, now });
   const finalCards = await tx.select().from(cards).where(and(eq(cards.noteId, input.noteId), eq(cards.userId, input.userId)));
@@ -502,6 +507,7 @@ function restoreStatus(error: string): 400 | 404 | 409 {
 export async function restoreCardlessNote(userId: string, noteId: string, deckId: string, log: Logger = rootLogger) {
   const deferred: string[] = [];
   const result = await db.transaction(async (tx) => {
+    await withUserRevisionLock(tx, userId);
     const [deck] = await tx.select({ id: decks.id }).from(decks)
       .where(and(eq(decks.id, deckId), eq(decks.userId, userId))).limit(1);
     if (!deck) return { ok: false as const, error: 'deck_not_found' };
@@ -546,6 +552,75 @@ export async function restoreCardlessNote(userId: string, noteId: string, deckId
   enqueueCardsForIndex(deferred, log);
   log.info({ noteId, cardsGenerated: result.cards.length }, 'note.restore');
   return result;
+}
+
+type RevisionRestoreBody = {
+  expectedUpdatedAt: string;
+  expectedTypeUpdatedAt: string;
+  preview?: boolean;
+  confirmationToken?: string;
+};
+
+function revisionStatus(error: string): 400 | 404 | 409 {
+  if (error === 'revision_not_found' || error === 'not_found' || error === 'note_type_not_found') return 404;
+  return restoreStatus(error);
+}
+
+/**
+ * Put back one stored pre-image through the ordinary note update.
+ * An equal document does not bump updatedAt. A type id mismatch writes nothing.
+ */
+export async function restoreNoteRevision(
+  userId: string,
+  noteId: string,
+  revisionId: string,
+  body: RevisionRestoreBody,
+  log: Logger = rootLogger,
+) {
+  const deferred: string[] = [];
+  const outcome = await db.transaction(async (tx) => {
+    await withUserRevisionLock(tx, userId);
+    const [peek] = await tx.select({ noteTypeId: notes.noteTypeId }).from(notes)
+      .where(and(eq(notes.id, noteId), eq(notes.userId, userId))).limit(1);
+    if (!peek) return { ok: false as const, error: 'not_found' as const };
+    const [type] = await tx.select().from(noteTypes).where(eq(noteTypes.id, peek.noteTypeId)).for('share');
+    if (!type) return { ok: false as const, error: 'note_type_not_found' as const };
+    const [note] = await tx.select().from(notes)
+      .where(and(eq(notes.id, noteId), eq(notes.userId, userId))).for('update');
+    if (!note || note.noteTypeId !== type.id) return { ok: false as const, error: 'note_changed' as const };
+    const revision = await readNoteRevision(tx, userId, noteId, revisionId);
+    if (!revision) return { ok: false as const, error: 'revision_not_found' as const };
+    if (revision.noteTypeId !== note.noteTypeId) return { ok: false as const, error: 'note_type_changed' as const };
+    if (sameNoteDocument(note, revision)) {
+      const generated = await tx.select().from(cards)
+        .where(and(eq(cards.noteId, noteId), eq(cards.userId, userId)))
+        .orderBy(asc(cards.templateOrd), asc(cards.clozeNumber), asc(cards.id));
+      return { unchanged: true as const, note, cards: generated };
+    }
+    return editNote({
+      user: { id: userId },
+      params: { id: noteId },
+      body: {
+        fieldValues: revision.fieldValues,
+        tags: revision.tags,
+        acceptedAnswers: revision.acceptedAnswers,
+        expectedUpdatedAt: body.expectedUpdatedAt,
+        expectedTypeUpdatedAt: body.expectedTypeUpdatedAt,
+        preview: body.preview,
+        confirmationToken: body.confirmationToken,
+      },
+    }, tx, deferred);
+  });
+  if (outcome instanceof ElysiaCustomStatusResponse) return outcome;
+  if (outcome && typeof outcome === 'object' && 'ok' in outcome && outcome.ok === false) return outcome;
+  if (outcome && typeof outcome === 'object' && 'unchanged' in outcome) return outcome;
+  if (outcome && typeof outcome === 'object' && 'impact' in outcome) return outcome;
+  if (outcome && typeof outcome === 'object' && 'note' in outcome && 'cards' in outcome) {
+    enqueueCardsForIndex(deferred, log);
+    log.info({ noteId, revisionId }, 'note.revision.restore');
+    return { note: outcome.note, cards: outcome.cards };
+  }
+  return outcome;
 }
 
 async function readOwnedNote(executor: Pick<Db, 'select'>, userId: string, noteId: string) {
@@ -636,6 +711,28 @@ export const notesModule = new Elysia({ prefix: '/notes' })
     return { ...row, cards: generated };
   }, { auth: true, params: t.Object({ id: t.String({ format: 'uuid' }) }) })
   .post('/:id/preview', (context) => editNote({ ...context, body: { ...context.body, preview: true } }), noteEditOptions)
+  .get('/:id/revisions', async ({ user, params, status }) => {
+    const items = await listNoteRevisions(user.id, params.id);
+    if (!items) return status(404, { error: 'not_found' });
+    return { items };
+  }, { auth: true, params: t.Object({ id: t.String({ format: 'uuid' }) }) })
+  .post('/:id/revisions/:revisionId/restore', async ({ user, params, body, status, ...rest }) => {
+    const result = await restoreNoteRevision(user.id, params.id, params.revisionId, body, requestLogFromContext({ user, params, body, status, ...rest }));
+    if (result instanceof ElysiaCustomStatusResponse) return status(result.code, result.response);
+    if (result && typeof result === 'object' && 'ok' in result && result.ok === false) {
+      return status(revisionStatus(result.error), { error: result.error });
+    }
+    return result;
+  }, {
+    auth: true,
+    params: t.Object({ id: t.String({ format: 'uuid' }), revisionId: t.String({ format: 'uuid' }) }),
+    body: t.Object({
+      expectedUpdatedAt: t.String({ format: 'date-time' }),
+      expectedTypeUpdatedAt: t.String({ format: 'date-time' }),
+      preview: t.Optional(t.Boolean()),
+      confirmationToken: t.Optional(t.String({ maxLength: 64 })),
+    }),
+  })
   .post('/:id/restore', async ({ user, params, body, status, ...rest }) => {
     const result = await restoreCardlessNote(user.id, params.id, body.deckId, requestLogFromContext({ user, params, body, status, ...rest }));
     if (!result.ok) return status(restoreStatus(result.error), { error: result.error });

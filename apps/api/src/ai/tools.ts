@@ -59,6 +59,7 @@ import {
   applyNoteUpdate,
   prepareNoteUpdate,
 } from '../modules/notes.ts';
+import { withUserRevisionLock } from '../modules/note-revisions.ts';
 import { NoteWriteConflict } from '../modules/card-regeneration';
 import {
   descendantIds,
@@ -2332,11 +2333,14 @@ const editCard: Tool = {
     };
     const resolved = await resolveNoteUpdate(ctx.userId, noteRes.noteId, { fieldValues, tags });
     if (!resolved.ok) return { ...previews, affectsSiblings: true };
-    const prepare = (tx: Tx) => prepareNoteUpdate(tx, {
-      userId: ctx.userId, noteId: noteRes.noteId, nextFieldValues: resolved.nextFieldValues,
-      nextTags: resolved.nextTags, generated: resolved.generated,
-      expectedUpdatedAt: resolved.note.updatedAt, expectedTypeUpdatedAt: resolved.typeUpdatedAt,
-    });
+    const prepare = async (tx: Tx) => {
+      await withUserRevisionLock(tx, ctx.userId);
+      return prepareNoteUpdate(tx, {
+        userId: ctx.userId, noteId: noteRes.noteId, nextFieldValues: resolved.nextFieldValues,
+        nextTags: resolved.nextTags, generated: resolved.generated,
+        expectedUpdatedAt: resolved.note.updatedAt, expectedTypeUpdatedAt: resolved.typeUpdatedAt,
+      });
+    };
     const prepared = ctx.tx ? await prepare(ctx.tx) : await db.transaction(prepare);
     return { ...prepared.preview.impact, confirmationToken: prepared.preview.confirmationToken, ...previews, affectsSiblings: true };
   },
@@ -2363,6 +2367,7 @@ const editCard: Tool = {
       if (!resolved.ok) return { ok: false, error: `edit_card: ${resolved.error}` };
 
       const run = async (tx: Tx) => {
+        await withUserRevisionLock(tx, ctx.userId);
         const input = {
           userId: ctx.userId,
           noteId: noteRes.noteId,

@@ -1,0 +1,213 @@
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { cards, db, noteRevisions, notes } from '@reomi/db';
+import { desc, eq } from 'drizzle-orm';
+import { buildApp } from '../src/app';
+import { canonicalNoteDocument, NOTE_REVISION_MAX_BYTES } from '../src/modules/note-revisions';
+import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers';
+
+const app = buildApp();
+beforeEach(resetTestDb);
+
+async function fixture() {
+  const { cookie, userId } = await signUpAndCookie(app, uniqueEmail());
+  const deck = await (await callApp(app, 'POST', '/decks', { cookie, body: { name: 'Notes' } })).json<any>();
+  const type = await (await callApp(app, 'POST', '/note-types', { cookie, body: { name: 'Two sides',
+    fields: [{ name: 'Q', ord: 0 }, { name: 'A', ord: 1 }], templates: [
+      { name: 'Forward', ord: 0, frontTemplate: '{{Q}}', backTemplate: '{{A}}' },
+      { name: 'Reverse', ord: 1, frontTemplate: '{{A}}', backTemplate: '{{Q}}' },
+    ], kind: 'custom' } })).json<any>();
+  const created = await (await callApp(app, 'POST', '/notes', { cookie, body: {
+    noteTypeId: type.id, deckId: deck.id, fieldValues: { Q: 'question', A: 'answer' },
+  } })).json<any>();
+  return { cookie, userId, deck, type, created };
+}
+
+async function storedRevisions(noteId: string) {
+  return db.select().from(noteRevisions).where(eq(noteRevisions.noteId, noteId))
+    .orderBy(desc(noteRevisions.revisedAt), desc(noteRevisions.id));
+}
+
+function schedule(card: { due: Date; stability: number; difficulty: number; reps: number; lapses: number; state: string }) {
+  return {
+    due: card.due.toISOString(),
+    stability: card.stability,
+    difficulty: card.difficulty,
+    reps: card.reps,
+    lapses: card.lapses,
+    state: card.state,
+  };
+}
+
+describe('note text revisions', () => {
+  test('restoring an earlier document keeps the surviving card schedule', async () => {
+    const { cookie, type, created } = await fixture();
+    expect(await storedRevisions(created.note.id)).toHaveLength(0);
+    const cardId = created.cards[0].id as string;
+    expect((await callApp(app, 'POST', '/reviews', { cookie, body: { cardId, rating: 3 } })).status).toBe(200);
+    const edited = await callApp(app, 'PATCH', `/notes/${created.note.id}`, { cookie, body: {
+      fieldValues: { Q: 'edited question', A: 'answer' }, expectedUpdatedAt: created.note.updatedAt,
+    } });
+    expect(edited.status).toBe(200);
+    const editedBody = await edited.json<any>();
+    const before = schedule((await db.select().from(cards).where(eq(cards.id, cardId)))[0]!);
+    expect(before.reps).toBeGreaterThan(0);
+
+    const listed = await callApp(app, 'GET', `/notes/${created.note.id}/revisions`, { cookie });
+    expect(listed.status).toBe(200);
+    const items = (await listed.json<any>()).items;
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ noteTypeId: type.id, label: 'question' });
+    expect(items[0].fieldValues).toBeUndefined();
+    expect(Object.keys(items[0]).sort()).toEqual(['id', 'label', 'noteTypeId', 'revisedAt']);
+
+    const restored = await callApp(app, 'POST', `/notes/${created.note.id}/revisions/${items[0].id}/restore`, { cookie, body: {
+      expectedUpdatedAt: editedBody.note.updatedAt, expectedTypeUpdatedAt: type.updatedAt,
+    } });
+    expect(restored.status).toBe(200);
+    const body = await restored.json<any>();
+    expect(body.note.fieldValues).toEqual({ Q: 'question', A: 'answer' });
+    const after = schedule((await db.select().from(cards).where(eq(cards.id, cardId)))[0]!);
+    expect(after).toEqual(before);
+    const archived = await storedRevisions(created.note.id);
+    expect(archived.some((row) => row.fieldValues.Q === 'edited question')).toBe(true);
+  });
+
+  test('restoring a document that drops a question requires confirmation and then deletes that card', async () => {
+    const { cookie, type, created } = await fixture();
+    const forward = created.cards.find((card: { templateOrd: number }) => card.templateOrd === 0);
+    expect((await callApp(app, 'POST', '/reviews', { cookie, body: { cardId: forward.id, rating: 4 } })).status).toBe(200);
+    const emptied = { fieldValues: { Q: 'sided', A: '' }, expectedUpdatedAt: created.note.updatedAt };
+    const preview = await (await callApp(app, 'POST', `/notes/${created.note.id}/preview`, { cookie, body: emptied })).json<any>();
+    const oneSided = await callApp(app, 'PATCH', `/notes/${created.note.id}`, { cookie, body: { ...emptied, confirmationToken: preview.confirmationToken } });
+    expect(oneSided.status).toBe(200);
+    const oneSidedBody = await oneSided.json<any>();
+    expect(oneSidedBody.cards).toHaveLength(1);
+    const refilled = await callApp(app, 'PATCH', `/notes/${created.note.id}`, { cookie, body: {
+      fieldValues: { Q: 'sided', A: 'back' }, expectedUpdatedAt: oneSidedBody.note.updatedAt,
+    } });
+    expect(refilled.status).toBe(200);
+    const current = await refilled.json<any>();
+    expect(current.cards).toHaveLength(2);
+    const reverse = current.cards.find((card: { templateOrd: number }) => card.templateOrd === 1);
+    const before = schedule((await db.select().from(cards).where(eq(cards.id, forward.id)))[0]!);
+    const history = await (await callApp(app, 'GET', `/notes/${created.note.id}/revisions`, { cookie })).json<any>();
+    const sided = history.items.find((item: { label: string }) => item.label === 'sided');
+    const restoreBody = { expectedUpdatedAt: current.note.updatedAt, expectedTypeUpdatedAt: type.updatedAt };
+    const impact = await callApp(app, 'POST', `/notes/${created.note.id}/revisions/${sided.id}/restore`, { cookie, body: { ...restoreBody, preview: true } });
+    expect(impact.status).toBe(200);
+    const impactBody = await impact.json<any>();
+    expect(impactBody.impact.willDeleteCards).toBe(1);
+    expect((await db.select().from(cards).where(eq(cards.noteId, created.note.id)))).toHaveLength(2);
+
+    const blocked = await callApp(app, 'POST', `/notes/${created.note.id}/revisions/${sided.id}/restore`, { cookie, body: restoreBody });
+    expect(blocked.status).toBe(409);
+    expect(await blocked.json()).toMatchObject({ error: 'card_removal_confirmation_required' });
+    expect((await callApp(app, 'GET', `/cards/${reverse.id}`, { cookie })).status).toBe(200);
+
+    const token = impactBody.confirmationToken as string;
+    const restored = await callApp(app, 'POST', `/notes/${created.note.id}/revisions/${sided.id}/restore`, { cookie, body: { ...restoreBody, confirmationToken: token } });
+    expect(restored.status).toBe(200);
+    expect((await restored.json<any>()).cards).toHaveLength(1);
+    expect((await callApp(app, 'GET', `/cards/${reverse.id}`, { cookie })).status).toBe(404);
+    expect(schedule((await db.select().from(cards).where(eq(cards.id, forward.id)))[0]!)).toEqual(before);
+  });
+
+  test('a stale expectedUpdatedAt on restore is note_changed and keeps the current text', async () => {
+    const { cookie, type, created } = await fixture();
+    const edited = await (await callApp(app, 'PATCH', `/notes/${created.note.id}`, { cookie, body: {
+      fieldValues: { Q: 'current', A: 'answer' }, expectedUpdatedAt: created.note.updatedAt,
+    } })).json<any>();
+    const [revision] = await storedRevisions(created.note.id);
+    const stale = await callApp(app, 'POST', `/notes/${created.note.id}/revisions/${revision!.id}/restore`, { cookie, body: {
+      expectedUpdatedAt: created.note.updatedAt, expectedTypeUpdatedAt: type.updatedAt,
+    } });
+    expect(stale.status).toBe(409);
+    expect(await stale.json()).toMatchObject({ error: 'note_changed' });
+    const [note] = await db.select().from(notes).where(eq(notes.id, created.note.id));
+    expect(note!.fieldValues).toEqual({ Q: 'current', A: 'answer' });
+    expect(note!.updatedAt.toISOString()).toBe(edited.note.updatedAt);
+    expect(await storedRevisions(created.note.id)).toHaveLength(1);
+  });
+
+  test('a note type mismatch is note_type_changed and writes nothing', async () => {
+    const { cookie, type, created } = await fixture();
+    const edited = await (await callApp(app, 'PATCH', `/notes/${created.note.id}`, { cookie, body: {
+      fieldValues: { Q: 'kept', A: 'answer' }, expectedUpdatedAt: created.note.updatedAt,
+    } })).json<any>();
+    const other = await (await callApp(app, 'POST', '/note-types', { cookie, body: { name: 'Other',
+      fields: [{ name: 'Q', ord: 0 }, { name: 'A', ord: 1 }], templates: [
+        { name: 'Forward', ord: 0, frontTemplate: '{{Q}}', backTemplate: '{{A}}' },
+      ], kind: 'custom' } })).json<any>();
+    await db.update(notes).set({ noteTypeId: other.id }).where(eq(notes.id, created.note.id));
+    const [revision] = await storedRevisions(created.note.id);
+    const missing = await callApp(app, 'POST', `/notes/${created.note.id}/revisions/00000000-0000-7000-8000-000000000099/restore`, { cookie, body: {
+      expectedUpdatedAt: edited.note.updatedAt, expectedTypeUpdatedAt: type.updatedAt,
+    } });
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toMatchObject({ error: 'revision_not_found' });
+
+    const mismatched = await callApp(app, 'POST', `/notes/${created.note.id}/revisions/${revision!.id}/restore`, { cookie, body: {
+      expectedUpdatedAt: edited.note.updatedAt, expectedTypeUpdatedAt: other.updatedAt,
+    } });
+    expect(mismatched.status).toBe(409);
+    expect(await mismatched.json()).toMatchObject({ error: 'note_type_changed' });
+    const [note] = await db.select().from(notes).where(eq(notes.id, created.note.id));
+    expect(note!.noteTypeId).toBe(other.id);
+    expect(note!.fieldValues).toEqual({ Q: 'kept', A: 'answer' });
+    expect(note!.updatedAt.toISOString()).toBe(edited.note.updatedAt);
+    expect(await storedRevisions(created.note.id)).toHaveLength(1);
+  });
+
+  test('a second identical save does not add a revision', async () => {
+    const { cookie, created } = await fixture();
+    const first = await (await callApp(app, 'PATCH', `/notes/${created.note.id}`, { cookie, body: {
+      fieldValues: { Q: 'same', A: 'answer' }, expectedUpdatedAt: created.note.updatedAt,
+    } })).json<any>();
+    expect(await storedRevisions(created.note.id)).toHaveLength(1);
+    const second = await callApp(app, 'PATCH', `/notes/${created.note.id}`, { cookie, body: {
+      fieldValues: { Q: 'same', A: 'answer' }, expectedUpdatedAt: first.note.updatedAt,
+    } });
+    expect(second.status).toBe(200);
+    expect((await second.json<any>()).note.fieldValues.Q).toBe('same');
+    expect(await storedRevisions(created.note.id)).toHaveLength(1);
+  });
+
+  test('the sixth distinct save drops the oldest revision for that note', async () => {
+    const { cookie, created } = await fixture();
+    let version = created.note.updatedAt as string;
+    for (let i = 1; i <= 6; i++) {
+      const saved = await callApp(app, 'PATCH', `/notes/${created.note.id}`, { cookie, body: {
+        fieldValues: { Q: `v${i}`, A: 'answer' }, expectedUpdatedAt: version,
+      } });
+      expect(saved.status).toBe(200);
+      version = (await saved.json<any>()).note.updatedAt;
+    }
+    const rows = await storedRevisions(created.note.id);
+    expect(rows).toHaveLength(5);
+    expect(rows.map((row) => row.fieldValues.Q)).toEqual(['v5', 'v4', 'v3', 'v2', 'v1']);
+    const listed = await (await callApp(app, 'GET', `/notes/${created.note.id}/revisions`, { cookie })).json<any>();
+    expect(listed.items.map((item: { label: string }) => item.label)).toEqual(['v5', 'v4', 'v3', 'v2', 'v1']);
+  });
+
+  test('a pre-image over 262144 bytes saves and adds no revision', async () => {
+    const { cookie, deck } = await fixture();
+    const type = await (await callApp(app, 'POST', '/note-types', { cookie, body: { name: 'Wide',
+      fields: ['A', 'B', 'C', 'D'].map((name, ord) => ({ name, ord })),
+      templates: [{ name: 'Only', ord: 0, frontTemplate: '{{A}}', backTemplate: '{{B}}' }],
+      kind: 'custom' } })).json<any>();
+    const huge = 'x'.repeat(65536);
+    const fieldValues = { A: huge, B: huge, C: huge, D: huge };
+    expect(Buffer.byteLength(canonicalNoteDocument({
+      acceptedAnswers: [], fieldValues, noteTypeId: type.id, tags: [],
+    }), 'utf8')).toBeGreaterThan(NOTE_REVISION_MAX_BYTES);
+    const created = await (await callApp(app, 'POST', '/notes', { cookie, body: {
+      noteTypeId: type.id, deckId: deck.id, fieldValues,
+    } })).json<any>();
+    const saved = await callApp(app, 'PATCH', `/notes/${created.note.id}`, { cookie, body: {
+      fieldValues: { ...fieldValues, A: 'tiny' }, expectedUpdatedAt: created.note.updatedAt,
+    } });
+    expect(saved.status).toBe(200);
+    expect((await saved.json<any>()).note.fieldValues.A).toBe('tiny');
+    expect(await storedRevisions(created.note.id)).toHaveLength(0);
+  });
+});
