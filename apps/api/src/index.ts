@@ -25,6 +25,10 @@ const receiptMaintenance = createReceiptMaintenance(async () => {
 
 const mediaGc = createReceiptMaintenance(async () => {
   const report = await runMediaGc();
+  if (report.listFailures > 0) {
+    rootLogger.warn({ event: 'media.gc.list_failed', ...report }, 'media.gc.list_failed');
+    return;
+  }
   rootLogger.info({ event: 'media.gc.completed', ...report }, 'media.gc.completed');
 }, error => rootLogger.warn({ err: safeError(error) }, 'media.gc.failed'), env.MEDIA_GC_INTERVAL_MS);
 

@@ -105,6 +105,7 @@ describe('media GC', () => {
       unreferencedMedia: 0,
       orphanObjects: 0,
       objectDeleteFailures: 0,
+      listFailures: 0,
     });
     expect(deleted).toEqual([`media/${expiredMedia}`, `source/${expiredSource}`]);
     expect(await mediaIds()).toEqual([freshMedia]);
@@ -117,6 +118,7 @@ describe('media GC', () => {
       unreferencedMedia: 0,
       orphanObjects: 0,
       objectDeleteFailures: 0,
+      listFailures: 0,
     });
     expect(deleted).toEqual([`media/${expiredMedia}`, `source/${expiredSource}`]);
   });
@@ -219,10 +221,12 @@ describe('media GC', () => {
     ].sort());
   });
 
-  test('deletes an old ownerless object and skips live, young, and foreign keys', async () => {
+  test('deletes an old ownerless object and keeps keys that still have a media or source row', async () => {
     const { userId } = await signUpAndCookie(app, uniqueEmail('orphan'));
-    const live = await insertMedia(userId, old, true);
+    const live = await insertMedia(userId, young, true);
+    const liveSource = await insertSource(userId, { createdAt: young, verified: true, status: 'ready', storage: true });
     const orphanId = newUuidV7();
+    const sourceOrphanId = newUuidV7();
     const queries: string[] = [];
     __setObjectListerForTests(async (query: ObjectListQuery) => {
       queries.push(query.prefix);
@@ -236,21 +240,30 @@ describe('media GC', () => {
           ],
         };
       }
-      return { items: [] };
+      return {
+        items: [
+          { key: `source/${sourceOrphanId}`, lastModified: old },
+          { key: `source/${liveSource}`, lastModified: old },
+        ],
+      };
     });
 
     const first = await runMediaGc(gc);
+    expect(first.unreferencedMedia).toBe(0);
     expect(first.orphanObjects).toBe(1);
-    expect(first.unreferencedMedia).toBe(1);
-    expect(deleted).toEqual([`media/${live}`, `media/${orphanId}`]);
+    expect(first.listFailures).toBe(0);
+    expect(deleted).toEqual([`media/${orphanId}`]);
     expect(queries).toEqual(['media/']);
-    expect(await mediaIds()).toEqual([]);
+    expect(await mediaIds()).toEqual([live]);
 
     deleted = [];
     const second = await runMediaGc(gc);
-    expect(second.orphanObjects).toBe(0);
+    expect(second.unreferencedMedia).toBe(0);
+    expect(second.orphanObjects).toBe(1);
     expect(queries).toEqual(['media/', 'source/']);
-    expect(deleted).toEqual([]);
+    expect(deleted).toEqual([`source/${sourceOrphanId}`]);
+    expect(await mediaIds()).toEqual([live]);
+    expect(await sourceIds()).toEqual([liveSource]);
   });
 
   test('still removes expired pending rows when object listing fails', async () => {
@@ -266,11 +279,18 @@ describe('media GC', () => {
       unreferencedMedia: 0,
       orphanObjects: 0,
       objectDeleteFailures: 1,
+      listFailures: 1,
     });
     expect(await mediaIds()).toEqual([]);
 
     const again = await runMediaGc(gc);
-    expect(again.pendingMedia).toBe(0);
-    expect(again.objectDeleteFailures).toBe(0);
+    expect(again).toEqual({
+      pendingMedia: 0,
+      pendingSources: 0,
+      unreferencedMedia: 0,
+      orphanObjects: 0,
+      objectDeleteFailures: 0,
+      listFailures: 1,
+    });
   });
 });

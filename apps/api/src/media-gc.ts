@@ -19,6 +19,7 @@ export type MediaGcReport = {
   unreferencedMedia: number;
   orphanObjects: number;
   objectDeleteFailures: number;
+  listFailures: number;
 };
 
 export type MediaGcOptions = {
@@ -46,7 +47,9 @@ function notReferenced(): SQL {
     and not exists (select 1 from notebook_notes where position(media.id::text in title || content || coalesce(citations::text, '')) > 0)
     and not exists (select 1 from notebook_artifacts where position(media.id::text in title || coalesce(content_md, '') || coalesce(content_json::text, '')) > 0)
     and not exists (select 1 from notebooks where position(media.id::text in coalesce(overview, '') || coalesce(suggested_questions::text, '')) > 0)
-    and not exists (select 1 from mcp_actions where position(media.id::text in args::text || preview::text) > 0)`;
+    and not exists (select 1 from mcp_actions where position(media.id::text in args::text || preview::text) > 0)
+    and not exists (select 1 from source_chunks where position(media.id::text in "text") > 0)
+    and not exists (select 1 from note_types where position(media.id::text in templates::text) > 0)`;
 }
 
 async function removeObject(key: string, removed: Set<string>): Promise<boolean> {
@@ -127,13 +130,13 @@ async function sweepUnreferencedMedia(cutoff: Date, batch: number, removed: Set<
   return { rows, failures };
 }
 
-async function sweepOrphanObjects(now: Date, maxAgeMs: number, batch: number, removed: Set<string>): Promise<{ deleted: number; failures: number }> {
+async function sweepOrphanObjects(now: Date, maxAgeMs: number, batch: number, removed: Set<string>): Promise<{ deleted: number; failures: number; listFailed: boolean }> {
   const prefix = PREFIXES[prefixIndex] ?? 'media/';
   let page: Awaited<ReturnType<typeof listObjectsPage>>;
   try {
     page = await listObjectsPage({ prefix, maxKeys: batch, continuationToken });
   } catch {
-    return { deleted: 0, failures: 0 };
+    return { deleted: 0, failures: 0, listFailed: true };
   }
   if (page.nextToken) continuationToken = page.nextToken;
   else {
@@ -143,7 +146,7 @@ async function sweepOrphanObjects(now: Date, maxAgeMs: number, batch: number, re
   const cutoff = now.getTime() - maxAgeMs;
   const candidates = page.items.filter((item) =>
     SWEEP_KEY.test(item.key) && item.lastModified !== null && item.lastModified.getTime() < cutoff);
-  if (candidates.length === 0) return { deleted: 0, failures: 0 };
+  if (candidates.length === 0) return { deleted: 0, failures: 0, listFailed: false };
   const keys = candidates.map((item) => item.key);
   const knownMedia = await db.select({ key: media.s3Key }).from(media).where(inArray(media.s3Key, keys));
   const knownSources = await db.select({ key: sources.storageKey }).from(sources).where(inArray(sources.storageKey, keys));
@@ -158,7 +161,7 @@ async function sweepOrphanObjects(now: Date, maxAgeMs: number, batch: number, re
     if (await removeObject(item.key, removed)) deleted += 1;
     else failures += 1;
   }
-  return { deleted, failures };
+  return { deleted, failures, listFailed: false };
 }
 
 export async function runMediaGc(options?: MediaGcOptions): Promise<MediaGcReport> {
@@ -181,6 +184,7 @@ export async function runMediaGc(options?: MediaGcOptions): Promise<MediaGcRepor
     unreferencedMedia: unreferencedMedia.rows,
     orphanObjects: orphans.deleted,
     objectDeleteFailures: pendingMedia.failures + pendingSources.failures + unreferencedMedia.failures + orphans.failures,
+    listFailures: orphans.listFailed ? 1 : 0,
   };
 }
 
