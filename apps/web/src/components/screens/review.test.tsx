@@ -648,3 +648,71 @@ test('a slow empty queue crossing a learning deadline gets one compensating read
   await render();await act(async()=>new Promise(resolve=>setTimeout(resolve,50)));
   expect(queues).toBe(2);expect(container.textContent).toContain('Question');
 });
+
+test('a due buried queue explains the hold and refreshes when the study day ends', async () => {
+  let loads = 0;
+  const endsAt = new Date(Date.now() + 200).toISOString();
+  globalThis.fetch = (async () => {
+    loads += 1;
+    return Response.json({
+      due: [], new: [], total: 0, mode: 'regular', heldCardIds: [studyCard.id],
+      studyDay: { endsAt },
+      summary: {
+        total: 2, buriedCount: 1, dueBuried: 1, suspendedCount: 0, totalAvailable: 0,
+        limitedNew: 0, limitedReview: 0, nextLearningAt: null,
+      },
+    });
+  }) as unknown as typeof fetch;
+  await render();
+  expect(container.textContent).toContain('review.emptyStates.buried.title');
+  expect(container.textContent).not.toContain('review.allCaught.title');
+  expect(container.textContent).not.toContain('review.emptyStates.limited.title');
+  const seen = loads;
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 500)); });
+  expect(loads).toBeGreaterThan(seen);
+});
+
+test('the reviewer offers bury for the card and the note beside skip', async () => {
+  globalThis.fetch = (async (url: unknown) => Response.json(String(url).includes('/cards/queue')
+    ? { due: [], new: [studyCard], total: 1, mode: 'regular' } : { items: [] })) as unknown as typeof fetch;
+  await render();
+  expect(button('review.bury.card').textContent).toContain('review.bury.card');
+  expect(button('review.bury.note').textContent).toContain('review.bury.note');
+});
+
+test('Shift+B buries the note and the toast brings that note back without grading', async () => {
+  const holds: unknown[] = [];
+  let reviews = 0;
+  let queues = 0;
+  globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+    const path = String(url);
+    if (path.includes('/cards/holds')) {
+      holds.push(JSON.parse(String(init?.body ?? '{}')));
+      return Response.json({ action: holds.length === 1 ? 'bury' : 'unbury', cardIds: [studyCard.id], until: '2026-10-17T21:30:00.000Z' });
+    }
+    if (path.includes('/cards/queue')) {
+      queues += 1;
+      return Response.json({ due: [], new: queues === 1 ? [studyCard] : [], total: queues === 1 ? 1 : 0, mode: 'regular' });
+    }
+    if (path.includes('/reviews')) reviews += 1;
+    return Response.json({ items: [] });
+  }) as unknown as typeof fetch;
+  const toasts: Array<{ title?: string; description?: string; action?: { label: string; onClick: () => void } }> = [];
+  const onToast = (event: Event) => toasts.push((event as CustomEvent).detail);
+  window.addEventListener('nn:toast', onToast);
+  try {
+    await render();
+    await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'B', shiftKey: true })));
+    expect(holds[0]).toEqual({ action: 'bury', noteId: studyCard.noteId });
+    expect(reviews).toBe(0);
+    const toast = toasts.at(-1);
+    expect(toast?.action?.label).toBe('cards.bulk.unbury');
+    expect(`${toast?.title ?? ''} ${toast?.description ?? ''}`).not.toContain('tomorrow');
+    expect(`${toast?.title ?? ''} ${toast?.description ?? ''}`).toContain('21:30');
+    await act(async () => toast!.action!.onClick());
+    expect(holds[1]).toEqual({ action: 'unbury', noteId: studyCard.noteId });
+    expect(queues).toBeGreaterThan(1);
+  } finally {
+    window.removeEventListener('nn:toast', onToast);
+  }
+});
