@@ -126,7 +126,10 @@ describe('card editor', () => {
   test('double Save and command-Enter submit one request and retain fields on error', async () => {
     let writes = 0;
     const response = Promise.withResolvers<Response>();
-    globalThis.fetch = adaptRecoveryFetch((() => { writes++; return response.promise; }) as unknown as typeof fetch);
+    globalThis.fetch = adaptRecoveryFetch(((url: any) => {
+      if (String(url).includes('/revisions')) return Promise.resolve(Response.json({ items: [] }));
+      writes++; return response.promise;
+    }) as unknown as typeof fetch);
     await render();
     await act(async () => {
       const save = button('actions.save');
@@ -144,7 +147,10 @@ describe('card editor', () => {
 
   test('numbered cloze without a deletion stays in the editor with an actionable error', async () => {
     let writes = 0;
-    globalThis.fetch = adaptRecoveryFetch((async () => { writes++; return Response.json({ note: row.note, cards: [] }); }) as unknown as typeof fetch);
+    globalThis.fetch = adaptRecoveryFetch((async (url: any) => {
+      if (String(url).includes('/revisions')) return Response.json({ items: [] });
+      writes++; return Response.json({ note: row.note, cards: [] });
+    }) as unknown as typeof fetch);
     useNN.setState({ noteTypes: [noteTypeFromApi(BASIC_NOTE_TYPE), noteTypeFromApi(CLOZE_NOTE_TYPE)] });
     const cloze = cardFromApi({ ...row, noteType: CLOZE_NOTE_TYPE, renderKind: 'cloze', clozeNumber: 1,
       note: { ...row.note, noteTypeId: CLOZE_NOTE_TYPE.id, fieldValues: { Text: 'Text without a cloze', Extra: '' } } });
@@ -157,7 +163,10 @@ describe('card editor', () => {
 
   test('missing decks and empty rendered questions cannot submit', async () => {
     let writes = 0;
-    globalThis.fetch = adaptRecoveryFetch((async () => { writes++; return Response.json({}); }) as unknown as typeof fetch);
+    globalThis.fetch = adaptRecoveryFetch((async (url: any) => {
+      if (String(url).includes('/revisions')) return Response.json({ items: [] });
+      writes++; return Response.json({});
+    }) as unknown as typeof fetch);
     await render({ card: cardFromApi({ ...row, note: { ...row.note, fieldValues: { Front: '', Back: 'Answer' } } }) });
     await act(async () => button('actions.save').click());
     expect(container.textContent).toContain('editor.errors.noCards');
@@ -238,6 +247,7 @@ describe('card editor', () => {
   test('cancelling a regeneration preview keeps the draft and makes no write', async () => {
     const methods: string[] = [];
     globalThis.fetch = adaptRecoveryFetch((async (_url: any, init: any) => {
+      if (String(_url).includes('/revisions')) return Response.json({ items: [] });
       methods.push(init.method);
       return Response.json({ sourceVersion: row.note.updatedAt, confirmationToken: 'consent', impact: {
         willCreateCards: 0, willKeepCards: 1, willDeleteCards: 1, willDeleteReviews: 7,
@@ -481,7 +491,10 @@ describe('editor draft recovery', () => {
   });
   test('leave can be cancelled or keep the local draft without a server write', async () => {
     let calls = 0;
-    globalThis.fetch = adaptRecoveryFetch((async (_url: any, _init: any) => { calls++; return Response.json({}); }) as typeof fetch);
+    globalThis.fetch = adaptRecoveryFetch((async (_url: any, _init: any) => {
+      if (String(_url).includes('/revisions')) return Response.json({ items: [] });
+      calls++; return Response.json({});
+    }) as typeof fetch);
     await render({ footerExtra: <LeaveEditor /> }); await changeFront('Keep locally');
     await act(async () => button('Leave editor').click());
     expect(container.textContent).toContain('editor.draft.leaveTitle');
@@ -793,6 +806,128 @@ test('cards filter width persists, supports keyboard resizing and stays out of t
     localStorage.removeItem(legacy);
     if(previous===null)localStorage.removeItem(key);else localStorage.setItem(key,previous);
   }
+});
+
+const revisionId = '01900000-0000-7000-8000-0000000000aa';
+const historyType = { ...BASIC_NOTE_TYPE, updatedAt: '2026-09-01T00:00:00.000Z' };
+const historyRevision = { id: revisionId, revisedAt: '2026-09-18T12:00:00.000Z', noteTypeId: BASIC_NOTE_TYPE.id, label: 'Earlier question' };
+
+function historyFetch(handler: (url: string, init?: RequestInit) => Promise<Response> | Response) {
+  globalThis.fetch = adaptRecoveryFetch((async (url: any, init?: RequestInit) => handler(String(url), init)) as typeof fetch);
+}
+
+async function confirmDialog() {
+  const dialog = container.querySelector('[role="dialog"]')!;
+  const buttons = dialog.querySelectorAll('button');
+  await act(async () => (buttons[buttons.length - 1] as HTMLButtonElement).click());
+}
+
+describe('note text history', () => {
+  beforeEach(() => { useNN.setState({ noteTypes: [noteTypeFromApi(historyType)] }); });
+
+  test('an empty history list renders nothing', async () => {
+    historyFetch((url) => Response.json(url.includes('/revisions') ? { items: [] } : { items: [] }));
+    await render();
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    expect(container.querySelector('[data-note-history]')).toBeNull();
+    expect(container.textContent).not.toContain('editor.history.restore');
+  });
+
+  test('a row shows the date and label, then restore replaces fields, tags, answers and the card mirror', async () => {
+    const requests: any[] = [];
+    const restoredNote = { ...row.note, updatedAt: '2026-09-19T01:00:00.000Z', fieldValues: { Front: 'Earlier question', Back: 'Old answer' }, tags: ['kept'], acceptedAnswers: ['alt'] };
+    historyFetch((url, init) => {
+      if (url.endsWith('/revisions')) return Response.json({ items: [historyRevision] });
+      if (url.endsWith('/restore')) {
+        const body = JSON.parse(String(init?.body));
+        requests.push(body);
+        if (body.preview) return Response.json({ sourceVersion: row.note.updatedAt, confirmationToken: 'keep', impact: {
+          willCreateCards: 0, willKeepCards: 1, willDeleteCards: 0, willDeleteReviews: 0, removedCards: [],
+        } });
+        return Response.json({ note: restoredNote, cards: [{ ...row, tags: ['kept'], note: restoredNote }] });
+      }
+      return Response.json({ items: [] });
+    });
+    const typed = { ...historyType, kind: 'typein' as const };
+    useNN.setState({ noteTypes: [noteTypeFromApi(typed)] });
+    await render({ card: cardFromApi({ ...row, renderKind: 'typein', noteType: typed, note: { ...row.note, tags: ['now'], acceptedAnswers: ['old'] } }) });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    expect(container.textContent).toContain('Earlier question');
+    expect(container.textContent).toContain('2026');
+    expect(container.textContent).toContain('editor.history.restore');
+    await act(async () => button('editor.history.restore').click());
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain('editor.history.confirm');
+    await confirmDialog();
+    expect(requests[0]).toMatchObject({ preview: true, expectedUpdatedAt: row.note.updatedAt, expectedTypeUpdatedAt: historyType.updatedAt });
+    expect(requests[1].preview).toBeUndefined();
+    expect(requests[1].confirmationToken).toBeUndefined();
+    expect((container.querySelector('textarea[data-nn-field]') as HTMLTextAreaElement).value).toBe('Earlier question');
+    expect(container.querySelector<HTMLInputElement>('[aria-label="editor.tagsLinks"]')?.value).toBe('kept');
+    expect(Array.from(container.querySelectorAll('textarea')).some((field) => (field as HTMLTextAreaElement).value === 'alt')).toBe(true);
+    expect(useNN.getState().cards.find((item) => item.id === card.id)?.note).toMatchObject({
+      fieldValues: { Front: 'Earlier question', Back: 'Old answer' }, tags: ['kept'], acceptedAnswers: ['alt'], updatedAt: restoredNote.updatedAt,
+    });
+  });
+
+  test('restore confirms before removing a generated card', async () => {
+    const requests: any[] = [];
+    historyFetch((url, init) => {
+      if (url.endsWith('/revisions')) return Response.json({ items: [historyRevision] });
+      if (url.endsWith('/restore')) {
+        const body = JSON.parse(String(init?.body));
+        requests.push(body);
+        if (body.preview) return Response.json({ sourceVersion: row.note.updatedAt, confirmationToken: 'drop', impact: {
+          willCreateCards: 0, willKeepCards: 0, willDeleteCards: 1, willDeleteReviews: 3, removedCards: [{ id: 'gone', front: 'Old question', reviews: 3 }],
+        } });
+        return Response.json({ note: { ...row.note, updatedAt: '2026-09-19T02:00:00.000Z', fieldValues: { Front: 'Earlier question', Back: '' } }, cards: [] });
+      }
+      return Response.json({ items: [] });
+    });
+    await render();
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    await act(async () => button('editor.history.restore').click());
+    await confirmDialog();
+    expect(requests).toHaveLength(1);
+    const impact = container.querySelector('[role="dialog"]')!;
+    expect(impact.textContent).toContain('noteTypes.impact.title');
+    expect(impact.textContent).toContain('Old question (3)');
+    await confirmDialog();
+    expect(requests[1].confirmationToken).toBe('drop');
+    expect((container.querySelector('textarea[data-nn-field]') as HTMLTextAreaElement).value).toBe('Earlier question');
+  });
+
+  test('a stale note shows the existing conflict panel and keeps the typed text', async () => {
+    historyFetch((url) => {
+      if (url.endsWith('/revisions')) return Response.json({ items: [historyRevision] });
+      if (url.endsWith('/restore')) return Response.json({ error: 'note_changed' }, { status: 409 });
+      if (url.includes('/cards/')) return Response.json({ ...row, note: { ...row.note, fieldValues: { Front: 'Remote question', Back: 'Answer' } } });
+      return Response.json({ items: [] });
+    });
+    await render();
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    await act(async () => button('editor.history.restore').click());
+    await confirmDialog();
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain('editor.errors.changed');
+    expect(container.textContent).toContain('editor.conflict.latest');
+    expect(Array.from(container.querySelectorAll('textarea[readonly]')).some((field) => (field as HTMLTextAreaElement).value === 'Remote question')).toBe(true);
+    expect((container.querySelector('textarea[data-nn-field]') as HTMLTextAreaElement).value).toBe('Question');
+  });
+
+  test('a revision from another note type is disabled', async () => {
+    let restores = 0;
+    historyFetch((url) => {
+      if (url.endsWith('/restore')) restores += 1;
+      if (url.endsWith('/revisions')) return Response.json({ items: [{ ...historyRevision, noteTypeId: '01900000-0000-7000-8000-0000000000bb' }] });
+      return Response.json({ items: [] });
+    });
+    await render();
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    expect(container.textContent).toContain('editor.history.typeChanged');
+    expect(button('editor.history.restore').disabled).toBe(true);
+    await act(async () => button('editor.history.restore').click());
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(restores).toBe(0);
+  });
 });
 
 test('empty card search offers scoped creation and clearing the search', async () => {

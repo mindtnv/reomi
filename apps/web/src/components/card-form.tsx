@@ -9,7 +9,7 @@ import { NNBtn, NNBadge, NNTag, NNCard, NNIcon, NNPageSkeleton } from '@/compone
 import { useNN } from '@/lib/store';
 import type { Card, NoteType } from '@/lib/types';
 import { useBreakpoint } from '@/lib/use-breakpoint';
-import { useT } from '@/lib/i18n';
+import { useLocale, useT } from '@/lib/i18n';
 import { useDialog } from '@/components/dialog';
 import { NNSelect, type NNSelectOption } from '@/components/nn-select';
 import { buildDeckTree, deckPathLabel, flattenTree } from '@/lib/decks';
@@ -71,6 +71,25 @@ const inputStyle: React.CSSProperties = {
   outline: 'none',
   boxSizing: 'border-box',
 };
+
+type NoteRevisionRow = { id: string; revisedAt: string | Date; noteTypeId: string; label: string };
+
+function noteRevisionRows(value: unknown): NoteRevisionRow[] {
+  if (!value || typeof value !== 'object' || !Array.isArray((value as { items?: unknown }).items)) return [];
+  return (value as { items: unknown[] }).items.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const row = item as Record<string, unknown>;
+    const revisedAt = row.revisedAt;
+    if (typeof row.id !== 'string' || typeof row.noteTypeId !== 'string' || typeof row.label !== 'string') return [];
+    if (typeof revisedAt !== 'string' && !(revisedAt instanceof Date)) return [];
+    return [{ id: row.id, noteTypeId: row.noteTypeId, label: row.label, revisedAt }];
+  });
+}
+
+function revisionStamp(value: string | Date, locale: string) {
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' });
+}
 
 const labelStyle: React.CSSProperties = {
   fontSize: 11,
@@ -486,6 +505,7 @@ const CardFormEditor = ({
   layout = 'panel',
 }: NNCardFormProps) => {
   const t = useT();
+  const { locale } = useLocale();
   const { confirm } = useDialog();
   const router = useAppNavigation();
   const bp = useBreakpoint();
@@ -566,6 +586,24 @@ const CardFormEditor = ({
     if (mounted.current) setUploadingFields(uploadCount.current);
   }, []);
   const [error, setError] = useState<string | null>(null);
+  const [revisions, setRevisions] = useState<NoteRevisionRow[]>([]);
+  const [blockedRevisionIds, setBlockedRevisionIds] = useState<string[]>([]);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const historyNoteId = editing?.noteId;
+
+  const loadRevisions = useCallback(async (noteId: string) => {
+    try {
+      return noteRevisionRows(await ok(await (api as any).notes({ id: noteId }).revisions.get()));
+    } catch {
+      return [];
+    }
+  }, []);
+  useEffect(() => {
+    if (!historyNoteId) { setRevisions([]); return; }
+    let cancelled = false;
+    void loadRevisions(historyNoteId).then((items) => { if (!cancelled && mounted.current) setRevisions(items); });
+    return () => { cancelled = true; };
+  }, [historyNoteId, loadRevisions]);
 
   // Preview flip card (replaces the always-on dual front+back inline preview).
   const [showPreview, setShowPreview] = useState(false);
@@ -819,6 +857,76 @@ const CardFormEditor = ({
     },
   });
 
+  const applyRevisionResult = (result: { note?: { fieldValues?: FieldValues; tags?: string[]; acceptedAnswers?: string[]; updatedAt?: string | Date }; cards?: unknown[] }) => {
+    const updated = useNN.getState().acceptRecoveredNote(ownerId, result);
+    const saved = updated.find((next) => next.id === editing?.id) ?? updated[0];
+    const note = saved?.note ?? result.note;
+    const nextFields = { ...(note?.fieldValues ?? {}) };
+    const nextTags = (note?.tags ?? saved?.tags ?? []).join(', ');
+    const nextAnswers = (note?.acceptedAnswers ?? []).join('\n');
+    const stamp = note?.updatedAt;
+    localDraft.markSaved(draftFingerprint({ fieldValues: nextFields, deckId, noteTypeId, tagsText: nextTags, acceptedAnswersText: nextAnswers, clozeRetainHistoryFor }));
+    setFieldValues(nextFields);
+    setTagsText(nextTags);
+    setAcceptedAnswersText(nextAnswers);
+    setBaseVersion(stamp instanceof Date ? stamp.toISOString() : stamp);
+    setLatest(null);
+    setLatestType(null);
+    setError(null);
+    if (saved) onSaved?.(saved);
+  };
+
+  const restoreRevision = async (item: NoteRevisionRow) => {
+    if (!editing || mutationLock.current || restoringId) return;
+    if (item.noteTypeId !== activeNoteType?.id || blockedRevisionIds.includes(item.id)) return;
+    if (!(await confirm({ title: t('editor.history.confirm') }))) return;
+    if (!mounted.current || mutationLock.current) return;
+    mutationLock.current = true;
+    setRestoringId(item.id);
+    setError(null);
+    try {
+      const body = { expectedUpdatedAt: baseVersion, expectedTypeUpdatedAt: activeNoteType?.updatedAt };
+      const preview = await ok(await (api as any).notes({ id: editing.noteId }).revisions({ revisionId: item.id }).restore.post({ ...body, preview: true }));
+      if (!mounted.current) return;
+      if (preview && typeof preview === 'object' && 'impact' in preview) {
+        const impact = preview as CardRegenerationPreview;
+        if (impact.impact.willDeleteCards > 0) {
+          const details = impact.impact.removedCards.map((removed) => `• ${removed.front} (${removed.reviews})`).join('\n');
+          if (!(await confirm({ title: t('noteTypes.impact.title'), danger: true,
+            message: `${t('noteTypes.impact.counts', { create: impact.impact.willCreateCards, keep: impact.impact.willKeepCards,
+              remove: impact.impact.willDeleteCards, reviews: impact.impact.willDeleteReviews })}\n\n${details}`,
+          }))) return;
+          if (!mounted.current) return;
+        }
+        const applied = await ok(await (api as any).notes({ id: editing.noteId }).revisions({ revisionId: item.id }).restore.post({
+          ...body, ...(impact.impact.willDeleteCards > 0 ? { confirmationToken: impact.confirmationToken } : {}),
+        }));
+        if (!mounted.current) return;
+        applyRevisionResult(applied);
+      } else if (preview && typeof preview === 'object' && 'note' in preview && 'cards' in preview) {
+        applyRevisionResult(preview as { note: { fieldValues?: FieldValues }; cards: unknown[] });
+      }
+      const items = await loadRevisions(editing.noteId);
+      if (mounted.current) setRevisions(items);
+    } catch (err) {
+      if (mounted.current) {
+        if (err instanceof ApiError && err.status === 409 && err.safeMessage === 'note_changed') {
+          setError(t('editor.errors.changed'));
+          try {
+            const current = cardFromApi(await ok(await (api as any).cards({ id: editing.id }).get()));
+            if (mounted.current) setLatest(current);
+          } catch { /* The local draft stays when the current card cannot be reloaded. */ }
+        } else if (err instanceof ApiError && err.safeMessage === 'note_type_changed') {
+          setBlockedRevisionIds((ids) => ids.includes(item.id) ? ids : [...ids, item.id]);
+          setError(t('editor.history.typeChanged'));
+        } else setError(t('editor.errors.saveFailed'));
+      }
+    } finally {
+      mutationLock.current = false;
+      if (mounted.current) setRestoringId(null);
+    }
+  };
+
   const handleDelete = async () => {
     if (!editing || mutationLock.current || localDraft.blocked || uploadCount.current > 0) return;
     mutationLock.current = true;
@@ -1051,6 +1159,25 @@ const CardFormEditor = ({
           />
 
         </div>
+
+        {editing && revisions.length > 0 && <div data-note-history style={{ marginTop: 16 }}>
+          {revisions.map((item) => {
+            const typeChanged = item.noteTypeId !== activeNoteType?.id || blockedRevisionIds.includes(item.id);
+            return (
+              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{revisionStamp(item.revisedAt, locale)}</div>
+                  <div style={{ fontSize: 13, overflowWrap: 'anywhere' }}>{item.label}</div>
+                  {typeChanged && <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 2 }}>{t('editor.history.typeChanged')}</div>}
+                </div>
+                <NNBtn size="sm" variant="ghost" disabled={typeChanged || saving || deleting || restoringId !== null || localDraft.blocked}
+                  loading={restoringId === item.id} onClick={() => void restoreRevision(item)}>
+                  {t('editor.history.restore')}
+                </NNBtn>
+              </div>
+            );
+          })}
+        </div>}
 
         {error && (
           <div role="alert" style={{
