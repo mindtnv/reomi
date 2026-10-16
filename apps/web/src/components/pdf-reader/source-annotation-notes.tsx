@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 import { useEffect, useState, useRef } from 'react';
 import { fetchMarks, updateMark } from '@/lib/pdf-annotations';
@@ -52,7 +53,7 @@ export function SourceAnnotationNotes({ sourceId, onOpen }: { sourceId: string; 
     {error && <p role="alert">{t('assistant.selectionSaveFailed')}</p>}
     {!marks.length && !error && <p>{t('notebooks.marks.noAnnotationNotes')}</p>}
     {marks.map(mark => <article key={mark.id}>
-      <button type="button" className="reomi-annotation-location" onClick={() => onOpen(mark)}>{t('notebooks.marks.pageGroup', { n: mark.page })} ↗</button>
+      <Button variant="bare" type="button" className="reomi-annotation-location" onClick={() => onOpen(mark)}>{t('notebooks.marks.pageGroup', { n: mark.page })} ↗</Button>
       <blockquote>{mark.quote}</blockquote>
       {editing === mark.id ? <><textarea aria-label={t('notebooks.marks.note')} rows={3} maxLength={MARK_NOTE_MAX} value={text} disabled={busy} onChange={event => setText(event.target.value)}/>
         <NNBtn size="sm" disabled={busy || !text.trim()} onClick={() => void save(mark.id)}>{t('notebooks.marks.noteSave')}</NNBtn></> : <>

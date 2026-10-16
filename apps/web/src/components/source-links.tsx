@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 // "Sources" backlink panel — the source passages a card was generated from
 // (NotebookLM M3), fed by GET /cards/:id/sources. Mounted in the cards-browser
@@ -90,7 +91,7 @@ export const SourceLinksPanel = ({ cardId }: { cardId: string }) => {
           const href=cardSourceHref(fresh);if(href)followCardSourceHref(href,(path)=>router.push(path));
         };
         return (
-          <button
+          <Button variant="bare"
             key={item.id}
             type="button"
             disabled={tombstone}
@@ -162,7 +163,7 @@ export const SourceLinksPanel = ({ cardId }: { cardId: string }) => {
             {Boolean(item.sourceSnapshot?.quote) && (item.sourceSnapshot?.kind === 'user_quote' || item.sourceSnapshot?.kind === 'user_selection') && <small>{t('chat.confirm.userQuoteEvidence')}</small>}
             {tombstone && item.snippet && <span style={{ fontSize: 12, whiteSpace: 'pre-wrap' }}>{item.snippet}</span>}
             {!tombstone && item.locationAvailable === false && <small>{t('assistant.anchorUnavailable')}</small>}
-          </button>
+          </Button>
         );
       })}
     </div>

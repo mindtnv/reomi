@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 import React, { useEffect, useState } from 'react';
 import { useT } from '@/lib/i18n';
@@ -71,8 +72,8 @@ export function InstallHint({
   if (resolvedPlatform !== 'chromium' || !event) return null;
   return (
     <div role="region" aria-label={t('settings.notifications.installTitle')} style={{ display: 'flex', gap: 8, padding: '8px 12px' }}>
-      <button type="button" onClick={() => { void event.prompt(); }}>{t('settings.notifications.installTitle')}</button>
-      <button
+      <Button variant="bare" type="button" onClick={() => { void event.prompt(); }}>{t('settings.notifications.installTitle')}</Button>
+      <Button variant="bare"
         type="button"
         onClick={() => {
           if (typeof localStorage !== 'undefined') writeBrowserValue(localStorage, DISMISS_KEY, '1');
@@ -80,7 +81,7 @@ export function InstallHint({
         }}
       >
         {t('settings.notifications.installDismiss')}
-      </button>
+      </Button>
     </div>
   );
 }

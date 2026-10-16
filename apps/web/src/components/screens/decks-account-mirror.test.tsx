@@ -14,7 +14,7 @@ const { createRoot } = await import('react-dom/client');
 const { NNDecks } = await import('./decks');
 
 const router = { push() {}, replace() {}, back() {}, forward() {}, refresh() {}, prefetch() {}, hmrRefresh() {}, bfcacheId: 'test' };
-const calls: Array<{ url: string; resolve: (response: Response) => void }> = [];
+const calls: Array<{ url: string; body?: string; resolve: (response: Response) => void }> = [];
 let root: Root;
 let host: HTMLDivElement;
 let oldFetch: typeof fetch;
@@ -44,8 +44,8 @@ async function flushMicrotasks() {
 
 function hangFetch() {
   calls.length = 0;
-  globalThis.fetch = ((input: RequestInfo | URL) => new Promise<Response>((resolve) => {
-    calls.push({ url: String(input), resolve });
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((resolve) => {
+    calls.push({ url: String(input), body: typeof init?.body === 'string' ? init.body : undefined, resolve });
   })) as unknown as typeof fetch;
 }
 
@@ -173,16 +173,13 @@ test('a previous move does not rewrite the deck tree after the same account sign
   latest('/deck-hierarchy')!.resolve(Response.json({ revision: 3, decks: keptDecks().map(apiDeck) }));
   await act(async () => { await flushMicrotasks(); });
   await act(async () => button('decks.move.drag').click());
-  const destination = host.querySelector('select[aria-label="decks.move.destination"]') as HTMLSelectElement;
+  const destination = host.querySelector('[aria-label^="decks.move.destination"]') as HTMLButtonElement;
   expect(destination).toBeTruthy();
-  await act(async () => {
-    const descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
-    descriptor!.set!.call(destination, 'deck-b');
-    destination.dispatchEvent(new Event('change', { bubbles: true }));
-  });
+  await act(async () => destination.click());
+  await act(async () => Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find((option) => option.textContent === 'Other')!.click());
   await act(async () => button('decks.move.apply').click());
   const move = latest('/move');
-  expect(move).toBeTruthy();
+  expect(JSON.parse(move?.body ?? '{}').targetId).toBe('deck-b');
   reauthenticate();
   move!.resolve(Response.json(applied([apiDeck(deck('deck-a', 'Alpha', { parentId: 'deck-b' })), apiDeck(deck('deck-b', 'Stolen'))])));
   await flushMicrotasks();

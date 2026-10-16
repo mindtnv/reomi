@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -143,9 +144,9 @@ export function SelectionPopover({ pageEls, handMode, onHighlight, onNote, onCar
     <header><span>{t('notebooks.marks.selectionTitle')} · {t('notebooks.marks.pageGroup', { n: info.page })}</span><NNBtn size="sm" variant="ghost" icon="x" ariaLabel={t('actions.close')} onClick={() => void layer.close()}/></header>
     <blockquote title={info.text}>{info.text}</blockquote>
     <div className="reomi-pdf-selection-colors" role="group" aria-label={t('notebooks.marks.highlightColors')}>
-      {SOURCE_MARK_COLORS.map(color => <button key={color} type="button" disabled={busy || markTooLong} aria-label={t(`notebooks.marks.color_${color}`)} title={t(markTooLong ? 'notebooks.marks.selectionTooLong' : `notebooks.marks.color_${color}`)} onClick={() => void run(() => onHighlight(info, color))}>
+      {SOURCE_MARK_COLORS.map(color => <Button variant="bare" key={color} type="button" disabled={busy || markTooLong} aria-label={t(`notebooks.marks.color_${color}`)} title={t(markTooLong ? 'notebooks.marks.selectionTooLong' : `notebooks.marks.color_${color}`)} onClick={() => void run(() => onHighlight(info, color))}>
         <span style={{ background: MARK_COLOR_CSS[color] }}/>
-      </button>)}
+      </Button>)}
     </div>
     <div className="reomi-pdf-selection-actions">
       <NNBtn variant="soft" size="sm" icon="chat" disabled={busy || askTooLong} title={askTooLong ? t('notebooks.marks.selectionTooLong') : undefined} onClick={() => void run(() => onAsk(info))}>{t('assistant.askObject')}</NNBtn>

@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { newUuidV7, OPERATION_GROUPS, type OperationItem, type OperationRetryInput } from '@reomi/shared';
@@ -18,12 +19,12 @@ export function OperationsButton({ mobile = false }: { mobile?: boolean }) {
   const t = useT();
   if (!context) return null;
   const count = context.snapshot.feed?.active.total ?? 0;
-  return <button type="button" className={mobile ? 'nn-operations-mobile-button' : 'nn-sidebar-nav-item nn-operations-button'}
+  return <Button variant="bare" type="button" className={mobile ? 'nn-operations-mobile-button' : 'nn-sidebar-nav-item nn-operations-button'}
     aria-label={count ? t('operations.count', { count }) : t('operations.title')}
     title={t('operations.title')} aria-haspopup="dialog" aria-expanded={context.open} onClick={event => { event.currentTarget.focus({ preventScroll: true }); context.setOpen(true); }}>
     <span className="nn-sidebar-nav-icon"><NNIcon name="clock" size={mobile ? 22 : 18} /></span><span className="nn-sidebar-label">{t('operations.title')}</span>
     {count > 0 && <><span className="nn-sidebar-badge nn-operations-count" aria-hidden="true">{count}</span><span className="nn-sidebar-badge-dot" aria-hidden="true" /></>}
-  </button>;
+  </Button>;
 }
 
 function OperationRow({ row, missing = false }: { row: OperationItem; missing?: boolean }) {

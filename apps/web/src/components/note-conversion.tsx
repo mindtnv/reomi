@@ -1,6 +1,8 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { TextInput } from '@/components/design-system/primitives';
+import { NNSelect } from '@/components/nn-select';
+
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -26,7 +28,7 @@ export function NoteConversionDialog({ cards, targetTypeId, onClose, onConverted
   const templateLabel = (template: { name: string; ord: number }, siblings: { name: string }[]) => siblings.filter((item) => item.name === template.name).length > 1 ? `${template.name} (${template.ord + 1})` : template.name;
   const convert = useNN((state) => state.convertNotes);
   const root = useRef<HTMLDivElement>(null);
-  const targetSelect = useRef<HTMLSelectElement>(null);
+  const targetSelect = useRef<HTMLButtonElement>(null);
   const previewHeading = useRef<HTMLHeadingElement>(null);
   useModalFocus(root);
   const alive = useRef(true); const lock = useRef(false);
@@ -98,25 +100,25 @@ export function NoteConversionDialog({ cards, targetTypeId, onClose, onConverted
       <header><div><small>{t(preview ? 'noteTypes.convert.stepReview' : 'noteTypes.convert.stepMapping')}</small><h2 id="note-conversion-title">{t('noteTypes.convert.title')}</h2></div><NNBtn onClick={() => void layer.close()} disabled={busy} variant="ghost" icon="x" ariaLabel={t('actions.cancel')} /></header>
       <p className="reomi-flow-intro">{t('noteTypes.convert.scope', { n: noteIds.length, source: typeLabel(source) })}</p>
       {!eligible ? <p role="alert">{t(noteIds.length > 200 ? 'noteTypes.convert.tooLarge' : 'noteTypes.convert.oneType')}</p> : !preview ? <fieldset disabled={busy} style={{ border: 0, padding: 0, display: 'grid', gap: 14 }}>
-        <label>{t('noteTypes.convert.target')}<select ref={targetSelect} aria-label={t('noteTypes.convert.target')} style={selectStyle} value={targetId} onChange={(event) => setTargetId(event.target.value)}>
-          <option value="">{t('noteTypes.convert.choose')}</option>{types.filter((type) => type.id !== source?.id).map((type) => <option key={type.id} value={type.id}>{typeLabel(type)}</option>)}
-        </select></label>
+        <label>{t('noteTypes.convert.target')}<NNSelect ref={targetSelect} ariaLabel={t('noteTypes.convert.target')} style={selectStyle} value={targetId} onChange={setTargetId}
+          options={[{ value: '', label: t('noteTypes.convert.choose') }, ...types.filter((type) => type.id !== source?.id).map((type) => ({ value: type.id, label: typeLabel(type) }))]} />
+        </label>
         {target && <>
           <h3>{t('noteTypes.convert.fields')}</h3>
-          {target.fields.map((field) => <label key={field.id}>{field.name}<select aria-label={t('noteTypes.convert.fieldLabel', { field: field.name })} style={selectStyle} value={fieldMap[field.name] ?? ''}
-            onChange={(event) => setFieldMap((current) => ({ ...current, [field.name]: event.target.value || null }))}>
-            <option value="">{t('noteTypes.convert.empty')}</option>{sourceNames.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select></label>)}
-          <label><input type="checkbox" checked={preserve} onChange={(event) => setPreserve(event.target.checked)} /> {t('noteTypes.convert.preserve')}</label>
+          {target.fields.map((field) => <label key={field.id}>{field.name}<NNSelect ariaLabel={t('noteTypes.convert.fieldLabel', { field: field.name })} style={selectStyle} value={fieldMap[field.name] ?? ''}
+            onChange={(value) => setFieldMap((current) => ({ ...current, [field.name]: value || null }))}
+            options={[{ value: '', label: t('noteTypes.convert.empty') }, ...sourceNames.map((name) => ({ value: name, label: name }))]} />
+          </label>)}
+          <label><TextInput type="checkbox" checked={preserve} onChange={(event) => setPreserve(event.target.checked)} /> {t('noteTypes.convert.preserve')}</label>
           <h3>{t('noteTypes.convert.cards')}</h3>
           <p>{t(compatible ? 'noteTypes.convert.mappingHint' : 'noteTypes.convert.reset')}</p>
-          {target.templates.map((template) => <label key={template.id}>{templateLabel(template, target.templates)}<select aria-label={t('noteTypes.convert.templateLabel', { template: templateLabel(template, target.templates) })} style={selectStyle}
-            disabled={!compatible} value={compatible ? templateMap[template.id!] ?? '' : ''} onChange={(event) => setTemplateMap((current) => ({ ...current, [template.id!]: event.target.value || null }))}>
-            <option value="">{t('noteTypes.convert.newCard')}</option>{source?.templates.map((prior) => <option key={prior.id} value={prior.id}>{templateLabel(prior, source.templates)}</option>)}
-          </select></label>)}
-          <label>{t('noteTypes.convert.newDeck')}<select aria-label={t('noteTypes.convert.newDeck')} style={selectStyle} value={newCardsDeckId} onChange={(event) => setNewCardsDeckId(event.target.value)}>
-            <option value="">{t('noteTypes.convert.inheritDeck')}</option>{decks.map((deck) => <option key={deck.id} value={deck.id}>{deckPathLabel(decks, deck.id)}</option>)}
-          </select><small>{t('noteTypes.convert.deckHint')}</small></label>
+          {target.templates.map((template) => <label key={template.id}>{templateLabel(template, target.templates)}<NNSelect ariaLabel={t('noteTypes.convert.templateLabel', { template: templateLabel(template, target.templates) })} style={selectStyle}
+            disabled={!compatible} value={compatible ? templateMap[template.id!] ?? '' : ''} onChange={(value) => setTemplateMap((current) => ({ ...current, [template.id!]: value || null }))}
+            options={[{ value: '', label: t('noteTypes.convert.newCard') }, ...(source?.templates ?? []).flatMap((prior) => prior.id ? [{ value: prior.id, label: templateLabel(prior, source?.templates ?? []) }] : [])]} />
+          </label>)}
+          <label>{t('noteTypes.convert.newDeck')}<NNSelect ariaLabel={t('noteTypes.convert.newDeck')} style={selectStyle} value={newCardsDeckId} onChange={setNewCardsDeckId}
+            options={[{ value: '', label: t('noteTypes.convert.inheritDeck') }, ...decks.map((deck) => ({ value: deck.id, label: deckPathLabel(decks, deck.id) }))]} />
+          <small>{t('noteTypes.convert.deckHint')}</small></label>
           <NNBtn variant="primary" onClick={() => run(false)}>{busy ? t('states.loading') : t('noteTypes.kind.preview')}</NNBtn>
         </>}
       </fieldset> : <>

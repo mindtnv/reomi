@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { TextInput } from '@/components/design-system/primitives';
+
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { NNAppPage } from '@/components/app-page';
@@ -23,7 +24,7 @@ function SavedStudy() {
   if (draftSlot) return <NNAppPage title={t('editor.draft.libraryTitle')}><StudyDraftRecovery slot={draftSlot} /></NNAppPage>;
   return <NNAppPage title={t('assistant.savedStudy')}>
     <div style={{ display: 'flex', gap: 16, padding: 12 }}><AppLink href="/library">{t('nav.library')}</AppLink>
-      <label><input type="checkbox" checked={unavailable} onChange={event => setUnavailable(event.target.checked)} /> {t('assistant.sourceUnavailable')}</label></div>
+      <label><TextInput type="checkbox" checked={unavailable} onChange={event => setUnavailable(event.target.checked)} /> {t('assistant.sourceUnavailable')}</label></div>
     <div style={{ display: 'flex', gap: 8, padding: 8 }}>
       <NNBtn active={tab === 'notes'} onClick={() => setTab('notes')}>{t('notebooks.notes.heading')}</NNBtn>
       <NNBtn active={tab === 'artifacts'} onClick={() => setTab('artifacts')}>{t('notebooks.studio.listHeading')}</NNBtn>

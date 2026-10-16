@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 // M5 — QuickCardDialog: selection → flashcard.
 // Opened from the selection popover («В карточку») or a mark's edit popover.
@@ -249,7 +250,7 @@ export function QuickCardDialog({
           >
             {t('notebooks.quickcard.title')}
           </span>
-          <button
+          <Button variant="bare"
             type="button"
             onClick={() => void layer.close()}
             aria-label="Close"
@@ -269,7 +270,7 @@ export function QuickCardDialog({
             }}
           >
             ×
-          </button>
+          </Button>
         </div>
 
         {/* Body */}
@@ -320,7 +321,7 @@ export function QuickCardDialog({
                 {t('notebooks.quickcard.frontLabel')}
               </label>
               {chatEnabled && quote && (
-                <button
+                <Button variant="bare"
                   type="button"
                   onClick={() => void handleFormulate()}
                   disabled={suggesting}
@@ -343,7 +344,7 @@ export function QuickCardDialog({
                   }}
                 >
                   {suggesting ? '…' : t('notebooks.quickcard.formulateBtn')}
-                </button>
+                </Button>
               )}
             </div>
             {suggestError && (
@@ -457,7 +458,7 @@ export function QuickCardDialog({
             ⌘↵
           </span>
           {/* Submit CTA */}
-          <button
+          <Button variant="bare"
             type="button"
             onClick={() => void handleSubmit()}
             disabled={!canSubmit}
@@ -477,7 +478,7 @@ export function QuickCardDialog({
             }}
           >
             {submitting ? t('notebooks.quickcard.creating') : t('notebooks.quickcard.createBtn')}
-          </button>
+          </Button>
         </div>
       </div>
     </div></LayerParent.Provider>

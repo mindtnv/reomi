@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { TextInput, Button } from '@/components/design-system/primitives';
+
 
 import { useState, useEffect, useRef, useMemo, useId } from 'react';
 import { useTransientLayer } from '@/lib/use-transient-layer';
@@ -128,7 +129,7 @@ export function CommandPalette({ defaultQuery = '', onClose }: { defaultQuery?: 
     }}>
     <div className="reomi-palette-search">
       <NNIcon name="search" size={20} />
-      <input ref={input} role="combobox" aria-label={t('overlays.palette.title')} aria-autocomplete="list" aria-expanded="true"
+      <TextInput ref={input} role="combobox" aria-label={t('overlays.palette.title')} aria-autocomplete="list" aria-expanded="true"
         aria-controls={listId} aria-activedescendant={selectedIndex >= 0 ? `${listId}-${selectedIndex}` : undefined}
         value={query} maxLength={200} placeholder={t('overlays.palette.searchPlaceholder')}
         onChange={event => { setQuery(event.target.value); setActiveId(null); list.current?.scrollTo({ top: 0 }); }}
@@ -141,7 +142,7 @@ export function CommandPalette({ defaultQuery = '', onClose }: { defaultQuery?: 
           }
         }} />
       {query && <NNBtn icon="x" ariaLabel={t('overlays.palette.clear')} title={t('overlays.palette.clear')} onClick={() => { setQuery(''); setActiveId(null); input.current?.focus(); }} />}
-      <button type="button" className="reomi-palette-close" aria-label={t('actions.close')} onClick={() => void layer.close()}><NNKbd>esc</NNKbd></button>
+      <Button variant="bare" type="button" className="reomi-palette-close" aria-label={t('actions.close')} onClick={() => void layer.close()}><NNKbd>esc</NNKbd></Button>
 
     </div>
     <div ref={list} id={listId} className="reomi-palette-results nn-scroll" role="listbox" aria-label={t('overlays.palette.results')} aria-busy={pending}>
@@ -157,7 +158,7 @@ export function CommandPalette({ defaultQuery = '', onClose }: { defaultQuery?: 
       {!items.length && !pending && <p className="reomi-palette-empty">{t('overlays.palette.noResults')} «{query}»</p>}
     </div>
     <div className="reomi-palette-status" role="status" aria-live="polite">
-      {pending ? t('overlays.palette.searching') : hasError ? <><span>{t('overlays.palette.partialError')}</span><button type="button" onClick={() => setRetry(value => value + 1)}>{t('overlays.palette.retry')}</button></> : t('overlays.palette.resultCount', { n: items.length })}
+      {pending ? t('overlays.palette.searching') : hasError ? <><span>{t('overlays.palette.partialError')}</span><Button variant="bare" type="button" onClick={() => setRetry(value => value + 1)}>{t('overlays.palette.retry')}</Button></> : t('overlays.palette.resultCount', { n: items.length })}
     </div>
     <footer className="reomi-palette-footer"><span><NNKbd>↑↓</NNKbd> {t('overlays.palette.hints.navigate')}</span><span><NNKbd>↵</NNKbd> {t('overlays.palette.hints.open')}</span><span><NNKbd>⌘ / Ctrl K</NNKbd> {t('overlays.palette.hints.toggle')}</span></footer>
   </dialog>;

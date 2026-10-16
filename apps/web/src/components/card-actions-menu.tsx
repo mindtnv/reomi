@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTransientLayer } from '@/lib/use-transient-layer';
@@ -43,9 +44,9 @@ export function CardActionsMenu({ x, y, label, closeLabel, actions, mobile, onCl
         const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
         buttons[next]?.focus();
       }}>
-      <div className="reomi-card-menu-heading"><span>{label}</span><button type="button" aria-label={closeLabel} onClick={() => void layer.close()}><NNIcon name="x" size={16}/></button></div>
-      {actions.map(action => <button key={action.label} type="button" role="menuitem" tabIndex={-1} disabled={action.disabled} data-danger={action.danger || undefined}
-        onClick={() => { void layer.close().then(closed => { if (closed) action.run(); }); }}><NNIcon name={action.icon} size={16} /><span>{action.label}</span></button>)}
+      <div className="reomi-card-menu-heading"><span>{label}</span><Button variant="bare" type="button" aria-label={closeLabel} onClick={() => void layer.close()}><NNIcon name="x" size={16}/></Button></div>
+      {actions.map(action => <Button variant="bare" key={action.label} type="button" role="menuitem" tabIndex={-1} disabled={action.disabled} data-danger={action.danger || undefined}
+        onClick={() => { void layer.close().then(closed => { if (closed) action.run(); }); }}><NNIcon name={action.icon} size={16} /><span>{action.label}</span></Button>)}
     </div>
   </>, document.body);
 }

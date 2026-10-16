@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { TextInput, Button } from '@/components/design-system/primitives';
+
 import { useState } from 'react';
 import { DECK_COLORS as COLOR_CATALOG } from '@reomi/shared';
 import { NNIcon } from './ui';
@@ -19,15 +20,15 @@ export function DeckAppearance({ icon, color, disabled, onIcon, onColor }: {
   const icons = DECK_ICONS.filter(value => `${t(`decks.icons.${value}`)} ${value}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   return <>
     <fieldset className="reomi-deck-icon-field"><legend>{t('decks.appearance.icon')}</legend>
-      <input className="reomi-input" aria-label={t('decks.appearance.search')} placeholder={t('decks.appearance.search')} value={query} onChange={event => setQuery(event.target.value)}/>
-      <div className="reomi-deck-icon-options nn-scroll">{icons.map(value => <button key={value} type="button" disabled={disabled}
+      <TextInput className="reomi-input" aria-label={t('decks.appearance.search')} placeholder={t('decks.appearance.search')} value={query} onChange={event => setQuery(event.target.value)}/>
+      <div className="reomi-deck-icon-options nn-scroll">{icons.map(value => <Button variant="bare" key={value} type="button" disabled={disabled}
         aria-label={t(`decks.icons.${value}`)} title={t(`decks.icons.${value}`)} aria-pressed={icon === value}
-        onClick={() => onIcon(value)} style={{ color: deckColorValue(color) }}><NNIcon name={value} size={22}/></button>)}</div>
+        onClick={() => onIcon(value)} style={{ color: deckColorValue(color) }}><NNIcon name={value} size={22}/></Button>)}</div>
     </fieldset>
     <fieldset className="reomi-color-field"><legend>{t('decks.color')}</legend>
-      <div className="reomi-color-options reomi-deck-color-options">{DECK_COLORS.map(value => <button key={value} type="button" disabled={disabled}
+      <div className="reomi-color-options reomi-deck-color-options">{DECK_COLORS.map(value => <Button variant="bare" key={value} type="button" disabled={disabled}
         aria-label={t(`decks.colors.${value}`)} title={t(`decks.colors.${value}`)} aria-pressed={color === value}
-        onClick={() => onColor(value)} style={{ background: deckColorValue(value) }}>{color === value && <NNIcon name="check" size={16}/>}</button>)}</div>
+        onClick={() => onColor(value)} style={{ background: deckColorValue(value) }}>{color === value && <NNIcon name="check" size={16}/>}</Button>)}</div>
     </fieldset>
   </>;
 }

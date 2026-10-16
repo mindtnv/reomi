@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { TextInput } from '@/components/design-system/primitives';
+
 import {useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import type {AssistantObjectSnapshot} from '@reomi/shared';
@@ -39,7 +40,7 @@ export function NotebookScopePicker({object,onApply}:{object:AssistantObjectSnap
       {loaded?<><div><NNBtn size="sm" disabled={busy} onClick={()=>setSelected(sources.map(source=>source.id))}>{t('assistant.selectAllSources')}</NNBtn>
         <NNBtn size="sm" disabled={busy} onClick={()=>setSelected([])}>{t('assistant.clearSources')}</NNBtn></div>
         <div className="nn-scroll" style={{maxHeight:260,overflowY:'auto'}}>{sources.map(source=><label key={source.id} style={{display:'flex',gap:8,padding:6}}>
-          <input type="checkbox" disabled={busy} checked={selected.includes(source.id)} onChange={event=>setSelected(ids=>event.target.checked?[...ids,source.id]:ids.filter(id=>id!==source.id))}/>{source.title}
+          <TextInput type="checkbox" disabled={busy} checked={selected.includes(source.id)} onChange={event=>setSelected(ids=>event.target.checked?[...ids,source.id]:ids.filter(id=>id!==source.id))}/>{source.title}
         </label>)}</div><small>{t('assistant.selectedSources',{count:selected.length})}</small></>:<p>{t('states.loading')}</p>}
       <div><NNBtn size="sm" disabled={busy||!loaded} onClick={()=>void save()}>{t('actions.save')}</NNBtn><NNBtn size="sm" variant="ghost" disabled={busy} onClick={()=>void layer.close()}>{t('actions.cancel')}</NNBtn></div>
     </div>,document.body)}</>;

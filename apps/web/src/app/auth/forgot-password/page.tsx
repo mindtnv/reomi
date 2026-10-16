@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { TextInput } from '@/components/design-system/primitives';
+
 
 import { useState } from 'react';
 import { apiErrorFromResponse } from '@/lib/api';
@@ -91,7 +92,7 @@ export default function ForgotPasswordPage() {
       {!sent && (
         <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <span style={{ fontSize: 12, color: 'var(--text-muted)', letterSpacing: 0.3 }}>Email</span>
-          <input
+          <TextInput
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}

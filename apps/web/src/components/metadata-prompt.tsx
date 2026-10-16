@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { TextInput } from '@/components/design-system/primitives';
+
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { UiActionResult } from '@reomi/shared';
 import { RecoverableSave } from '@/lib/recoverable-save';
@@ -83,7 +84,7 @@ export function MetadataPrompt({ owner, options, resolve, onClose }: { owner: st
       <form inert={asking} onSubmit={event => { event.preventDefault(); void submit(); }}>
         <label>{options.label ?? options.title}
           {options.multiline ? <textarea className="reomi-input" aria-label={options.label ?? options.title} value={value} maxLength={options.maxLength} rows={6} onChange={event => setValue(event.target.value)} />
-            : <input className="reomi-input" aria-label={options.label ?? options.title} value={value} maxLength={options.maxLength} onChange={event => setValue(event.target.value)} />}
+            : <TextInput className="reomi-input" aria-label={options.label ?? options.title} value={value} maxLength={options.maxLength} onChange={event => setValue(event.target.value)} />}
         </label>
         {error && <p role="alert">{error}</p>}
         <SaveFeedback status={snapshot.status} errorCode={snapshot.error} onRetry={() => void submit()} />

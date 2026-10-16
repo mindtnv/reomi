@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button, TextInput } from '@/components/design-system/primitives';
+
 
 // M4 — the floating reader toolbar (inside the reader panel, thumb-reachable on
 // iPad: ≥40 px touch targets). Tools hand/pen/highlighter/eraser, 6 colors, 3
@@ -65,7 +66,7 @@ const TBtn = ({
   title?: string;
   children: React.ReactNode;
 }) => (
-  <button
+  <Button variant="bare"
     type="button"
     onClick={onClick}
     disabled={disabled}
@@ -75,7 +76,7 @@ const TBtn = ({
     className={`nn-tb-btn${active ? ' active' : ''}`}
   >
     {children}
-  </button>
+  </Button>
 );
 
 export interface ReaderToolbarProps {
@@ -178,12 +179,12 @@ export const ReaderToolbar = ({
         <div className="reomi-reader-navigation" role="group" aria-label={t('notebooks.reader.navigationGroup')}>
           <div className="reomi-reader-group reomi-reader-zoom">
             <TBtn onClick={() => onZoom(-0.2)} title={t('notebooks.reader.zoomOut')}><ToolIcon name="zout" /></TBtn>
-            <button type="button" className="reomi-reader-zoom-value" onClick={onZoomReset} aria-label={t('notebooks.reader.zoomReset')}
-              data-tooltip={t('notebooks.reader.zoomReset')}>{Math.round(scale * 100)}%</button>
+            <Button variant="bare" type="button" className="reomi-reader-zoom-value" onClick={onZoomReset} aria-label={t('notebooks.reader.zoomReset')}
+              data-tooltip={t('notebooks.reader.zoomReset')}>{Math.round(scale * 100)}%</Button>
             <TBtn onClick={() => onZoom(0.2)} title={t('notebooks.reader.zoomIn')}><ToolIcon name="zin" /></TBtn>
           </div>
           <div className="reomi-reader-group reomi-reader-page">
-            <input type="number" min={1} max={total || 1} value={jumpVal}
+            <TextInput type="number" min={1} max={total || 1} value={jumpVal}
               onChange={event => setJumpVal(event.target.value)} onBlur={commitPage}
               onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); commitPage(); } }}
               aria-label={t('notebooks.reader.pageJump')} data-tooltip={t('notebooks.reader.pageJump')} />
@@ -196,10 +197,10 @@ export const ReaderToolbar = ({
       {showInkExtras && <div className="reomi-reader-ink-options nn-scroll" role="group" aria-label={t('notebooks.reader.inkOptions')}>
         <span className="reomi-reader-options-label">{t(tool === 'pen' ? 'notebooks.reader.toolPen' : 'notebooks.reader.toolHighlighter')}</span>
         <div className="reomi-reader-group">
-          {INK_COLORS.map(c => <button key={c.id} type="button" className="reomi-reader-color" onClick={() => onColor(c.hex)}
+          {INK_COLORS.map(c => <Button variant="bare" key={c.id} type="button" className="reomi-reader-color" onClick={() => onColor(c.hex)}
             aria-label={t(`notebooks.reader.color_${c.id}`)} data-tooltip={t(`notebooks.reader.color_${c.id}`)} aria-pressed={color === c.hex}>
             <span style={{ background: c.hex }} />
-          </button>)}
+          </Button>)}
         </div>
         <div className="reomi-reader-group reomi-reader-widths">
           {INK_WIDTHS.map((_, i) => <TBtn key={i} active={widthIdx === i} onClick={() => onWidth(i)} title={t('notebooks.reader.width', { n: i + 1 })}>
@@ -215,7 +216,7 @@ const SaveDot = ({ saveState, onRetry, t }: { saveState: SaveState; onRetry: () 
   if (saveState === 'idle') return null;
   if (saveState === 'error') {
     return (
-      <button
+      <Button variant="bare"
         type="button"
         onClick={onRetry}
         data-tooltip={t('notebooks.reader.saveError')}
@@ -238,7 +239,7 @@ const SaveDot = ({ saveState, onRetry, t }: { saveState: SaveState; onRetry: () 
       >
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--rose-400)', flexShrink: 0 }} />
         {t('notebooks.reader.saveError')}
-      </button>
+      </Button>
     );
   }
   const dotColor = saveState === 'saving' ? 'var(--amber-400)' : 'var(--lime-400)';

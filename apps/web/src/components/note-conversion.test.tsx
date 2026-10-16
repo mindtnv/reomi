@@ -85,8 +85,9 @@ test('a chosen destination deck must be acknowledged before the client offers ap
   let sent: any;
   globalThis.fetch = (async (_url: any, init: any) => { sent = JSON.parse(init.body); return Response.json(preview); }) as typeof fetch;
   await act(async () => root.render(<NoteConversionDialog cards={selected} targetTypeId="target" onClose={() => {}} onConverted={() => { throw new Error('must not apply'); }} />));
-  const deck = document.querySelector('[aria-label="noteTypes.convert.newDeck"]') as HTMLSelectElement;
-  await act(async () => { deck.value = 'new-deck'; deck.dispatchEvent(new Event('change', { bubbles: true })); });
+  const deck = document.querySelector('[aria-label^="noteTypes.convert.newDeck"]') as HTMLButtonElement;
+  await act(async () => deck.click());
+  await act(async () => Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find((option) => option.textContent === 'New questions')!.click());
   await act(async () => button('noteTypes.kind.preview').click());
   expect(sent.newCardsDeckId).toBe('new-deck');
   expect(document.querySelector('[role="dialog"]')?.textContent).toContain('noteTypes.convert.deckUnsupported');

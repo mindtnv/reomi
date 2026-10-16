@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { TextInput, Button } from '@/components/design-system/primitives';
+
 
 // NeuroNexus — Graph screen
 // Interactive knowledge graph: d3-force layout + d3-zoom pan/zoom + d3-drag nodes.
@@ -597,7 +598,7 @@ export const NNGraphForce = () => {
             }}
           >
             <NNIcon name="search" size={14} color="var(--text-muted)" />
-            <input
+            <TextInput
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t('graph.toolbar.findPlaceholder')}
@@ -612,7 +613,7 @@ export const NNGraphForce = () => {
               }}
             />
             {query && (
-              <button
+              <Button variant="bare"
                 onClick={() => setQuery('')}
                 aria-label={t('graph.toolbar.clearFind')}
                 style={{
@@ -625,7 +626,7 @@ export const NNGraphForce = () => {
                 }}
               >
                 <NNIcon name="x" size={12} />
-              </button>
+              </Button>
             )}
           </div>
           <div style={{ flex: 1 }} />
@@ -646,7 +647,7 @@ export const NNGraphForce = () => {
               {(['semantic', 'tags'] as const).map((src) => {
                 const active = edgeSource === src;
                 return (
-                  <button
+                  <Button variant="bare"
                     key={src}
                     onClick={() => pickEdgeSource(src)}
                     aria-pressed={active}
@@ -662,7 +663,7 @@ export const NNGraphForce = () => {
                     }}
                   >
                     {t(src === 'semantic' ? 'graph.toolbar.edgesSemantic' : 'graph.toolbar.edgesTags')}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -712,16 +713,16 @@ export const NNGraphForce = () => {
               marginBottom: 2,
             }}
           >
-            <button type="button" className="reomi-graph-legend-toggle"
+            <Button variant="bare" type="button" className="reomi-graph-legend-toggle"
               aria-expanded={legendOpen} aria-controls="graph-cluster-list"
               aria-label={t(legendOpen ? 'graph.legend.collapse' : 'graph.legend.expand')}
               onClick={() => setLegendExpanded(!legendOpen)}>
               <NNIcon name="stack" size={15} />{t('graph.legend.title')}
               {hiddenDecks.size > 0 && <span className="mono">{legendDecks.length - hiddenDecks.size}/{legendDecks.length}</span>}
               <span style={{ display: 'flex', transform: legendOpen ? 'rotate(180deg)' : undefined }}><NNIcon name="chevd" size={14} /></span>
-            </button>
+            </Button>
             {legendOpen && legendDecks.length > 1 && (
-              <button
+              <Button variant="bare"
                 onClick={toggleAll}
                 style={{
                   background: 'transparent',
@@ -735,7 +736,7 @@ export const NNGraphForce = () => {
                 }}
               >
                 {allHidden ? t('graph.toolbar.showAll') : t('graph.toolbar.hideAll')}
-              </button>
+              </Button>
             )}
           </div>
           <div id="graph-cluster-list" className="reomi-graph-legend-list nn-scroll" hidden={!legendOpen}
@@ -749,7 +750,7 @@ export const NNGraphForce = () => {
           {legendDecks.map((d) => {
             const hidden = hiddenDecks.has(d.id);
             return (
-              <button
+              <Button variant="bare"
                 key={d.id}
                 onClick={() => toggleDeck(d.id)}
                 aria-pressed={!hidden}
@@ -795,7 +796,7 @@ export const NNGraphForce = () => {
                 >
                   {deckCounts.get(d.id) ?? 0}
                 </span>
-              </button>
+              </Button>
             );
           })}
           </div>
@@ -825,7 +826,7 @@ export const NNGraphForce = () => {
             title={t('graph.controls.zoomIn')}
             style={{ borderRadius: 0, borderBottom: '1px solid var(--border)' }}
           />
-          <button
+          <Button variant="bare"
             onClick={resetZoom}
             data-tooltip={t('graph.controls.reset')}
             style={{
@@ -840,7 +841,7 @@ export const NNGraphForce = () => {
             }}
           >
             {zoomPct}%
-          </button>
+          </Button>
           <NNBtn
             size="sm"
             variant="ghost"
@@ -1031,7 +1032,7 @@ export const NNGraphForce = () => {
                 background: 'var(--border-2)',
               }}
             />
-            <button
+            <Button variant="bare"
               onClick={() => setSelectedId(null)}
               aria-label="Close"
               style={{
@@ -1052,7 +1053,7 @@ export const NNGraphForce = () => {
               }}
             >
               <NNIcon name="x" size={14} />
-            </button>
+            </Button>
           </div>
           <div style={{ overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
             {selectedNode && (
@@ -1223,7 +1224,7 @@ const NodeDetail = ({
           </div>
         )}
         {linkedCards.map((l, i) => (
-          <button
+          <Button variant="bare"
             key={l.id}
             onClick={() => onOpenLink?.(l.id)}
             style={{
@@ -1244,7 +1245,7 @@ const NodeDetail = ({
                 ? t('graph.detail.similarity', { pct: Math.round(l.score * 100) })
                 : `${l.shared} ${l.shared === 1 ? t('graph.detail.tagSingular') : t('graph.detail.tagPlural')}`}
             </NNBadge>
-          </button>
+          </Button>
         ))}
       </div>
 

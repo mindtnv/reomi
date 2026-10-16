@@ -1,6 +1,5 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
 
 import { useWorkspaceState } from '@/components/navigation';
 import { useNavigationScroll } from '@/lib/use-navigation-scroll';
@@ -25,7 +24,7 @@ import { AssistantAskButton } from '../chat/assistant-ask-button';
 import { NotePinButton } from './note-pin-button';
 import { WrittenNoteEditor } from './written-note-editor';
 import { useNN } from '@/lib/store';
-import { ReadingText, TextInput } from '@/components/design-system/primitives';
+import { ReadingText, TextInput, Button } from '@/components/design-system/primitives';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NNBtn, NNIcon, NNBadge, NNSkeleton } from '@/components/ui';
 import { renderCardHtml, SafeHtml } from '@/lib/render-card';
@@ -478,7 +477,7 @@ const NoteRow = ({
 }) => (
   <div className="nn-source-row" style={{ cursor: 'pointer' }}>
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-      <button
+      <Button variant="bare"
         type="button"
         onClick={onOpen}
         style={{
@@ -530,7 +529,7 @@ const NoteRow = ({
             {note.excerpt}
           </span>
         )}
-      </button>
+      </Button>
       <div className="nn-source-row-actions" style={{ display: 'flex', flexShrink: 0 }}>
         {pin}
       </div>

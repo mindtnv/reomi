@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { TextInput, Button } from '@/components/design-system/primitives';
+
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAssistantPageContext } from '@/components/chat/assistant-provider';
@@ -773,7 +774,7 @@ export const NNReviewClassic = () => {
         {/* Type input */}
         {isTypein && (
           <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {!submitted && <input
+            {!submitted && <TextInput
               ref={inputRef}
               type="text"
               aria-label={t('review.type.label')}
@@ -1045,7 +1046,7 @@ export const NNReviewClassic = () => {
               {RATINGS.map((r) => {
                 const preview = previews.cards[r.k];
                 return (
-                  <button
+                  <Button variant="bare"
                     key={r.k}
                     type="button" disabled={busy || queueLoading || cardUnavailable || dailyLimit || Boolean(pendingOperation&&pendingOperation.rating!==r.k)}
                     className="reomi-rating"
@@ -1086,7 +1087,7 @@ export const NNReviewClassic = () => {
                     >
                       ≈ {humanInterval(preview, previews.at, locale)}
                     </div>
-                  </button>
+                  </Button>
                 );
               })}
             </div>

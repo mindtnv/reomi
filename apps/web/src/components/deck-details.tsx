@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 import type { StudySummary } from '@reomi/shared';
 import type { Deck } from '@/lib/types';
 import { useStudyForecast } from '@/lib/use-study-overview';
@@ -40,7 +41,7 @@ export function DeckDetails({ deck, decks, counts, onBack, onAppearance }: {
   return <aside ref={position.ref} className="reomi-deck-details" aria-label={t('decks.details.title')}>
     <NNBtn className="reomi-deck-back" variant="ghost" icon="chevl" onClick={onBack}>{t('decks.details.back')}</NNBtn>
     <div className="reomi-deck-detail-heading">
-      <button className="reomi-deck-emblem" style={{ color: deckColorValue(deck.color) }} aria-label={t('decks.appearance.title')} onClick={onAppearance}><NNIcon name={deckIconName(deck.icon)} size={30}/></button>
+      <Button variant="bare" className="reomi-deck-emblem" style={{ color: deckColorValue(deck.color) }} aria-label={t('decks.appearance.title')} onClick={onAppearance}><NNIcon name={deckIconName(deck.icon)} size={30}/></Button>
       <div><p>{deckPathLabel(decks, deck.parentId) || t('decks.move.root')}</p><h2>{deck.name}</h2></div>
     </div>
     <div className="reomi-deck-detail-total"><strong>{counts?.total ?? '—'}</strong><span>{t('decks.stats.cards')}</span></div>

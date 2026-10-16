@@ -186,9 +186,16 @@ describe('organized deck workspace', () => {
   const deck = { id: 'deck', name: 'Study', color: 'lime' as const, species: 'fern' as const, createdAt: 0 };
   test('icon and color editor saves both and safe fallback renders unknown legacy icons', async () => {
     const writes: any[] = [];
+    let saved: Record<string, unknown> | null = null;
     const fallback = globalThis.fetch;
     globalThis.fetch = adaptRecoveryFetch((async (url: any, init?: RequestInit) => {
-      if (init?.method === 'PATCH') { const body = JSON.parse(String(init.body)); writes.push(body); return Response.json({ ...deck, ...body }); }
+      if (init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body));
+        writes.push(body);
+        saved = { ...deck, icon: 'legacy-emoji', ...body };
+        return Response.json(saved);
+      }
+      if (String(url).endsWith('/deck-hierarchy') && saved) return Response.json({ revision: 1, decks: [saved] });
       return fallback(url, init);
     }) as typeof fetch);
     useNN.setState({ decks: [{ ...deck, icon: 'legacy-emoji' }] });
@@ -206,17 +213,24 @@ describe('organized deck workspace', () => {
   test('keyboard menu offers explicit relative moves and excludes source descendants', async () => {
     useNN.setState({ decks: [deck, { ...deck,id:'child',name:'Child',parentId:'deck' },{...deck,id:'target',name:'Target'}] });
     const writes: any[] = [];
+    let moved: unknown[] | null = null;
     const fallback = globalThis.fetch;
     globalThis.fetch = adaptRecoveryFetch((async (url:any,init?:RequestInit) => {
-      if (String(url).endsWith('/deck/move')) { writes.push(JSON.parse(String(init?.body))); return Response.json([{...deck,parentId:'target',position:0},{...deck,id:'child',name:'Child',parentId:'deck'},{...deck,id:'target',name:'Target'}]); }
+      if (String(url).endsWith('/deck/move')) {
+        writes.push(JSON.parse(String(init?.body)));
+        moved = [{...deck,parentId:'target',position:0},{...deck,id:'child',name:'Child',parentId:'deck'},{...deck,id:'target',name:'Target'}];
+        return Response.json(moved);
+      }
+      if (String(url).endsWith('/deck-hierarchy') && moved) return Response.json({ revision: 1, decks: moved });
       return fallback(url,init);
     }) as typeof fetch);
     await render(<NNDecks />);
     await act(async () => container.querySelector('[data-deck-id="deck"]')!.dispatchEvent(new KeyboardEvent('keydown',{key:'F10',shiftKey:true,bubbles:true})));
     await act(async () => Array.from(document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')).find(b=>b.textContent==='Move deck')!.click());
-    const destination = container.querySelector<HTMLSelectElement>('dialog[open] select[aria-label="Destination"]')!;
-    expect(Array.from(destination.options).map(o=>o.value)).toEqual(['','target']);
-    await act(async () => { destination.value='target'; destination.dispatchEvent(new Event('change',{bubbles:true})); });
+    const destination = container.querySelector<HTMLButtonElement>('dialog[open] [aria-label="Destination, All decks"]')!;
+    await act(async () => destination.click());
+    expect([...document.querySelectorAll('[role="option"]')].map(option => option.textContent?.trim())).toEqual(['All decks', 'Target']);
+    await act(async () => [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(option => option.textContent?.trim() === 'Target')!.click());
     await act(async () => container.querySelector<HTMLButtonElement>('dialog[open] button[type="submit"]')!.click());
     expect(writes).toEqual([{targetId:'target',placement:'inside'}]);
     expect(useNN.getState().decks.find(d=>d.id==='deck')?.parentId).toBe('target');
@@ -224,8 +238,14 @@ describe('organized deck workspace', () => {
   test('desktop drag submits the indicated placement once and preserves subtree scope', async () => {
     useNN.setState({ decks:[deck,{...deck,id:'target',name:'Target'}] });
     const fallback = globalThis.fetch, writes:any[]=[];
+    let moved: unknown[] | null = null;
     globalThis.fetch = adaptRecoveryFetch((async (url:any,init?:RequestInit) => {
-      if (String(url).endsWith('/deck/move')) { writes.push(JSON.parse(String(init?.body))); return Response.json([{...deck,position:1},{...deck,id:'target',name:'Target',position:0}]); }
+      if (String(url).endsWith('/deck/move')) {
+        writes.push(JSON.parse(String(init?.body)));
+        moved = [{...deck,position:1},{...deck,id:'target',name:'Target',position:0}];
+        return Response.json(moved);
+      }
+      if (String(url).endsWith('/deck-hierarchy') && moved) return Response.json({ revision: 1, decks: moved });
       return fallback(url,init);
     }) as typeof fetch);
     await render(<NNDecks />);

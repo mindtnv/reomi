@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 // "Similar cards" panel — semantic neighbours of one card, fed by
 // GET /cards/:id/similar (stored-vector lookup, no runtime embedding call).
@@ -122,7 +123,7 @@ export function SimilarCardsList({ items, onOpen }: { items: SimilarItem[]; onOp
         const mirrored = cards.find((c) => c.id === item.cardId);
         const text = mirrored?.renderFrontText?.trim() || item.snippet;
         return (
-          <button
+          <Button variant="bare"
             key={item.cardId}
             type="button"
             onClick={() => onOpen(item.cardId)}
@@ -160,7 +161,7 @@ export function SimilarCardsList({ items, onOpen }: { items: SimilarItem[]; onOp
               {Math.round(item.score * 100)}%
             </NNBadge>
             <NNIcon name="chevr" size={12} color="var(--text-dim)" />
-          </button>
+          </Button>
         );
       })}
     </div>

@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { TextInput, Button } from '@/components/design-system/primitives';
+
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppNavigation } from '@/components/navigation';
@@ -180,7 +181,7 @@ const FilteredDeckForm = ({ initial, onClose, onSaved }: FilteredDeckFormProps) 
       {/* Name */}
       <div>
         <label style={labelStyle}>{t('review.customStudy.fieldName')}</label>
-        <input
+        <TextInput
           style={inputStyle}
           aria-label={t('review.customStudy.fieldName')}
           maxLength={100}
@@ -195,7 +196,7 @@ const FilteredDeckForm = ({ initial, onClose, onSaved }: FilteredDeckFormProps) 
       {/* Query */}
       <div>
         <label style={labelStyle}>{t('review.customStudy.fieldQuery')}</label>
-        <input
+        <TextInput
           style={{
             ...inputStyle,
             borderColor: queryError ? 'var(--rose-500)' : 'var(--border-2)',
@@ -235,7 +236,7 @@ const FilteredDeckForm = ({ initial, onClose, onSaved }: FilteredDeckFormProps) 
       {/* Card limit */}
       <div>
         <label style={labelStyle}>{t('review.customStudy.fieldCardLimit')}</label>
-        <input
+        <TextInput
           style={inputStyle}
           type="number"
           min={1}
@@ -393,7 +394,7 @@ export const NNCustomStudy = () => {
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {QUICK_ACTIONS.map((action) => (
-            <button
+            <Button variant="bare"
               key={action.nameKey}
               type="button"
               disabled={Boolean(quickBusy)}
@@ -444,7 +445,7 @@ export const NNCustomStudy = () => {
                 </div>
               </div>
               <NNIcon name="chevr" size={14} color="var(--text-dim)" />
-            </button>
+            </Button>
           ))}
         </div>
       </section>

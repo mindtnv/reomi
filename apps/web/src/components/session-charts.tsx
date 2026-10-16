@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 import { useMemo, useState } from 'react';
 import { useLocale, useT } from '@/lib/i18n';
 import { answerDurationGroups, type SessionAnswerSample } from '@/lib/session-charts';
@@ -44,14 +45,14 @@ export function SessionCharts({ grades, answers = [] }: { grades: Record<Rating,
       <p className="reomi-session-chart-subtitle">{t('session.charts.average', { seconds: seconds(meanMs) })}</p>
       <div className="reomi-duration-plot"><div className="reomi-duration-axis" aria-hidden><span>{seconds(maxMs)} {t('session.charts.seconds')}</span><span>0</span></div>
         <div className="reomi-duration-bars" aria-label={t('session.charts.order')}>
-          {groups.map((item, index) => <button key={item.first} type="button" aria-label={label(item)} title={label(item)} tabIndex={index === Math.min(active, groups.length - 1) ? 0 : -1}
+          {groups.map((item, index) => <Button variant="bare" key={item.first} type="button" aria-label={label(item)} title={label(item)} tabIndex={index === Math.min(active, groups.length - 1) ? 0 : -1}
             data-active={selected === item || undefined} onPointerEnter={() => setActive(index)} onFocus={() => setActive(index)} onClick={() => setActive(index)}
             onKeyDown={event => {
               const next = event.key === 'ArrowRight' ? Math.min(groups.length - 1, index + 1) : event.key === 'ArrowLeft' ? Math.max(0, index - 1) : event.key === 'Home' ? 0 : event.key === 'End' ? groups.length - 1 : null;
               if (next === null) return;
               event.preventDefault(); setActive(next);
               (event.currentTarget.parentElement?.children[next] as HTMLButtonElement | undefined)?.focus();
-            }}><span style={{ height: `${item.meanMs / maxMs * 100}%` }} /></button>)}
+            }}><span style={{ height: `${item.meanMs / maxMs * 100}%` }} /></Button>)}
         </div>
       </div>
       <div className="reomi-duration-range" aria-hidden style={{ paddingInline: groups.length > 1 ? `calc((100% - 46px) / ${2 * groups.length})` : 0, justifyContent: groups.length === 1 ? 'center' : 'space-between' }}><span>1</span>{groups.length > 1 && <span>{answers.length}</span>}</div>

@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { NNIcon, type IconName } from './ui';
@@ -46,9 +47,9 @@ function Toast({ toast, onDismiss }: { toast: ToastState; onDismiss: (id: string
     onFocus={() => setFocused(true)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setFocused(false); }}>
     <span className="reomi-toast-icon" aria-hidden><NNIcon name={meta.icon} size={17} /></span>
     <div className="reomi-toast-copy">{title && <strong>{title}</strong>}{description && <p>{description}</p>}
-      {toast.action && <button type="button" className="nn-toast-action" onClick={toast.action.onClick}>{toast.action.label}</button>}
+      {toast.action && <Button variant="bare" type="button" className="nn-toast-action" onClick={toast.action.onClick}>{toast.action.label}</Button>}
     </div>
-    <button type="button" aria-label={t('actions.close')} onClick={() => onDismiss(toast.id)}><NNIcon name="x" size={14} /></button>
+    <Button variant="bare" type="button" aria-label={t('actions.close')} onClick={() => onDismiss(toast.id)}><NNIcon name="x" size={14} /></Button>
   </div>;
 }
 export function ToastsStack() {

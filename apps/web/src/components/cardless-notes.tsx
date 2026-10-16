@@ -1,6 +1,5 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -11,6 +10,7 @@ import { useNN, type CardlessNote } from '@/lib/store';
 import type { Deck } from '@/lib/types';
 import { LayerParent, useTransientLayer } from '@/lib/use-transient-layer';
 import { useModalFocus } from '@/lib/use-modal-focus';
+import { NNSelect } from '@/components/nn-select';
 import { raiseToast } from './toasts';
 import { NNBtn, NNTag } from './ui';
 
@@ -247,15 +247,14 @@ function CardlessNotesDialog({ items, loadError, busyId, decks, deckByNote, rowE
                   </pre>
                   <label>
                     {t('cards.cardless.chooseDeck')}
-                    <select
-                      aria-label={t('cards.cardless.chooseDeck')}
+                    <NNSelect
+                      ariaLabel={t('cards.cardless.chooseDeck')}
                       style={selectStyle}
                       value={deckId}
                       disabled={!orderedDecks.length || busyId === note.id}
-                      onChange={(event) => onDeck(note.id, event.target.value)}
-                    >
-                      {orderedDecks.map((deck) => <option key={deck.id} value={deck.id}>{deckPathLabel(decks, deck.id)}</option>)}
-                    </select>
+                      onChange={(value) => onDeck(note.id, value)}
+                      options={orderedDecks.map((deck) => ({ value: deck.id, label: deckPathLabel(decks, deck.id) }))}
+                    />
                   </label>
                   {!orderedDecks.length && <p>{t('cards.cardless.noDeck')}</p>}
                   {rowError[note.id] && <p role="alert" style={{ color: 'var(--rose-400)' }}>{rowError[note.id]}</p>}

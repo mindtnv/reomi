@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button } from '@/components/design-system/primitives';
+
 import { InlineDeckCreate } from '../inline-deck-create';
 
 // Feature #2 — «Урожай выделений → карточки» wizard. Opened from the «Разметка»
@@ -203,7 +204,7 @@ export function HarvestWizard({ open, onClose, sourceId, locale, onApplied, t }:
           <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-sans)', letterSpacing: '-0.01em' }}>
             {t('notebooks.harvest.title')}
           </span>
-          <button
+          <Button variant="bare"
             type="button"
             onClick={onClose}
             aria-label={t('notebooks.harvest.cancel')}
@@ -214,7 +215,7 @@ export function HarvestWizard({ open, onClose, sourceId, locale, onApplied, t }:
             }}
           >
             ×
-          </button>
+          </Button>
         </div>
 
         {phase === 'loading' ? (
@@ -305,7 +306,7 @@ function WizardStep({
             {t('notebooks.harvest.cardOf', { n: index + 1, m: total })}
           </span>
           <div style={{ flex: 1 }} />
-          <button
+          <Button variant="bare"
             type="button"
             onClick={() => onChange({ include: !included })}
             style={{
@@ -317,7 +318,7 @@ function WizardStep({
             }}
           >
             {included ? t('notebooks.harvest.exclude') : t('notebooks.harvest.include')}
-          </button>
+          </Button>
         </div>
 
         {/* Deck picker */}
@@ -435,7 +436,7 @@ function ReviewStep({
           const d = decisions[i]!;
           const excluded = !d.include || d.front.trim().length === 0;
           return (
-            <button
+            <Button variant="bare"
               key={i}
               type="button"
               onClick={() => onJump(i)}
@@ -461,7 +462,7 @@ function ReviewStep({
                   {t('notebooks.harvest.excluded')}
                 </span>
               )}
-            </button>
+            </Button>
           );
         })}
       </div>

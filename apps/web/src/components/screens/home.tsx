@@ -1,11 +1,10 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAppNavigation } from '@/components/navigation';
 import { format } from 'date-fns';
-import { PageSurface } from '@/components/design-system/primitives';
+import { PageSurface, Button } from '@/components/design-system/primitives';
 
 import { NNBadge, NNBtn, NNCard, NNIcon, NNSkeleton } from '@/components/ui';
 import { useStudyForecast, useStudyOverview } from '@/lib/use-study-overview';
@@ -362,7 +361,7 @@ function HomeKnowledge({
               const letter = item.title.trim().charAt(0).toUpperCase() || '?';
               const pct = item.percent != null ? Math.round(item.percent * 100) : null;
               return (
-                <button
+                <Button variant="bare"
                   key={item.id}
                   type="button"
                   onClick={() => onOpen(`/library/${item.id}`)}
@@ -424,7 +423,7 @@ function HomeKnowledge({
                       </span>
                     )}
                   </span>
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -442,7 +441,7 @@ function HomeKnowledge({
             }}
           >
             {notebooks.slice(0, 3).map((nb) => (
-              <button
+              <Button variant="bare"
                 key={nb.id}
                 type="button"
                 onClick={() => onOpen(`/notebooks/${nb.id}`)}
@@ -486,14 +485,14 @@ function HomeKnowledge({
                     </span>
                   )}
                 </span>
-              </button>
+              </Button>
             ))}
           </div>
         </section>
       )}
 
       {chatEnabled && (
-        <button
+        <Button variant="bare"
           type="button"
           onClick={() => onOpen('/chat')}
           style={{
@@ -532,7 +531,7 @@ function HomeKnowledge({
             </span>
           </span>
           <NNIcon name="chevr" size={16} color="var(--text-dim)" />
-        </button>
+        </Button>
       )}
     </div>
   );

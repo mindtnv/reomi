@@ -1,6 +1,7 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
+import { Button, TextInput } from '@/components/design-system/primitives';
+
 
 import { Modal } from '../design-system/modal';
 import { useTransientLayer } from '@/lib/use-transient-layer';
@@ -520,7 +521,7 @@ const StudioTile = ({
   onClick?: () => void;
   t: Tfn;
 }) => (
-  <button
+  <Button variant="bare"
     type="button"
     className="nn-studio-tile"
     disabled={disabled}
@@ -549,7 +550,7 @@ const StudioTile = ({
       <span className="nn-studio-tile-name">{t(`notebooks.studio.type_${type}`)}</span>
       <span className="nn-studio-tile-desc">{t(`notebooks.studio.type_${type}Desc`)}</span>
     </span>
-  </button>
+  </Button>
 );
 
 // ── Artifact list row ─────────────────────────────────────────────────────────
@@ -607,7 +608,7 @@ const ArtifactRow = ({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button
+        <Button variant="bare"
           type="button"
           onClick={openable ? onOpen : undefined}
           disabled={!openable}
@@ -682,7 +683,7 @@ const ArtifactRow = ({
               </span>
             )}
           </span>
-        </button>
+        </Button>
         {/* In-flight → a cancel (delete) affordance; otherwise the ⋯ menu. */}
         {artifact.status === 'ready' && <AssistantAskButton object={{ kind: 'artifact', id: artifact.id }} compact />}
         {inFlight ? (
@@ -710,7 +711,7 @@ const ArtifactRow = ({
             {menuOpen && (
               <>
                 <div role="menu" aria-label={t('library.item.menu')} className="nn-lib-menu" style={{ right: 0, top: 'calc(100% + 4px)', minWidth: 180 }}>
-                  <button
+                  <Button variant="bare"
                     type="button"
                     className="nn-lib-menu-item"
                     disabled={!terminal || (artifact.ownerKind === 'source' && !artifact.sourceId)}
@@ -722,8 +723,8 @@ const ArtifactRow = ({
                   >
                     <NNIcon name="sync" size={14} color="var(--text-muted)" />
                     {t('notebooks.studio.regenerate')}
-                  </button>
-                  <button
+                  </Button>
+                  <Button variant="bare"
                     type="button"
                     className="nn-lib-menu-item"
                     onClick={() => {
@@ -733,7 +734,7 @@ const ArtifactRow = ({
                   >
                     <NNIcon name="x" size={14} color="var(--text-muted)" />
                     {t('notebooks.studio.delete')}
-                  </button>
+                  </Button>
                 </div>
               </>
             )}
@@ -800,20 +801,20 @@ const QuizCountDialog = ({
           {/* Presets */}
           <div style={{ display: 'flex', gap: 8 }}>
             {QUIZ_PRESETS.map((p) => (
-              <button
+              <Button variant="bare"
                 key={p}
                 type="button"
                 className={`nn-quiz-preset${count === p ? ' selected' : ''}`}
                 onClick={() => setCount(p)}
               >
                 {p}
-              </button>
+              </Button>
             ))}
           </div>
 
           {/* Slider + live value */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <input
+            <TextInput
               type="range"
               min={3}
               max={QUIZ_QUESTIONS_MAX}

@@ -1,6 +1,5 @@
 'use client';
 
-/* eslint-disable react/forbid-elements -- #78 */
 
 import { restoreLayerFocus } from '@/lib/use-transient-layer';
 
@@ -15,7 +14,7 @@ import { ThreadContextMenu } from './thread-context-menu';
 import { ResizeHandle } from '@/components/design-system/resize-handle';
 import { CHAT_RAIL, boundedPanelWidth, readChatRailWidth } from '@/lib/panel-width';
 import { writeBrowserValue } from '@/lib/storage-migration';
-import { TextInput } from '@/components/design-system/primitives';
+import { TextInput, Button } from '@/components/design-system/primitives';
 import { NNBtn, NNIcon, NNSkeleton } from '@/components/ui';
 import {
   conversationTitle,
@@ -181,7 +180,7 @@ export const ThreadRail = ({
             style={{ paddingLeft: 28, paddingRight: 28, minHeight: 34, fontSize: 12 }}
           />
           {hasQuery && (
-            <button
+            <Button variant="bare"
               type="button"
               aria-label={t('chat.threads.searchPlaceholder')}
               onClick={() => setSearch('')}
@@ -199,7 +198,7 @@ export const ThreadRail = ({
               }}
             >
               <NNIcon name="x" size={13} />
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -285,7 +284,7 @@ export const ThreadRail = ({
                     }}
                   >
                     {isRenaming ? (
-                      <input
+                      <TextInput
                         autoFocus
                         value={renameDraft}
                         maxLength={200}
@@ -364,7 +363,7 @@ export const ThreadRail = ({
                       </div>
                     )}
                     {!isRenaming && (
-                      <button type="button" className="reomi-thread-item-actions"
+                      <Button variant="bare" type="button" className="reomi-thread-item-actions"
                         aria-label={t('chat.threads.actions')} data-tooltip={t('chat.threads.actions')}
                         aria-haspopup="menu" aria-expanded={menu?.id === c.id}
                         onDoubleClick={event => event.stopPropagation()}
@@ -373,7 +372,7 @@ export const ThreadRail = ({
                           if (menu?.id === c.id) { closeMenu(true); return; }
                           const rect = event.currentTarget.getBoundingClientRect();
                           setMenu({ id: c.id, x: rect.right - 216, y: rect.bottom + 5, trigger: event.currentTarget });
-                        }}><NNIcon name="dots" size={17} /></button>
+                        }}><NNIcon name="dots" size={17} /></Button>
                     )}
                   </div>
                 );

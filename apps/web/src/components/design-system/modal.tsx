@@ -25,7 +25,7 @@ export function Modal({ open, title, description, closeLabel, closeIcon, initial
     if (open && !dialog.open) {
       dialog.showModal();
       if (initialFocus === 'panel') dialog.focus({ preventScroll: true });
-      else dialog.querySelector<HTMLElement>('input:not([type="hidden"]), textarea, select')?.focus();
+      else dialog.querySelector<HTMLElement>('input:not([type="hidden"]), textarea, select, .reomi-select')?.focus();
     }
     else if (!open && dialog.open) dialog.close();
     return () => { if (dialog.open) dialog.close(); };
