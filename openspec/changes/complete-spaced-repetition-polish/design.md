@@ -75,3 +75,9 @@ The browser's existing study-session module owns a bounded, account-scoped check
 Deploy the compatible API/migration before this slice's web client. Roll back web first; leave the additive operation table/receipts in place. The old grade route remains usable by old clients. User deletion cascades operation receipts. New database IDs use UUIDv7; no provider keys or additional environment configuration are needed. This dependency slice does not complete the rest of the 120-item SRS audit.
 
 Verification for the R2-049/050/051/052/059 dependency slice is recorded in `../archive/2026-09-23-preserve-navigation-context/acceptance.md`: migration-faithful full suite, receipt concurrency/undo isolation, all-engine recovery journeys, same-owner 401 recovery, peer edits and controlled wake/clock tests. Other items in this change remain independently tracked and open.
+
+## Study export and restore rehearsal (R2-103, R2-108)
+
+`GET /profile/export` is schemaVersion 1, read in one repeatable-read, read-only transaction. The first statement pins the snapshot, so a grade that commits during the read is wholly absent. The file adds presets, filtered decks, study-day policy, and a media manifest. Storage keys, push endpoints, and provider secrets stay out. Over 32 MiB the route returns 413 and no body.
+
+`POST /profile/export/rehearse` only reports counts. `applyStudySnapshot` refuses any database whose name does not contain `test` or `rehearsal`, then inserts original ids only into an account that has no study rows. A second apply returns `target_not_empty`. An incoherent file writes nothing. Image bytes stay in the bucket. That byte archive remains R2-104. There is no SQL migration. Rollback is reverting the API commit. The operator notes are in `docs/restore-rehearsal.md`.
