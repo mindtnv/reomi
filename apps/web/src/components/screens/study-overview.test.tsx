@@ -20,7 +20,7 @@ const { NNHome } = await import('./home');
 const { NNDecks } = await import('./decks');
 const { ReviewSessionDone } = await import('../review-session-done');
 
-const counts = { total: 601, newCount: 601, learningCount: 0, reviewCount: 0, suspendedCount: 0, dueLearning: 0, dueReview: 0, nextLearningAt: null, nextDueAt: null, newRemaining: 20, reviewRemaining: 200, availableNew: 20, availableReview: 0, totalAvailable: 20, limitedNew: 581, limitedReview: 0, serverNow: new Date().toISOString() };
+const counts = { total: 601, newCount: 601, learningCount: 0, reviewCount: 0, suspendedCount: 0, buriedCount: 0, dueBuried: 0, dueNew: 0, dueLearning: 0, dueReview: 0, nextLearningAt: null, nextDueAt: null, newRemaining: 20, reviewRemaining: 200, availableNew: 20, availableReview: 0, totalAvailable: 20, limitedNew: 581, limitedReview: 0, serverNow: new Date().toISOString() };
 const overview = { overall: counts, decks: { deck: counts }, direct: { deck: counts } };
 const navigations: string[] = [];
 const router = { bfcacheId: 'test', push(href: string) { navigations.push(href); }, replace() {}, back() {}, forward() {}, refresh() {}, prefetch() {}, hmrRefresh() {} };
@@ -160,6 +160,25 @@ describe('study overview screens', () => {
     const before = loads;
     await act(async () => window.dispatchEvent(new Event('focus')));
     expect(loads).toBeGreaterThan(before);
+  });
+
+  test('home refreshes study counts when this tab buries a card', async () => {
+    let loads = 0;
+    globalThis.fetch = adaptRecoveryFetch(((url: unknown) => {
+      if (String(url).includes('/study-summary')) {
+        loads++;
+        return Promise.resolve(Response.json({ ...overview, overall: { ...counts,
+          totalAvailable: loads === 1 ? 1 : 0, buriedCount: loads === 1 ? 0 : 1, serverNow: new Date().toISOString(),
+        } }));
+      }
+      return Promise.resolve(Response.json(String(url).includes('/stats/forecast') ? { days: 7, buckets: [], overdueCount: 0, total: 0 } : []));
+    }) as unknown as typeof fetch);
+    await render(<NNHome />);
+    expect(container.textContent).toContain('1cards due');
+    const before = loads;
+    await act(async () => window.dispatchEvent(new Event('nn:study:changed')));
+    expect(loads).toBeGreaterThan(before);
+    expect(container.textContent).toContain('0cards due');
   });
 
   test('inline results distinguish answers from cards and show active duration and grades', async () => {

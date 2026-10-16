@@ -19,9 +19,14 @@ function studyHref(href:unknown):href is string {
   const url=new URL(href,'https://study.invalid');
   return url.pathname==='/review'&&[...url.searchParams].every(([name,value])=>['deck','filteredDeckId'].includes(name)&&id(value));
 }
+function decodeHold(value:unknown):Card['hold'] {
+  if(!object(value)||typeof value.until!=='string'||value.until.length===0)return null;
+  if(value.reason!=='user'&&value.reason!=='sibling')return null;
+  return {until:value.until,reason:value.reason};
+}
 function compact(card:Card):Card {
   return {id:card.id,deckId:card.deckId,noteId:card.noteId,templateOrd:card.templateOrd,clozeNumber:card.clozeNumber,
-    renderKind:card.renderKind,renderText:'',renderFrontText:'',renderBackText:'',tags:[],suspended:card.suspended,
+    renderKind:card.renderKind,renderText:'',renderFrontText:'',renderBackText:'',tags:[],suspended:card.suspended,hold:card.hold??null,
     createdAt:card.createdAt,updatedAt:card.updatedAt,fsrs:card.fsrs};
 }
 function decodeCard(value:unknown):Card|null {
@@ -33,7 +38,7 @@ function decodeCard(value:unknown):Card|null {
   if(!Array.isArray(value.tags)||!value.tags.every(tag=>typeof tag==='string'))return null;
   if(value.note!=null&&(!object(value.note)||!object(value.note.fieldValues)||!Object.values(value.note.fieldValues).every(v=>typeof v==='string')))return null;
   if(value.noteType!=null&&(!object(value.noteType)||!Array.isArray(value.noteType.templates)||!value.noteType.templates.every(t=>object(t)&&typeof t.frontTemplate==='string'&&typeof t.backTemplate==='string')))return null;
-  return {...value,fsrs:{...fsrs,due:new Date(fsrs.due as string),last_review:fsrs.last_review?new Date(fsrs.last_review as string):undefined}} as unknown as Card;
+  return {...value,hold:decodeHold(value.hold),fsrs:{...fsrs,due:new Date(fsrs.due as string),last_review:fsrs.last_review?new Date(fsrs.last_review as string):undefined}} as unknown as Card;
 }
 function decode(value:unknown,owner:string):StudyCheckpoint|null {
   if(!object(value)||value.owner!==owner||!id(value.id)||!studyHref(value.href)||!object(value.session)||!object(value.view))return null;

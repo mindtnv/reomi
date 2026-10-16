@@ -9,6 +9,7 @@ import { useAppNavigation, useNavigationWorkspace, useWorkspaceState, Navigation
 import { format } from 'date-fns';
 import {
   buildCardPredicate,
+  holdIsActive,
   parseCardQuery,
   CardQueryError,
   stateLabel,
@@ -32,7 +33,7 @@ import { cardCreationDeck } from '@/lib/card-creation-deck';
 import { CardDetailPanel } from '@/components/card-detail-panel';
 
 import { RENDER_KIND_BADGE_TONE } from '@/lib/source-kind';
-import { mirrorAccountGeneration, useNN } from '@/lib/store';
+import { mirrorAccountGeneration, useNN, type CardHoldCommand } from '@/lib/store';
 import type { Card } from '@/lib/types';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useT, useDateLocale } from '@/lib/i18n';
@@ -76,6 +77,17 @@ const stateTone: Record<string, BadgeTone> = {
  * predicate consumes the server-rendered text VERBATIM and NEVER re-renders or
  * re-strips cloze).
  */
+function nextStudyInstant(cards: readonly Card[], after: number): number | null {
+  let soonest = Number.POSITIVE_INFINITY;
+  for (const card of cards) {
+    const due = new Date(card.fsrs.due).getTime();
+    if (due > after && due < soonest) soonest = due;
+    const until = card.hold ? Date.parse(card.hold.until) : Number.NaN;
+    if (until > after && until < soonest) soonest = until;
+  }
+  return Number.isFinite(soonest) ? soonest : null;
+}
+
 function toCardLike(card: Card): CardLike {
   return {
     renderText: card.renderText,
@@ -97,6 +109,7 @@ function toCardLike(card: Card): CardLike {
     stability: card.fsrs.stability ?? 0,
     difficulty: card.fsrs.difficulty ?? 0,
     scheduledDays: card.fsrs.scheduled_days ?? 0,
+    hold: card.hold ?? null,
   };
 }
 
@@ -130,6 +143,7 @@ export const NNCardsBrowser = () => {
   const noteTypes = useNN((s) => s.noteTypes);
   const searchCards = useNN((s) => s.searchCards);
   const bulkCards = useNN((s) => s.bulkCards);
+  const applyCardHold = useNN((s) => s.applyCardHold);
   const refetchCard = useNN((s) => s.refetchCard);
   const getCardTags = useNN((s) => s.getCardTags);
 
@@ -146,6 +160,7 @@ export const NNCardsBrowser = () => {
 
   // Hybrid completeness signal (must-fix #4): server results for the current `q`.
   const [serverResults, setServerResults] = useState<Card[] | null>(null);
+  const [browserNow, setBrowserNow] = useState(() => Date.now());
   const [serverQ, setServerQ] = useState<string | null>(null);
   const [serverKey, setServerKey] = useState<string | null>(null);
   useEffect(() => {
@@ -318,7 +333,7 @@ export const NNCardsBrowser = () => {
     try {
       const ast = parseCardQuery(query);
       return {
-        predicate: buildCardPredicate(ast, { now: Date.now(), resolveDeckIds }),
+        predicate: buildCardPredicate(ast, { now: browserNow, resolveDeckIds }),
         queryError: null as string | null,
       };
     } catch (err) {
@@ -326,7 +341,7 @@ export const NNCardsBrowser = () => {
       // On error, match nothing — but keep the previous render stable-ish.
       return { predicate: () => true, queryError: msg };
     }
-  }, [query, resolveDeckIds]);
+  }, [query, resolveDeckIds, browserNow]);
 
   // Client-side filtered + sorted view over the mirror (instant type-ahead).
   const clientFiltered = useMemo(() => {
@@ -351,10 +366,11 @@ export const NNCardsBrowser = () => {
   // The client mirror is only the cold-start fallback before the first response.
   const rows = useMemo(() => {
     if (serverResults !== null) {
-      return sortCards(serverResults, sortField, sortDir);
+      const matched = queryError ? serverResults : serverResults.filter((card) => predicate(toCardLike(card)));
+      return sortCards(matched, sortField, sortDir);
     }
     return clientFiltered;
-  }, [serverResults, clientFiltered, sortField, sortDir]);
+  }, [serverResults, clientFiltered, sortField, sortDir, predicate, queryError]);
 
   // More server pages exist beyond what's shown → render an honest "Load more"
   // and an "N+" count instead of silently capping at the page size.
@@ -405,6 +421,25 @@ export const NNCardsBrowser = () => {
 
   const latestSearch = useRef(runServerSearch);
   latestSearch.current = runServerSearch;
+
+  const nextClockWake = useMemo(
+    () => nextStudyInstant(serverResults ? [...cards, ...serverResults] : cards, browserNow),
+    [serverResults, cards, browserNow],
+  );
+  useEffect(() => {
+    if (nextClockWake == null) return;
+    const delay = Math.min(Math.max(0, nextClockWake - Date.now()), 2_147_000_000);
+    const timer = setTimeout(() => setBrowserNow(Date.now()), delay);
+    return () => clearTimeout(timer);
+  }, [nextClockWake]);
+  const seenClock = useRef(browserNow);
+  useEffect(() => {
+    if (seenClock.current === browserNow) return;
+    seenClock.current = browserNow;
+    if (queryError || !serverActive) return;
+    if (!/(?:^|\s)is:(?:buried|due)\b/.test(query)) return;
+    void latestSearch.current(query);
+  }, [browserNow, query, queryError, serverActive]);
 
   // Honest "Load more": fetch the next page from the cursor and APPEND it to the
   // displayed server results (no silent truncation at the 500-row cap).
@@ -692,6 +727,26 @@ export const NNCardsBrowser = () => {
   const gridTemplate = `28px 32px ${visibleColumns.map((c) => c.width).join(' ')}`;
 
   const selectedCards = rows.filter(card => selected.has(card.id));
+  const oneCard = selectedCards.length === 1 ? selectedCards[0] : null;
+  const holdCards = (build: (ids: string[]) => CardHoldCommand) =>
+    performBulk(async (ids) => { await applyCardHold(build(ids)); });
+  const noteHold = (action: 'bury' | 'unbury') => (ids: string[]): CardHoldCommand => {
+    const card = rows.find((row) => row.id === ids[0]);
+    if (ids.length !== 1 || !card) throw new Error('hold_note_needs_one_card');
+    return { action, noteId: card.noteId };
+  };
+  const holdActions: CardMenuAction[] = oneCard
+    ? [
+        holdIsActive(oneCard.hold, browserNow)
+          ? { label: t('cards.bulk.unbury'), icon: 'arrow', run: () => { void holdCards((ids) => ({ action: 'unbury', cardIds: ids })); } }
+          : { label: t('cards.bulk.bury'), icon: 'archive', run: () => { void holdCards((ids) => ({ action: 'bury', cardIds: ids })); } },
+        { label: t('cards.bulk.buryNote'), icon: 'archive', run: () => { void holdCards(noteHold('bury')); } },
+        { label: t('cards.bulk.unburyNote'), icon: 'arrow', run: () => { void holdCards(noteHold('unbury')); } },
+      ]
+    : [
+        { label: t('cards.bulk.bury'), icon: 'archive', run: () => { void holdCards((ids) => ({ action: 'bury', cardIds: ids })); } },
+        { label: t('cards.bulk.unbury'), icon: 'arrow', run: () => { void holdCards((ids) => ({ action: 'unbury', cardIds: ids })); } },
+      ];
   const cardActions: CardMenuAction[] = [
     ...(selectedCards.length === 1 ? [{ label: t('cards.panel.edit'), icon: 'edit', run: () => { void changeFocused(selectedCards[0].id); } }] : []),
     { label: t('noteTypes.convert.open'), icon: 'card-type', run: () => {
@@ -705,6 +760,7 @@ export const NNCardsBrowser = () => {
     ...(selectedCards.some(card => card.suspended) ? [{ label: t('cards.bulk.unsuspend'), icon: 'play', run: () => { void runBulk('unsuspend'); } }] : []),
     { label: t('cards.actions.setDue'), icon: 'clock', run: () => { void runSetDue(); } },
     { label: t('cards.actions.forget'), icon: 'sync', run: () => { void runForget(); } },
+    ...holdActions,
     { label: t('cards.bulk.delete'), icon: 'x', danger: true, run: () => { void runBulk('delete'); } },
   ].map(action => ({ ...action, disabled: actionsUnavailable }));
 
@@ -1069,6 +1125,7 @@ export const NNCardsBrowser = () => {
                         {col.id === 'question' && (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                             {card.suspended && <NNBadge tone="rose" size="xs">{t('cards.states.suspended')}</NNBadge>}
+                            {holdIsActive(card.hold, browserNow) && <NNBadge tone="amber" size="xs">{t('cards.states.buried')}</NNBadge>}
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{truncate(q)}</span>
                           </span>
                         )}

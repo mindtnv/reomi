@@ -48,6 +48,7 @@ const TABLES = [
   'sources',
   'notebooks',
   'reviews',
+  'card_holds',
   'cards',
   'note_operations',
   'notes',

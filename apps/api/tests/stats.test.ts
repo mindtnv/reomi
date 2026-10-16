@@ -218,6 +218,29 @@ describe('GET /stats/forecast', () => {
     const body = await getForecast(a.cookie);
     expect(body.total).toBe(1);
   });
+
+  test('a hold until tonight leaves the next study-day bucket and drops the overdue count', async () => {
+    const { cookie } = await signUpAndCookie(app, uniqueEmail());
+    await callApp(app, 'GET', '/profile', { cookie });
+    const deckId = await freshDeck(cookie);
+    const day = await (await callApp(app, 'GET', '/profile/study-day', { cookie })).json<{ label: string; endsAt: string }>();
+    const overdueHeld = await seedScheduledCard(cookie, deckId, { due: daysAgo(2) });
+    await seedScheduledCard(cookie, deckId, { due: daysAgo(2) });
+    const todayHeld = await seedScheduledCard(cookie, deckId, { due: new Date(NOW - 60_000) });
+    await seedScheduledCard(cookie, deckId, { due: new Date(NOW - 60_000) });
+    const nextHeld = await seedScheduledCard(cookie, deckId, { due: new Date(new Date(day.endsAt).getTime() + 3_600_000) });
+    await seedScheduledCard(cookie, deckId, { due: new Date(new Date(day.endsAt).getTime() + 3_600_000) });
+    const buried = await callApp(app, 'POST', '/cards/holds', {
+      cookie, body: { action: 'bury', cardIds: [overdueHeld, todayHeld, nextHeld] },
+    });
+    expect(buried.status).toBe(200);
+    expect(await buried.json()).toMatchObject({ until: day.endsAt });
+    const body = await getForecast(cookie, '?days=7');
+    expect(body.overdueCount).toBe(1);
+    expect(body.buckets.find((bucket) => bucket.day === day.label)?.count).toBe(1);
+    expect(body.buckets.find((bucket) => bucket.day !== day.label)?.count).toBe(2);
+    expect(body.total).toBe(3);
+  });
 });
 
 describe('GET /stats/retention', () => {

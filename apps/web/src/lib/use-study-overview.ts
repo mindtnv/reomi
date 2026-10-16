@@ -23,9 +23,11 @@ export function useStudyOverview() {
     const refreshVisible = () => { if (!document.hidden) reload(); };
     window.addEventListener('focus', refreshVisible);
     document.addEventListener('visibilitychange', refreshVisible);
+    window.addEventListener('nn:study:changed', refreshVisible);
     return () => {
       window.removeEventListener('focus', refreshVisible);
       document.removeEventListener('visibilitychange', refreshVisible);
+      window.removeEventListener('nn:study:changed', refreshVisible);
     };
   }, [bootstrapped, reload]);
 

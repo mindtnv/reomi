@@ -24,6 +24,9 @@
 export const MAX_QUERY_LENGTH = 1000;
 export const MAX_TERM_COUNT = 64;
 
+export const CARD_IS_VALUES = ['new', 'learn', 'review', 'due', 'suspended', 'buried'] as const;
+export type CardIsValue = (typeof CARD_IS_VALUES)[number];
+
 /**
  * Thrown for cap violations (query too long / too many terms). The API layer can
  * `instanceof CardQueryError` to return a 400 instead of a 500. Recoverable
@@ -65,7 +68,7 @@ export interface TermNode {
    *  - 'template'                           → card template name / ordinal
    *  - 'deck'                               → deck name (resolved to ids in ctx)
    *  - 'tag'                                → tag membership (`none`, prefix `foo*`)
-   *  - 'is'                                 → new|learn|review|due|suspended
+   *  - 'is'                                 → new|learn|review|due|suspended|buried
    *  - 'variant'                            → builtin note-type kind / name alias
    *  - 'added' | 'edited'                   → N (days)
    *  - 'prop'                               → reps|lapses|due|s|d|ivl (+ op)

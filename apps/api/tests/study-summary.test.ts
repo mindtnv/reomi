@@ -42,4 +42,22 @@ describe('study overview', () => {
     expect(other.decks).toEqual({});
     expect((await callApp(app, 'GET', '/cards/study-summary')).status).toBe(401);
   });
+
+  test('a non-suspended hold counts as buried and a suspended hold stays suspended', async () => {
+    const { cookie } = await signUpAndCookie(app, uniqueEmail());
+    const deck = await (await callApp(app, 'POST', '/decks', { cookie, body: { name: 'Holds' } })).json<{ id: string }>();
+    const held = await seedBasicCard(app, cookie, { deckId: deck.id, front: 'Held' });
+    const paused = await seedBasicCard(app, cookie, { deckId: deck.id, front: 'Paused' });
+    await db.update(cards).set({ suspended: true }).where(eq(cards.id, paused.id));
+    const buried = await callApp(app, 'POST', '/cards/holds', {
+      cookie, body: { action: 'bury', cardIds: [held.id, paused.id] },
+    });
+    expect(buried.status).toBe(200);
+    const summary = await (await callApp(app, 'GET', '/cards/study-summary', { cookie })).json<any>();
+    expect(summary.overall).toMatchObject({
+      total: 2, newCount: 0, learningCount: 0, reviewCount: 0, suspendedCount: 1, buriedCount: 1, dueBuried: 1,
+    });
+    const counts = summary.overall;
+    expect(counts.newCount + counts.learningCount + counts.reviewCount + counts.suspendedCount + counts.buriedCount).toBe(counts.total);
+  });
 });

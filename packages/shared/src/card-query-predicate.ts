@@ -10,6 +10,8 @@
 // with a pinned clock and stay in parity with the server (which passes the same
 // per-request `now`).
 
+import type { CardHoldView } from './card-hold.ts';
+import { holdIsActive } from './card-hold.ts';
 import type { CardState } from './index.ts';
 import { likeToRegex } from './card-query-match.ts';
 import type {
@@ -66,6 +68,7 @@ export interface CardLike {
   difficulty: number;
   /** FSRS scheduled interval in days; backs `prop:ivl`. */
   scheduledDays: number;
+  hold: CardHoldView | null;
 }
 
 export interface PredicateContext {
@@ -238,20 +241,23 @@ function tagMatch(tags: string[], value: string): boolean {
 // ── is: ───────────────────────────────────────────────────────────────────────
 
 function isMatch(value: string, card: CardLike, now: number): boolean {
+  const held = holdIsActive(card.hold, now);
   switch (value) {
     case 'new':
-      return card.state === 'new';
+      return card.state === 'new' && !held;
     case 'learn':
       // Anki's "learn" covers both learning and relearning queues.
-      return card.state === 'learning' || card.state === 'relearning';
+      return (card.state === 'learning' || card.state === 'relearning') && !held;
     case 'review':
-      return card.state === 'review';
+      return card.state === 'review' && !held;
     case 'due':
       // Due = scheduled at-or-before now AND not suspended (Critic C2 boundary
       // contract: `<=` is inclusive).
-      return card.due <= now && !card.suspended;
+      return card.due <= now && !card.suspended && !held;
     case 'suspended':
       return card.suspended;
+    case 'buried':
+      return held && !card.suspended;
     default:
       return false;
   }

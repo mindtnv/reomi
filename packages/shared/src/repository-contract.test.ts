@@ -53,7 +53,7 @@ describe('repository contracts', () => {
       readRepoFile('packages/db/src/migrations/meta/_journal.json'),
     ) as { entries: Array<{ tag: string }> };
     const head = journal.entries.at(-1)?.tag;
-    expect(head).toBe('0044_study_day');
+    expect(head).toBe('0045_card_holds');
     expect(journal.entries.some((row) => row.tag === '0042_youtube_source')).toBe(true);
     expect(journal.entries.some((row) => row.tag === '0043_topic_plan')).toBe(true);
 
@@ -298,6 +298,30 @@ describe('repository contracts', () => {
     walk(repoRoot);
     expect(hits).toEqual([]);
     expect(readRepoFile('packages/db/src/migrations/0007_builtin_note_types.sql')).toContain('@neuronexus/shared');
+  });
+
+  test('card hold writes stay in card-holds.ts', () => {
+    const hits: string[] = [];
+    const skip = new Set(['.git', 'node_modules', '.next', 'dist']);
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        if (skip.has(entry)) continue;
+        const path = join(dir, entry);
+        const rel = relative(repoRoot, path);
+        const stat = statSync(path);
+        if (stat.isDirectory()) {
+          walk(path);
+          continue;
+        }
+        if (!stat.isFile() || !/\.(ts|tsx|sql)$/.test(entry) || stat.size > 2_000_000) continue;
+        const text = readFileSync(path, 'utf8');
+        if (/(insert|update|delete)\(cardHolds\)/.test(text) && rel !== 'apps/api/src/modules/card-holds.ts') {
+          hits.push(rel);
+        }
+      }
+    };
+    walk(repoRoot);
+    expect(hits).toEqual([]);
   });
 
 });
