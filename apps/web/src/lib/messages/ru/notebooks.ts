@@ -112,6 +112,15 @@ const notebooks = {
     sourceScope: '{count} источников',
   },
 
+  plan: {
+    tab: 'План',
+    empty: 'Пока нет страниц',
+    ingesting: 'Ещё загружается',
+    readable: 'Можно читать',
+    unavailable: 'Недоступно',
+    open: 'Открыть',
+  },
+
   // «Блокноты 2.0» (N2) — таб «Обзор» (правый док, по умолчанию).
   overview: {
     tab: 'Обзор',

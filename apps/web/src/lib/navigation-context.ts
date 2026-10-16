@@ -1,3 +1,4 @@
+import { DOCK_TABS } from './plan-dock';
 import { readBrowserValue, removeBrowserValue, writeBrowserValue } from './storage-migration';
 /** Tab-local navigation metadata. Domain records and mutable work have other owners. */
 export const NAVIGATION_LIMITS = { entries: 64, entryBytes: 64 * 1024, bytes: 512 * 1024, depth: 16, pages: 20, rows: 10_000, restoreMs: 5000 } as const;
@@ -20,7 +21,7 @@ const rules: Record<string, Record<string, FieldRule>> = {
   cards: { query: 'text', sortField: ['created', 'updated', 'due', 'lapses', 'reps', 'front'], sortDir: ['asc', 'desc'], focusedId: 'id', filtersVisible: 'bool' },
   decks: { deckSearch: 'text', selectedId: 'id', collapsed: 'ids', filterCollapsed: 'ids' },
   notebooks: { search: 'text', archived: 'bool' },
-  notebook: { tab: ['chat', 'sources', 'dock'], dockTab: ['overview', 'studio', 'notes'], dockCollapsed:'bool', dockSheetOpen:'bool', noteId: 'id', artifactId: 'id', conversationId: 'id' },
+  notebook: { tab: ['chat', 'sources', 'dock'], dockTab: DOCK_TABS, dockCollapsed:'bool', dockSheetOpen:'bool', noteId: 'id', artifactId: 'id', conversationId: 'id' },
   source: { mode: ['pdf', 'text'], page: 'number', fraction: 'number', chunkId: 'id', chunkPos: 'number', tocOpen: 'bool', marksOpen: 'bool', cardsDrawerOpen:'bool', notesOpen: 'bool', studioOpen: 'bool', studyTab: ['notes', 'annotations', 'artifacts'], noteId: 'id', artifactId: 'id' },
   review: { sessionId: 'id', infoOpen: 'bool' },
 };

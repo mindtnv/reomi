@@ -2,10 +2,11 @@
 // These tests call the HTTP routes the way the client will.
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { count } from 'drizzle-orm';
-import { sql } from 'drizzle-orm';
+import { count, eq, sql } from 'drizzle-orm';
 import { cards, db, sources as sourcesTable } from '@reomi/db';
+import { studyModule } from '@reomi/shared';
 import { buildApp } from '../src/app.ts';
+import { drainSourceIngest } from '../src/ai/source-ingest.ts';
 import { __resetAiClientForTests, __setAiClientForTests } from '../src/ai/openai-client.ts';
 import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers.ts';
 
@@ -24,7 +25,8 @@ interface SavedPlan {
       title: string;
       outcome: string;
       prerequisiteIds: string[];
-      sources: Array<{ sourceId: string; title: string; status: string }>;
+      status: 'empty' | 'ingesting' | 'readable' | 'unavailable';
+      sources: Array<{ sourceId: string; title: string; openable: boolean }>;
     }>;
   };
 }
@@ -97,6 +99,7 @@ describe('topic plan storage', () => {
         title: 'Ownership',
         outcome: 'Explain who frees a value.',
         prerequisiteIds: [],
+        status: 'empty',
         sources: [],
       },
     ]);
@@ -176,7 +179,7 @@ describe('topic plan storage', () => {
     expect(saved.plan.modules.map((m) => m.id)[0]).toBe(keptId);
     expect(saved.plan.modules[1]!.id).not.toBe(keptId);
     expect(saved.plan.modules[1]!.prerequisiteIds).toEqual([keptId]);
-    expect(saved.plan.modules[0]!.sources).toEqual([]);
+    expect(saved.plan.modules[0]).toMatchObject({ status: 'empty', sources: [] });
   });
 
   test('a second save can drop a module without deleting its library source', async () => {
@@ -213,11 +216,27 @@ describe('topic plan storage', () => {
       values (${dropId}, ${source.id}, ${userId})
     `);
 
+    await drainSourceIngest({ timeoutMs: 4000 });
+    const [row] = await db
+      .select({
+        title: sourcesTable.title,
+        status: sourcesTable.status,
+        errorCode: sourcesTable.errorCode,
+      })
+      .from(sourcesTable)
+      .where(eq(sourcesTable.id, source.id));
+    const studied = studyModule([
+      {
+        sourceId: source.id,
+        title: row!.title,
+        status: row!.status,
+        errorCode: row!.errorCode,
+      },
+    ]);
     const before = await callApp(app, 'GET', `/notebooks/${first.notebook.id}/plan`, { cookie });
     const linked = await before.json<SavedPlan>();
-    expect(linked.plan.modules[0]!.sources).toEqual([
-      { sourceId: source.id, title: 'Rust book', status: linked.plan.modules[0]!.sources[0]!.status },
-    ]);
+    expect(linked.plan.modules[0]?.status).toBe(studied.status);
+    expect(linked.plan.modules[0]?.sources).toEqual([...studied.sources]);
 
     const second = await callApp(app, 'PUT', `/notebooks/${first.notebook.id}/plan`, {
       cookie,
@@ -231,7 +250,7 @@ describe('topic plan storage', () => {
     expect(second.status).toBe(200);
     const saved = await second.json<SavedPlan>();
     expect(saved.plan.modules.map((m) => m.id)).toEqual([keepId]);
-    expect(saved.plan.modules[0]!.sources).toEqual([]);
+    expect(saved.plan.modules[0]).toMatchObject({ status: 'empty', sources: [] });
 
     const stillThere = await callApp(app, 'GET', `/library/items/${source.id}`, { cookie });
     expect(stillThere.status).toBe(200);

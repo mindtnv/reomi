@@ -110,7 +110,7 @@ beforeEach(() => {
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     calls.push({ method: (init?.method ?? 'GET').toUpperCase(), url });
-    return Response.json({ chatEnabled: false, items: [], nextCursor: null, models: [] });
+    return Response.json({ chatEnabled: false, items: [], nextCursor: null, nextOffset: null, models: [] });
   }) as typeof fetch;
   useNN.setState({
     profile: { userId: 'plan-owner' } as never,

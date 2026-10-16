@@ -120,6 +120,15 @@ const notebooks = {
     sourceScope: '{count} sources',
   },
 
+  plan: {
+    tab: 'Plan',
+    empty: 'No pages yet',
+    ingesting: 'Still loading',
+    readable: 'Ready to read',
+    unavailable: 'Unavailable',
+    open: 'Open',
+  },
+
   // «Notebooks 2.0» (N2) — the Overview tab (right dock, default).
   overview: {
     tab: 'Overview',
