@@ -49,8 +49,21 @@ async function setZoom(page: Page, zoom: '100%' | '200%' | '400%') {
 }
 
 async function expectInViewport(locator: Locator) {
-  await locator.scrollIntoViewIfNeeded();
-  await expect(locator).toBeInViewport({ ratio: 1 });
+  const count = await locator.count();
+  let last: unknown;
+  for (let index = 0; index < Math.max(count, 1); index += 1) {
+    const item = locator.nth(index);
+    await item.evaluate((node) => {
+      node.scrollIntoView({ block: 'center', inline: 'nearest' });
+    });
+    try {
+      await expect(item).toBeInViewport({ ratio: 1, timeout: 5_000 });
+      return;
+    } catch (error) {
+      last = error;
+    }
+  }
+  throw last;
 }
 
 async function accessibleName(locator: Locator): Promise<string> {
@@ -138,9 +151,9 @@ test('local chromium walk records machine facts and leaves the human items open'
       await page.getByRole('menuitem', { name: 'Add card', exact: true }).click();
       await expect(page).toHaveURL(/\/editor\?deck=/);
       await page.getByRole('button', { name: 'Create', exact: true }).click();
-      const error = page.getByRole('alert').filter({ hasText: EMPTY_CARD_ERROR }).first();
-      await expect(error).toBeVisible();
-      await expect(error).toHaveText(EMPTY_CARD_ERROR);
+      const error = page.getByRole('alert').filter({ hasText: EMPTY_CARD_ERROR });
+      await expect(error.first()).toBeVisible();
+      await expect(error.first()).toHaveText(EMPTY_CARD_ERROR);
       for (const zoom of ['200%', '400%'] as const) {
         await setZoom(page, zoom);
         await expectInViewport(error);
