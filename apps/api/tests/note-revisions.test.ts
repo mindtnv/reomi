@@ -416,6 +416,42 @@ describe('note text revisions', () => {
     }
   });
 
+  test('another account gets 404 for list, preview, and restore and the owner text stays', async () => {
+    const { cookie, type, created } = await fixture();
+    const secret = 'owner-only-question-text';
+    const edited = await (await callApp(app, 'PATCH', `/notes/${created.note.id}`, { cookie, body: {
+      fieldValues: { Q: secret, A: 'answer' }, expectedUpdatedAt: created.note.updatedAt,
+    } })).json<any>();
+    const [revision] = await storedRevisions(created.note.id);
+    const other = await signUpAndCookie(app, uniqueEmail());
+    const stamp = { expectedUpdatedAt: edited.note.updatedAt, expectedTypeUpdatedAt: type.updatedAt };
+
+    const listed = await callApp(app, 'GET', `/notes/${created.note.id}/revisions`, { cookie: other.cookie });
+    expect(listed.status).toBe(404);
+    expect(await listed.json()).toEqual({ error: 'not_found' });
+
+    const preview = await callApp(app, 'POST', `/notes/${created.note.id}/revisions/${revision!.id}/restore`, {
+      cookie: other.cookie, body: { ...stamp, preview: true },
+    });
+    expect(preview.status).toBe(404);
+    const previewBody = await preview.json();
+    expect(previewBody).toEqual({ error: 'not_found' });
+    expect(JSON.stringify(previewBody)).not.toContain(secret);
+    expect(JSON.stringify(previewBody)).not.toContain('question');
+
+    const restored = await callApp(app, 'POST', `/notes/${created.note.id}/revisions/${revision!.id}/restore`, {
+      cookie: other.cookie, body: stamp,
+    });
+    expect(restored.status).toBe(404);
+    expect(await restored.json()).toEqual({ error: 'not_found' });
+
+    const ownerList = await callApp(app, 'GET', `/notes/${created.note.id}/revisions`, { cookie });
+    expect(ownerList.status).toBe(200);
+    const [note] = await db.select().from(notes).where(eq(notes.id, created.note.id));
+    expect(note!.fieldValues).toEqual({ Q: secret, A: 'answer' });
+    expect(await storedRevisions(created.note.id)).toHaveLength(1);
+  });
+
   test('only the revision module assigns note field values or tags', () => {
     const offenders = productionSources().flatMap((file) => {
       const text = stripComments(readFileSync(file, 'utf8'));
