@@ -56,7 +56,7 @@ Decide what kind of message this is:
  * variant omits them (its registry has only create_card).
  */
 function topicPlanRoutingLine(): string {
-  return '- Call `propose_topic_plan` when the user wants to learn a topic (for example "I want to learn Kubernetes"). Pass the goal. Omit modules to draft the plan. A later correction is another `propose_topic_plan` call with the revised modules. After the user agrees, call `create_topic_plan` with the same modules and URLs. Do not create the notebook any other way.';
+  return '- Call `propose_topic_plan` when the user wants to learn a topic (for example "I want to learn Kubernetes"). Pass the goal. Omit modules to draft the plan. A later correction is another `propose_topic_plan` call with the revised modules. After the user agrees, call `create_topic_plan` with the same modules and URLs. Keep each URL path. Do not replace a teaching page with the site root. Do not create the notebook any other way.';
 }
 
 function writeWorkflowBlock(includeSrs: boolean): string {

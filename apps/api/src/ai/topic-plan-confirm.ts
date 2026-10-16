@@ -18,6 +18,7 @@ interface ConfirmModule {
   outcome: string;
   prerequisiteIndexes?: number[];
   urls?: string[];
+  needsPages?: boolean;
 }
 
 interface ConfirmBody {
@@ -50,11 +51,13 @@ function readBody(raw: unknown): ConfirmBody | null {
       if (module.urls.some((url) => typeof url !== 'string')) return null;
       urls = module.urls;
     }
+    if (module.needsPages !== undefined && typeof module.needsPages !== 'boolean') return null;
     modules.push({
       title: module.title,
       outcome: module.outcome,
       prerequisiteIndexes,
       urls,
+      ...(module.needsPages === true ? { needsPages: true } : {}),
     });
   }
 
@@ -69,7 +72,19 @@ function refusal(error: string): ToolResult {
   return { ok: false, error };
 }
 
+/** A needsPages module with no URL still has nowhere to read. Name those modules. */
+function pagesNeededError(modules: ConfirmModule[]): string | null {
+  const titles = modules
+    .filter((module) => module.needsPages === true && (module.urls?.length ?? 0) === 0)
+    .map((module) => module.title.trim())
+    .filter((title) => title.length > 0);
+  if (titles.length === 0) return null;
+  return `These modules still need a teaching page: ${titles.join('; ')}. Add a page URL for each, or remove the module.`;
+}
+
 async function storePlan(userId: string, body: ConfirmBody): Promise<{ ok: true; text: string } | ToolResult> {
+  const needed = pagesNeededError(body.modules);
+  if (needed) return refusal(needed);
   const parsed = parsePlanBody(body);
   if (!parsed.ok) return refusal(parsed.error);
   let saved;
@@ -120,7 +135,17 @@ export const createTopicPlan: Tool = {
             title: { type: 'string' },
             outcome: { type: 'string' },
             prerequisiteIndexes: { type: 'array', items: { type: 'integer' } },
-            urls: { type: 'array', items: { type: 'string' } },
+            urls: {
+              type: 'array',
+              description:
+                'The same specific pages the user agreed to. Keep each path. Do not replace a teaching page with the site root, homepage, or documentation index.',
+              items: { type: 'string' },
+            },
+            needsPages: {
+              type: 'boolean',
+              description:
+                'Keep this from the proposal. True means no teaching page was found. Do not save that module until it has a page URL, or remove the module.',
+            },
           },
           required: ['title', 'outcome'],
         },
@@ -133,6 +158,8 @@ export const createTopicPlan: Tool = {
     if (!body) return invalid;
     const parsed = parsePlanBody(body);
     if (!parsed.ok) return refusal(parsed.error);
+    const needed = pagesNeededError(body.modules);
+    if (needed) return refusal(needed);
     return { ok: true };
   },
   async dryRun() {

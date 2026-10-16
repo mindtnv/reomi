@@ -18,6 +18,7 @@ interface DraftModule {
   outcome: string;
   prerequisiteIndexes: number[];
   urls: string[];
+  needsPages?: boolean;
 }
 
 interface DraftBody {
@@ -222,6 +223,84 @@ describe('topic plan draft', () => {
       'GET',
     ]);
     expect(await accountCounts()).toEqual(before);
+  });
+
+  test('a draft keeps each teaching page when that page redirects to the docs origin', async () => {
+    const teachingPages = [
+      'https://docs.example.com/learn/ownership',
+      'https://docs.example.com/learn/borrowing',
+      'https://docs.example.com/learn/lifetimes',
+      'https://docs.example.com/learn/traits',
+    ];
+    installComplete(
+      JSON.stringify({
+        modules: teachingPages.map((url, index) => moduleAt(index, [url])),
+      }),
+    );
+    __setPageFetchForTests(async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname === '/') return new Response(null, { status: 200 });
+      return new Response(null, {
+        status: 302,
+        headers: { location: 'https://docs.example.com/' },
+      });
+    });
+    const before = await accountCounts();
+    const { cookie } = await signUpAndCookie(app, uniqueEmail());
+    const res = await callApp(app, 'POST', '/notebooks/plan-drafts', {
+      cookie,
+      body: { goal: 'Learn Rust' },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json<DraftBody>();
+    expect(body.modules.map((module) => module.urls)).toEqual(teachingPages.map((url) => [url]));
+    const paths = body.modules.map((module) => new URL(module.urls[0]!).pathname);
+    expect(new Set(paths).size).toBe(paths.length);
+    expect(paths.every((path) => path !== '/')).toBe(true);
+    expect(body.modules.some((module) => module.needsPages)).toBe(false);
+    expect(await accountCounts()).toEqual(before);
+  });
+
+  test('a draft that only returns documentation roots does not store them', async () => {
+    installComplete(
+      JSON.stringify({
+        modules: [0, 1, 2, 3].map((index) => moduleAt(index, ['https://docs.example.com/'])),
+      }),
+    );
+    __setPageFetchForTests(async () => new Response(null, { status: 200 }));
+    const before = await accountCounts();
+    const { cookie } = await signUpAndCookie(app, uniqueEmail());
+    const res = await callApp(app, 'POST', '/notebooks/plan-drafts', {
+      cookie,
+      body: { goal: 'Learn Rust' },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json<DraftBody>();
+    expect(body.modules.map((module) => module.urls)).toEqual([[], [], [], []]);
+    expect(body.modules.every((module) => module.needsPages === true)).toBe(true);
+    expect(await accountCounts()).toEqual(before);
+  });
+
+  test('a draft drops a docs root when the module also has a teaching page', async () => {
+    installComplete(
+      JSON.stringify(
+        fourModules(['https://docs.example.com/', 'https://docs.example.com/learn/ownership']),
+      ),
+    );
+    __setPageFetchForTests(async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname === '/') return new Response(null, { status: 200 });
+      return new Response(null, { status: 200 });
+    });
+    const { cookie } = await signUpAndCookie(app, uniqueEmail());
+    const res = await callApp(app, 'POST', '/notebooks/plan-drafts', {
+      cookie,
+      body: { goal: 'Learn Rust' },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json<DraftBody>();
+    expect(body.modules[0]?.urls).toEqual(['https://docs.example.com/learn/ownership']);
+    expect(body.modules[0]?.needsPages).toBeUndefined();
   });
 
   test('test mode does not cooldown a second draft', async () => {
