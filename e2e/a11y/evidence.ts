@@ -139,16 +139,21 @@ for (const entry of HUMAN_ROWS) {
   }
 }
 
-const RATING_LABELS = ['1 Again', '2 Hard', '3 Good', '4 Easy'] as const;
+const GLUED_RATINGS = [
+  ['1Again', '1 Again'],
+  ['2Hard', '2 Hard'],
+  ['3Good', '3 Good'],
+  ['4Easy', '4 Easy'],
+] as const;
 
-export type RatingLabel = (typeof RATING_LABELS)[number];
+export type RatingLabel = (typeof GLUED_RATINGS)[number][1];
 
 export type FocusLabel = { kind: 'label'; label: RatingLabel } | { kind: 'raw'; text: string };
 
 export function focusLabel(name: string): FocusLabel {
   const text = name.trim();
-  const match = RATING_LABELS.filter((label) => text.startsWith(label)).sort((a, b) => b.length - a.length)[0];
-  if (match) return { kind: 'label', label: match };
+  const match = GLUED_RATINGS.find(([prefix]) => text.startsWith(prefix));
+  if (match) return { kind: 'label', label: match[1] };
   return { kind: 'raw', text };
 }
 

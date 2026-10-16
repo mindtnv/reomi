@@ -50,7 +50,7 @@ async function setZoom(page: Page, zoom: '100%' | '200%' | '400%') {
 
 async function expectInViewport(locator: Locator) {
   await locator.scrollIntoViewIfNeeded();
-  await expect(locator).toBeInViewport();
+  await expect(locator).toBeInViewport({ ratio: 1 });
 }
 
 async function accessibleName(locator: Locator): Promise<string> {
