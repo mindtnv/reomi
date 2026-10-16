@@ -3,7 +3,7 @@ import { and, asc, eq, inArray, sql, type SQL, type SQLWrapper } from 'drizzle-o
 import { cards, db, notes, profile } from '@reomi/db';
 import { StudyDayError, type CardHoldView, type HoldReason } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin.ts';
-import { readAccountStudyDay, type SqlExecutor } from './study-day.ts';
+import { readAccountStudyDay, readDatabaseNow, type SqlExecutor } from './study-day.ts';
 
 export const MAX_HOLD_CARDS = 1000;
 
@@ -217,7 +217,7 @@ export const cardHoldsModule = new Elysia()
     async ({ user, body }) => {
       const command = commandFrom(body);
       if (!command) return status(400, { error: 'invalid_hold' });
-      const result = await applyUserHold(user.id, command, new Date());
+      const result = await applyUserHold(user.id, command, await readDatabaseNow());
       if (!result.ok) return status(result.code, { error: result.error });
       return {
         action: result.action,

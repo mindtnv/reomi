@@ -136,6 +136,44 @@ test('a held card shows Buried beside its schedule and offers bring back', async
   expect(labels).toContain('cards.bulk.unburyNote');
 });
 
+test('is:buried and the Buried badge clear together when the hold ends', async () => {
+  const deadline = new Date(Date.now() + 150).toISOString();
+  const card = browserCard('card-a', 'Expiring question', { until: deadline, reason: 'user' });
+  install([card]);
+  await act(async () => root.render(
+    <AppRouterContext.Provider value={router}>
+      <PathnameContext.Provider value="/cards">
+        <SearchParamsContext.Provider value={new URLSearchParams('q=is:buried')}>
+          <AppNavigationProvider><DialogProvider><NNCardsBrowser /></DialogProvider></AppNavigationProvider>
+        </SearchParamsContext.Provider>
+      </PathnameContext.Provider>
+    </AppRouterContext.Provider>,
+  ));
+  expect(host.querySelector('[data-card-row="card-a"]')?.textContent).toContain('cards.states.buried');
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 400)); });
+  expect(host.querySelector('[data-card-row="card-a"]')).toBeNull();
+});
+
+test('is:due hides a buried card and shows it again without the Buried badge', async () => {
+  const deadline = new Date(Date.now() + 150).toISOString();
+  const card = browserCard('card-a', 'Due question', { until: deadline, reason: 'user' });
+  install([card]);
+  await act(async () => root.render(
+    <AppRouterContext.Provider value={router}>
+      <PathnameContext.Provider value="/cards">
+        <SearchParamsContext.Provider value={new URLSearchParams('q=is:due')}>
+          <AppNavigationProvider><DialogProvider><NNCardsBrowser /></DialogProvider></AppNavigationProvider>
+        </SearchParamsContext.Provider>
+      </PathnameContext.Provider>
+    </AppRouterContext.Provider>,
+  ));
+  expect(host.querySelector('[data-card-row="card-a"]')).toBeNull();
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 400)); });
+  const row = host.querySelector('[data-card-row="card-a"]');
+  expect(row).toBeTruthy();
+  expect(row?.textContent).not.toContain('cards.states.buried');
+});
+
 test('several selected cards bury or bring back the selection and not the note', async () => {
   const cards = [browserCard('card-a', 'First', null), browserCard('card-b', 'Second', { until, reason: 'user' })];
   install(cards);

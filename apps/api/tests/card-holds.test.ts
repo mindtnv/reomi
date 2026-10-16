@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { cards, db, profile, reviews } from '@reomi/db';
+import { cards, db, profile, reviews, studyDayPolicy } from '@reomi/db';
+import { parseStudyDayPolicy, readStudyDay, type StudyLedger } from '@reomi/shared';
 import { eq, sql } from 'drizzle-orm';
 import { buildApp } from '../src/app.ts';
 import { listDecksWithCounts } from '../src/modules/cards.ts';
+import { __setDatabaseNowForTests } from '../src/modules/study-day.ts';
 import { callApp, resetTestDb, seedBasicCard, seedNote, signUpAndCookie, uniqueEmail } from './helpers.ts';
 
 const app = buildApp();
@@ -63,8 +65,27 @@ function queueIds(body: { due: { id: string }[]; new: { id: string }[] }) {
   return [...body.due.map((card) => card.id), ...body.new.map((card) => card.id)];
 }
 
+function unopenedLedger(): StudyLedger {
+  return {
+    budget: { phase: 'unopened', newIntroduced: 0, reviewsDone: 0 },
+    todayMinutes: 0,
+    streakDays: 0,
+    streakFreezes: 0,
+    lastReviewEpochEnd: null,
+    lastReviewLabel: null,
+    dailyGoalMetCount: 0,
+    dailyGoalMetLabel: null,
+    goalMetEpochStart: null,
+    dailyGoalMinutes: 15,
+    xp: 0,
+  };
+}
+
 describe('POST /cards/holds', () => {
-  beforeEach(resetTestDb);
+  beforeEach(async () => {
+    __setDatabaseNowForTests(null);
+    await resetTestDb();
+  });
 
   test('burying one due card hides it until the open study day ends and writes no review', async () => {
     const { cookie, userId, deckId } = await setup();
@@ -414,6 +435,55 @@ describe('POST /cards/holds', () => {
     expect(after!.studyEpochEnd!.toISOString()).toBe(opened!.studyEpochEnd!.toISOString());
   });
 
+  test('a Tokyo 04:00 rollover uses the database clock when the host clock is already past it', async () => {
+    const policy = parseStudyDayPolicy({ timeZone: 'Asia/Tokyo', rolloverMinute: 4 * 60 });
+    const hostNow = new Date();
+    const boundary = readStudyDay(hostNow, policy, unopenedLedger()).startsAt;
+    const databaseNow = new Date(boundary.getTime() - 1);
+    const open = readStudyDay(databaseNow, policy, unopenedLedger());
+    expect(hostNow.getTime()).toBeGreaterThanOrEqual(open.endsAt.getTime());
+    expect(databaseNow.getTime()).toBeLessThan(open.endsAt.getTime());
+
+    const { cookie, userId, deckId } = await setup();
+    await db.insert(studyDayPolicy).values({ userId, timeZone: 'Asia/Tokyo', rolloverMinute: 240 });
+    await db.update(profile).set({
+      studyEpochStart: open.startsAt,
+      studyEpochEnd: open.endsAt,
+      dailyCountsDate: open.label,
+    }).where(eq(profile.userId, userId));
+    const held = await seedBasicCard(app, cookie, { deckId, front: 'Skew held' });
+    const free = await seedBasicCard(app, cookie, { deckId, front: 'Skew free' });
+    const dueAt = new Date(open.startsAt.getTime() + 60_000);
+    await db.update(cards).set({ state: 'review', due: dueAt }).where(eq(cards.id, held.id));
+    await db.update(cards).set({ state: 'review', due: dueAt }).where(eq(cards.id, free.id));
+
+    __setDatabaseNowForTests(databaseNow);
+    try {
+      const buried = await postHold(cookie, { action: 'bury', cardIds: [held.id] });
+      expect(buried.status).toBe(200);
+      expect((await buried.json<HoldBody>()).until).toBe(open.endsAt.toISOString());
+      const [after] = await db.select().from(profile).where(eq(profile.userId, userId));
+      expect(after!.studyEpochEnd!.toISOString()).toBe(open.endsAt.toISOString());
+
+      const queue = await (await callApp(app, 'GET', '/cards/queue', { cookie })).json<{
+        due: { id: string }[];
+        new: { id: string }[];
+      }>();
+      const ids = queueIds(queue);
+      expect(ids).toContain(free.id);
+      expect(ids).not.toContain(held.id);
+
+      const forecast = await (await callApp(app, 'GET', '/stats/forecast?days=7', { cookie })).json<{
+        overdueCount: number;
+        buckets: { day: string; count: number }[];
+      }>();
+      expect(forecast.overdueCount).toBe(0);
+      expect(forecast.buckets.find((bucket) => bucket.day === open.label)?.count).toBe(1);
+    } finally {
+      __setDatabaseNowForTests(null);
+    }
+  });
+
   test('a study day that does not contain now refuses the bury and writes nothing', async () => {
     const { cookie, userId, deckId } = await setup();
     const card = await seedBasicCard(app, cookie, { deckId, front: 'Mismatch' });
@@ -440,9 +510,12 @@ describe('POST /cards/holds', () => {
     const mixed = await postHold(owner.cookie, { action: 'bury', cardIds: [owned.id, foreign.id] });
     expect(mixed.status).toBe(200);
     expect(await mixed.json<HoldBody>()).toMatchObject({ cardIds: [owned.id], changed: 1 });
+    expect(await holdReason(owned.id)).toBe('user');
+    expect(await holdReason(foreign.id)).toBeNull();
     const onlyForeign = await postHold(owner.cookie, { action: 'bury', cardIds: [foreign.id] });
     expect(onlyForeign.status).toBe(200);
     expect(await onlyForeign.json<HoldBody>()).toMatchObject({ action: 'bury', cardIds: [], changed: 0 });
+    expect(await holdReason(foreign.id)).toBeNull();
 
     const missing = await postHold(owner.cookie, { action: 'bury', noteId: crypto.randomUUID() });
     expect(missing.status).toBe(404);
