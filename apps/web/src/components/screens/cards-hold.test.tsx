@@ -37,6 +37,7 @@ let root: Root;
 let host: HTMLDivElement;
 let originalFetch: typeof fetch;
 const holds: unknown[] = [];
+const originalStore = { searchCards: useNN.getState().searchCards, getCardTags: useNN.getState().getCardTags };
 
 function install(cards: Array<Card & { hold: CardHold | null }>) {
   holds.length = 0;
@@ -75,6 +76,7 @@ afterEach(async () => {
   host.remove();
   globalThis.fetch = originalFetch;
   useNN.getState().reset();
+  useNN.setState(originalStore);
   delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
 });
 

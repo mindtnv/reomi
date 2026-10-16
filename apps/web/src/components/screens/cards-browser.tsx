@@ -728,8 +728,8 @@ export const NNCardsBrowser = () => {
     ...(selectedCards.some(card => card.suspended) ? [{ label: t('cards.bulk.unsuspend'), icon: 'play', run: () => { void runBulk('unsuspend'); } }] : []),
     { label: t('cards.actions.setDue'), icon: 'clock', run: () => { void runSetDue(); } },
     { label: t('cards.actions.forget'), icon: 'sync', run: () => { void runForget(); } },
-    { label: t('cards.bulk.delete'), icon: 'x', danger: true, run: () => { void runBulk('delete'); } },
     ...holdActions,
+    { label: t('cards.bulk.delete'), icon: 'x', danger: true, run: () => { void runBulk('delete'); } },
   ].map(action => ({ ...action, disabled: actionsUnavailable }));
 
   const loading = !bootstrapped;
