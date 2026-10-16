@@ -315,6 +315,7 @@ const m = {
     modules: 'Модули: {count}',
     confirm: 'Сохранить этот план',
     pages: 'Страницы: {count}',
+    pagesMissing: 'страницы не найдены',
   },
   // Errors surfaced in the stream
   errors: {

@@ -289,6 +289,62 @@ describe('create_topic_plan', () => {
     expect(completeCalls.n).toBe(0);
   });
 
+  test('a module that still needs pages is rejected and writes nothing', async () => {
+    const { userId } = await signUpAndCookie(app, uniqueEmail());
+    const tool = confirmTool();
+    const args = {
+      goal: 'Learn Rust',
+      modules: [
+        {
+          title: 'Ownership',
+          outcome: 'Explain who owns a value.',
+          prerequisiteIndexes: [],
+          urls: [],
+          needsPages: true,
+        },
+        {
+          title: 'Traits',
+          outcome: 'Name a shared behavior.',
+          prerequisiteIndexes: [0],
+          needsPages: true,
+        },
+        {
+          title: 'Services',
+          outcome: 'Expose a set of pods.',
+          prerequisiteIndexes: [0],
+          urls: [] as string[],
+        },
+      ],
+    };
+    const ctx = { userId, log: rootLogger };
+    const error =
+      'These modules still need a teaching page: Ownership; Traits. Add a page URL for each, or remove the module.';
+    expect(await tool.validate!(ctx, args)).toEqual({ ok: false, error });
+    const saved = await tool.execute(ctx, args);
+    expect(saved).toEqual({ ok: false, error });
+    expect(await counts()).toEqual(ZERO);
+    expect(reads).toEqual([]);
+    expect(completeCalls.n).toBe(0);
+  });
+
+  test('a module with no urls and no needsPages flag still validates', async () => {
+    const { userId } = await signUpAndCookie(app, uniqueEmail());
+    const tool = confirmTool();
+    const ctx = { userId, log: rootLogger };
+    expect(await tool.validate!(ctx, planArgs())).toEqual({ ok: true });
+    expect(await tool.validate!(ctx, {
+      goal: 'Learn Rust',
+      modules: [
+        {
+          title: 'Ownership',
+          outcome: 'Explain who owns a value.',
+          urls: ['https://docs.example.com/learn/ownership'],
+          needsPages: true,
+        },
+      ],
+    })).toEqual({ ok: true });
+  });
+
   test('thirteen modules fails validation and writes nothing', async () => {
     const { userId } = await signUpAndCookie(app, uniqueEmail());
     const tool = confirmTool();

@@ -36,6 +36,8 @@ export type PlanModuleInput = {
   title: string;
   outcome: string;
   prerequisiteIndexes: number[];
+  /** True when the draft found only a docs root, so this module still needs a page. */
+  needsPages?: boolean;
 };
 
 export type ParsedPlan = {
@@ -59,6 +61,7 @@ type PlanBody = {
     outcome: string;
     prerequisiteIndexes?: number[];
     urls?: string[];
+    needsPages?: boolean;
   }>;
 };
 
@@ -91,6 +94,9 @@ export function parsePlanBody(
     for (const candidate of urls) {
       if (normalizePlanUrl(candidate) === null) return { ok: false, error: 'invalid_plan' };
     }
+    if (raw.needsPages !== undefined && typeof raw.needsPages !== 'boolean') {
+      return { ok: false, error: 'invalid_plan' };
+    }
 
     let id: string | undefined;
     if (raw.id !== undefined && raw.id.length > 0) {
@@ -109,7 +115,13 @@ export function parsePlanBody(
       seenPrereq.add(prerequisite);
     }
 
-    modules.push({ id, title, outcome, prerequisiteIndexes });
+    modules.push({
+      id,
+      title,
+      outcome,
+      prerequisiteIndexes,
+      ...(raw.needsPages ? { needsPages: true } : {}),
+    });
   }
 
   return { ok: true, value: { goal, level, modules } };

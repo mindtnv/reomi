@@ -316,6 +316,7 @@ const m = {
     modules: '{count} modules',
     confirm: 'Save this plan',
     pages: '{count} pages',
+    pagesMissing: 'pages were not found',
   },
   // Errors surfaced in the stream
   errors: {

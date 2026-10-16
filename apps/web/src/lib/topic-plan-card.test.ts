@@ -80,6 +80,37 @@ test('confirm arguments become plan rows', () => {
   ]);
 });
 
+test('a module that still needs pages stays marked on the card', () => {
+  const marked = JSON.stringify({
+    modules: [
+      {
+        title: 'Ownership',
+        outcome: 'Explain who owns a value.',
+        urls: [],
+        needsPages: true,
+      },
+      {
+        title: 'Services',
+        outcome: 'Expose a set of pods.',
+        urls: [],
+      },
+    ],
+  });
+  expect(topicPlanCardRows(marked)).toEqual([
+    {
+      title: 'Ownership',
+      outcome: 'Explain who owns a value.',
+      urls: [],
+      needsPages: true,
+    },
+    {
+      title: 'Services',
+      outcome: 'Expose a set of pods.',
+      urls: [],
+    },
+  ]);
+});
+
 test('create_topic_plan label shows the goal', () => {
   const label = toolLabel('create_topic_plan', { goal: 'Learn Kubernetes' });
   expect(label.labelKey).toBe('chat.tool.create_topic_plan');
