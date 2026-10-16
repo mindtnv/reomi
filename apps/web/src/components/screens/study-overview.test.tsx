@@ -162,6 +162,25 @@ describe('study overview screens', () => {
     expect(loads).toBeGreaterThan(before);
   });
 
+  test('home refreshes study counts when this tab buries a card', async () => {
+    let loads = 0;
+    globalThis.fetch = adaptRecoveryFetch(((url: unknown) => {
+      if (String(url).includes('/study-summary')) {
+        loads++;
+        return Promise.resolve(Response.json({ ...overview, overall: { ...counts,
+          totalAvailable: loads === 1 ? 1 : 0, buriedCount: loads === 1 ? 0 : 1, serverNow: new Date().toISOString(),
+        } }));
+      }
+      return Promise.resolve(Response.json(String(url).includes('/stats/forecast') ? { days: 7, buckets: [], overdueCount: 0, total: 0 } : []));
+    }) as unknown as typeof fetch);
+    await render(<NNHome />);
+    expect(container.textContent).toContain('1cards due');
+    const before = loads;
+    await act(async () => window.dispatchEvent(new Event('nn:study:changed')));
+    expect(loads).toBeGreaterThan(before);
+    expect(container.textContent).toContain('0cards due');
+  });
+
   test('inline results distinguish answers from cards and show active duration and grades', async () => {
     await render(<ReviewSessionDone completed={result.answers} xp={result.xpGained} stats={{ cards: result.cards, durationMs: result.durationMs, grades: result.grades, answers: [{ durationMs: 1200, rating: 1 }, { durationMs: 1100, rating: 3 }] }} />);
     expect(container.textContent).toContain('2Answers');

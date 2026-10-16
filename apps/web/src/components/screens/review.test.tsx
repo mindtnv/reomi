@@ -700,9 +700,13 @@ test('Shift+B buries the note and the toast brings that note back without gradin
   const toasts: Array<{ title?: string; description?: string; action?: { label: string; onClick: () => void } }> = [];
   const onToast = (event: Event) => toasts.push((event as CustomEvent).detail);
   window.addEventListener('nn:toast', onToast);
+  let studyChanges = 0;
+  const onStudyChange = () => { studyChanges += 1; };
+  window.addEventListener('nn:study:changed', onStudyChange);
   try {
     await render();
     await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'B', shiftKey: true })));
+    expect(studyChanges).toBe(1);
     expect(holds[0]).toEqual({ action: 'bury', noteId: studyCard.noteId });
     expect(reviews).toBe(0);
     const toast = toasts.at(-1);
@@ -714,5 +718,6 @@ test('Shift+B buries the note and the toast brings that note back without gradin
     expect(queues).toBeGreaterThan(1);
   } finally {
     window.removeEventListener('nn:toast', onToast);
+    window.removeEventListener('nn:study:changed', onStudyChange);
   }
 });

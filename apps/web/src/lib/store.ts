@@ -1046,7 +1046,8 @@ export const useNN = create<State>()((set, get) => ({
     }));
     const owner = get().profile?.userId;
     if (typeof window !== 'undefined' && owner) {
-      try { writeBrowserValue(window.localStorage, `nn:study:changed:${owner}`, command.action); } catch { /* Refocus still revalidates. */ }
+      try { writeBrowserValue(window.localStorage, `nn:study:changed:${owner}`, command.action); } catch { /* Another tab still refetches on focus. */ }
+      window.dispatchEvent(new Event('nn:study:changed'));
     }
     return result;
   },
