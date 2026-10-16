@@ -51,6 +51,7 @@ const TABLES = [
   'card_holds',
   'cards',
   'note_operations',
+  'note_revisions',
   'notes',
   'note_types',
   'filtered_deck',

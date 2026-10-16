@@ -17,8 +17,13 @@ import {
   studyDayPolicy,
   user as userTable,
 } from '@reomi/db';
+import {
+  attachExportedNoteRevisions,
+  exportedNoteRevisionsCoherent,
+  readExportedNoteRevisions,
+} from '../modules/note-revisions.ts';
 
-export const STUDY_EXPORT_SCHEMA_VERSION = 1;
+export const STUDY_EXPORT_SCHEMA_VERSION = 2;
 export const EXPORT_MAX_BYTES = 32 * 1024 * 1024;
 export const LOSS_WINDOW =
   'Commits that land after this snapshot are not in the file. A grade is included with its card state or not at all.';
@@ -208,7 +213,7 @@ function decksAcyclic(rows: { id?: unknown; parentId?: unknown }[]): boolean {
 }
 
 export function snapshotCoherent(snapshot: StudySnapshot): boolean {
-  if (!snapshot || snapshot.schemaVersion !== STUDY_EXPORT_SCHEMA_VERSION) return false;
+  if (!snapshot || (snapshot.schemaVersion !== 1 && snapshot.schemaVersion !== STUDY_EXPORT_SCHEMA_VERSION)) return false;
   if (snapshot.isolation !== 'repeatable read') return false;
   if (!snapshot.user?.id) return false;
   const userId = snapshot.user.id;
@@ -258,7 +263,7 @@ export function snapshotCoherent(snapshot: StudySnapshot): boolean {
     return false;
   }
   if (snapshot.missingMedia.some((row) => row.reason !== 'not_owned' || mediaIds.has(row.id))) return false;
-  return true;
+  return exportedNoteRevisionsCoherent(snapshot);
 }
 
 export async function loadStudySnapshot(userId: string): Promise<StudySnapshot> {
@@ -288,11 +293,12 @@ export async function loadStudySnapshot(userId: string): Promise<StudySnapshot> 
         .from(noteTypes)
         .where(or(eq(noteTypes.userId, userId), isNull(noteTypes.userId)));
       const noteRows = await tx.select().from(notes).where(eq(notes.userId, userId));
+      const revisionRows = await readExportedNoteRevisions(tx, userId);
       const cardRows = await tx.select().from(cards).where(eq(cards.userId, userId));
       const reviewRows = await tx.select().from(reviews).where(eq(reviews.userId, userId));
       const mediaRows = await tx.select().from(media).where(eq(media.userId, userId));
       const ownedIds = new Set(mediaRows.map((row) => row.id.toLowerCase()));
-      const referencedIds = new Set(mediaTokens(noteRows));
+      const referencedIds = new Set(mediaTokens([...noteRows, ...revisionRows]));
 
       const body: StudySnapshot = {
         schemaVersion: STUDY_EXPORT_SCHEMA_VERSION,
@@ -484,7 +490,7 @@ export async function loadStudySnapshot(userId: string): Promise<StudySnapshot> 
           .sort()
           .map((id) => ({ id, reason: 'not_owned' as const })),
       };
-      return body;
+      return attachExportedNoteRevisions(body, revisionRows);
     },
     { isolationLevel: 'repeatable read', accessMode: 'read only' },
   );

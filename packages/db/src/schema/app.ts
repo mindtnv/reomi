@@ -478,6 +478,24 @@ export const noteOperations = pgTable('note_operations', {
   index('note_operations_note_idx').on(table.noteId),
 ]);
 
+// Previous field documents. Additive and trigger-free so an older API can
+// still save notes while the table exists. note_type_id is not a foreign key.
+export const noteRevisions = pgTable('note_revisions', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  noteId: uuid('note_id').notNull().references(() => notes.id, { onDelete: 'cascade' }),
+  noteTypeId: uuid('note_type_id').notNull(),
+  fieldValues: jsonb('field_values').notNull().$type<FieldValues>(),
+  tags: text('tags').array().notNull(),
+  acceptedAnswers: text('accepted_answers').array().notNull(),
+  revisedAt: timestamp('revised_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  unique('note_revisions_note_revised_uq').on(table.noteId, table.revisedAt),
+  index('note_revisions_note_revised_idx').on(table.noteId, table.revisedAt.desc(), table.id.desc()),
+  index('note_revisions_user_created_idx').on(table.userId, table.createdAt, table.id),
+]);
+
 // ── media ───────────────────────────────────────────────────────────────────
 // Tracks uploaded media objects (images) stored in S3-compatible storage.
 // `id` is the UUID used as both the DB primary key and the S3 key

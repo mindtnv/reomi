@@ -15,6 +15,7 @@ import {
   user as userTable,
 } from '@reomi/db';
 import { NoteTagError, normalizeNoteTags } from '@reomi/shared';
+import { insertExportedNoteRevisions } from '../modules/note-revisions.ts';
 import {
   EXPORT_MAX_BYTES,
   type StudySnapshot,
@@ -197,6 +198,7 @@ async function insertSnapshot(
       updatedAt: asDate(row.updatedAt) ?? new Date(),
     });
   }
+  await insertExportedNoteRevisions(tx, snapshot, noteTypeIds);
 
   for (const row of snapshot.cards) {
     await tx.insert(cards).values({

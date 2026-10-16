@@ -46,6 +46,7 @@ import { authPlugin } from '../auth-plugin.ts';
 import { logCorrelation, requestLogFromContext, safeError } from '../logger.ts';
 import { enqueueIndex } from '../ai/index-queue';
 import { applyRegeneration, loadRegenerationCards, planRegeneration, regenerationImpact, regenerationToken, type RegenerationPlan } from './card-regeneration';
+import { withUserRevisionLock, writeNoteDocument } from './note-revisions';
 
 import { NOTE_TYPE_BUDGET, NoteTypeBudgetError, startNoteTypeBudget, noteTypeBudgetFailure, noteTypeExpansionBytes } from './note-type-budget';
 
@@ -239,6 +240,7 @@ export async function editNoteType(context: { user: { id: string }; params: { id
 
       const indexIds: string[] = [];
       const run = async (tx: ActionTx) => {
+        await withUserRevisionLock(tx, user.id);
         const checkBudget = await startNoteTypeBudget(tx);
         const [locked] = await tx.select().from(noteTypes)
           .where(eq(noteTypes.id, params.id)).for('update');
@@ -258,8 +260,10 @@ export async function editNoteType(context: { user: { id: string }; params: { id
           if (cardScope!.n > NOTE_TYPE_BUDGET.cards) throw new NoteTypeBudgetError('note_type_operation_too_large');
           checkBudget();
         }
-        const typeNotes = needsRerender ? await tx.select({ id: notes.id, fieldValues: notes.fieldValues, updatedAt: notes.updatedAt })
-          .from(notes).where(and(eq(notes.noteTypeId, params.id), eq(notes.userId, user.id))).orderBy(asc(notes.id)).for('update') : [];
+        const typeNotes = needsRerender ? await tx.select({
+          id: notes.id, userId: notes.userId, fieldValues: notes.fieldValues, tags: notes.tags,
+          acceptedAnswers: notes.acceptedAnswers, noteTypeId: notes.noteTypeId, updatedAt: notes.updatedAt,
+        }).from(notes).where(and(eq(notes.noteTypeId, params.id), eq(notes.userId, user.id))).orderBy(asc(notes.id)).for('update') : [];
         const renamedValues = new Map<string, FieldValues>();
         const existing = await loadRegenerationCards(tx, user.id, typeNotes.map((note) => note.id));
         const existingByNote = new Map<string, typeof existing>();
@@ -334,9 +338,9 @@ export async function editNoteType(context: { user: { id: string }; params: { id
         for (const note of typeNotes) {
           checkBudget();
           const fieldValues = renamedValues.get(note.id)!;
-          if (renames.size) await tx.update(notes).set({
+          if (renames.size) await writeNoteDocument(tx, note, {
             fieldValues, updatedAt: new Date(Math.max(now.getTime(), note.updatedAt.getTime() + 1)),
-          }).where(eq(notes.id, note.id));
+          });
           const prior = existingByNote.get(note.id)?.[0];
           indexIds.push(...await applyRegeneration(tx, { userId: user.id, noteId: note.id,
             deckId: prior?.deckId, plan: plans.get(note.id)!, now, checkBudget,
