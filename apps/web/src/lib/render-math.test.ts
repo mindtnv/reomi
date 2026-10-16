@@ -391,3 +391,23 @@ test('C# fences and aliases retain syntax tokens through sanitization', () => {
   expect(html).toContain('hljs-string');
 
 });
+
+test('inline a+b keeps one html KaTeX island and a newline accessible string', () => {
+  const html = front({ Front: '\\(a+b\\)', Back: 'HIDDEN_ANSWER_TOKEN' });
+  expect(html).not.toContain('HIDDEN_ANSWER_TOKEN');
+  expect(html.toLowerCase()).not.toContain('<math');
+  expect(html.match(/class="katex"/g)).toEqual(['class="katex"']);
+  const root = document.createElement('div');
+  root.innerHTML = html;
+  const accessible = walkAccessible(root);
+  expect(accessible).toBe('\n');
+});
+
+function walkAccessible(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? '';
+  if (node.nodeType !== Node.ELEMENT_NODE) return '';
+  if ((node as Element).getAttribute('aria-hidden') === 'true') return '';
+  let text = '';
+  for (const child of node.childNodes) text += walkAccessible(child);
+  return text;
+}
