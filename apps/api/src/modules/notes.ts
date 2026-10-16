@@ -45,7 +45,7 @@ import { defFromRow } from './note-types.ts';
 import { enqueueIndex } from '../ai/index-queue.ts';
 import { applyRegeneration, loadRegenerationCards, NoteWriteConflict, planRegeneration, regenerationImpact, regenerationToken } from './card-regeneration';
 import { actionHash } from './ui-action-receipts.ts';
-import { listNoteRevisions, readNoteRevision, sameNoteDocument, withUserRevisionLock, writeNoteDocument } from './note-revisions.ts';
+import { listNoteRevisions, readNoteRevision, revisionFieldsFitType, sameNoteDocument, withUserRevisionLock, writeNoteDocument } from './note-revisions.ts';
 
 /** A Drizzle transaction handle (the arg passed to `db.transaction(async (tx) => …)`). */
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
@@ -591,6 +591,9 @@ export async function restoreNoteRevision(
     const revision = await readNoteRevision(tx, userId, noteId, revisionId);
     if (!revision) return { ok: false as const, error: 'revision_not_found' as const };
     if (revision.noteTypeId !== note.noteTypeId) return { ok: false as const, error: 'note_type_changed' as const };
+    if (!revisionFieldsFitType(revision.fieldValues, type.fields.map((field) => field.name))) {
+      return { ok: false as const, error: 'note_type_changed' as const };
+    }
     if (sameNoteDocument(note, revision)) {
       const generated = await tx.select().from(cards)
         .where(and(eq(cards.noteId, noteId), eq(cards.userId, userId)))

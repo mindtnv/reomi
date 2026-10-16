@@ -53,6 +53,19 @@ export function sameNoteDocument(left: NoteDocument, right: NoteDocument): boole
   return canonicalNoteDocument(left) === canonicalNoteDocument(right);
 }
 
+/**
+ * A renamed field keeps the note type id and moves the stored key.
+ * Restoring that pre-image would write the old key and leave the new field empty.
+ * A missing new field, or an extra key the current type does not list, can still restore.
+ */
+export function revisionFieldsFitType(fieldValues: FieldValues, fieldNames: readonly string[]): boolean {
+  const names = new Set(fieldNames);
+  const keys = Object.keys(fieldValues);
+  const currentFieldMissing = fieldNames.some((name) => !Object.hasOwn(fieldValues, name));
+  const storedKeyUnknown = keys.some((key) => !names.has(key));
+  return !(currentFieldMissing && storedKeyUnknown);
+}
+
 function sameFieldValues(left: FieldValues, right: FieldValues): boolean {
   const leftKeys = Object.keys(left);
   if (leftKeys.length !== Object.keys(right).length) return false;

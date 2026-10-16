@@ -268,12 +268,21 @@ describe('note text revisions', () => {
       fields: type.fields.map((field: { name: string }) => field.name === 'Q' ? { ...field, name: 'Question' } : field),
     } });
     expect(renamed.status).toBe(200);
+    const renamedType = await renamed.json<any>();
     const rows = await storedRevisions(created.note.id);
     expect(rows).toHaveLength(1);
     expect(rows[0]!.fieldValues).toEqual({ Q: 'question', A: 'answer' });
     expect(rows[0]!.noteTypeId).toBe(type.id);
     const card = await (await callApp(app, 'GET', `/cards/${created.cards[0].id}`, { cookie })).json<any>();
     expect(card.note.fieldValues).toEqual({ Question: 'question', A: 'answer' });
+    const [saved] = await db.select().from(notes).where(eq(notes.id, created.note.id));
+    const restore = await callApp(app, 'POST', `/notes/${created.note.id}/revisions/${rows[0]!.id}/restore`, { cookie, body: {
+      expectedUpdatedAt: saved!.updatedAt.toISOString(), expectedTypeUpdatedAt: renamedType.updatedAt,
+    } });
+    expect(restore.status).toBe(409);
+    expect(await restore.json()).toMatchObject({ error: 'note_type_changed' });
+    expect((await db.select().from(notes).where(eq(notes.id, created.note.id)))[0]!.fieldValues).toEqual({ Question: 'question', A: 'answer' });
+    expect(await storedRevisions(created.note.id)).toHaveLength(1);
   });
 
   test('converting a note records the previous field document', async () => {

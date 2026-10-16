@@ -49,7 +49,7 @@ const m = {
   history: {
     restore: 'Restore this version',
     confirm: 'Restore this earlier text? The current fields stay available as the newest revision.',
-    typeChanged: 'This version belongs to a different note type and cannot be restored.',
+    typeChanged: 'This version does not match the current fields and cannot be restored.',
   },
   saveAndReturn: 'Save and continue',
   addAnother: 'Add another',
