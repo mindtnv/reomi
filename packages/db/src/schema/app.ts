@@ -474,7 +474,7 @@ export const noteOperations = pgTable('note_operations', {
 // caller; `POST /media/:id/finalize` SELECTs it by `(id, userId)` (404 if
 // missing — so user B can't finalize user A's presigned uuid) then flips
 // `verified = true` after the HEAD + magic-byte sniff. `GET /media` returns only
-// `verified = true` rows. Pending/unverified rows are orphan-cleanup candidates.
+// `verified = true` rows.
 // (The dead `width`/`height` columns were dropped in migration 0005 — re-add in
 // a future milestone if image dimensions are needed.)
 

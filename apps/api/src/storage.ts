@@ -21,6 +21,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   PutObjectCommand,
+  ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { createPresignedPost, type PresignedPost } from '@aws-sdk/s3-presigned-post';
 import { env } from './env.ts';
@@ -111,9 +112,46 @@ export async function putObject(key: string, bytes: Uint8Array, mime: string): P
   );
 }
 
-/** Delete an object (used on finalize size/MIME mismatch — plan A5). */
+export type ListedObject = { key: string; lastModified: Date | null };
+export type ObjectListQuery = { prefix: string; maxKeys: number; continuationToken?: string };
+export type ObjectListPage = { items: ListedObject[]; nextToken?: string };
+
+type ObjectDeleter = (key: string) => Promise<void>;
+type ObjectLister = (query: ObjectListQuery) => Promise<ObjectListPage>;
+
+let objectDeleter: ObjectDeleter | null = null;
+let objectLister: ObjectLister | null = null;
+
+export function __setObjectDeleterForTests(deleter: ObjectDeleter | null): void {
+  objectDeleter = deleter;
+}
+
+export function __setObjectListerForTests(lister: ObjectLister | null): void {
+  objectLister = lister;
+}
+
 export async function deleteObject(key: string): Promise<void> {
+  if (objectDeleter) {
+    await objectDeleter(key);
+    return;
+  }
   await s3.send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
+}
+
+export async function listObjectsPage(query: ObjectListQuery): Promise<ObjectListPage> {
+  if (objectLister) return objectLister(query);
+  const res = await s3.send(new ListObjectsV2Command({
+    Bucket: env.S3_BUCKET,
+    Prefix: query.prefix,
+    MaxKeys: query.maxKeys,
+    ContinuationToken: query.continuationToken,
+  }));
+  const items: ListedObject[] = [];
+  for (const entry of res.Contents ?? []) {
+    if (!entry.Key) continue;
+    items.push({ key: entry.Key, lastModified: entry.LastModified ?? null });
+  }
+  return { items, nextToken: res.IsTruncated ? res.NextContinuationToken : undefined };
 }
 
 /**

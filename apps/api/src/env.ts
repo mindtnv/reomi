@@ -46,6 +46,14 @@ export const env = {
   S3_FORCE_PATH_STYLE: (process.env.S3_FORCE_PATH_STYLE ?? 'true') === 'true',
   // Hard upload ceiling (bytes). Default 5 MiB.
   MAX_MEDIA_BYTES: Number(process.env.MAX_MEDIA_BYTES ?? 5 * 1024 * 1024),
+  // Hourly media GC starts only when this is the string `true`.
+  // Account deletion still removes that user's keys before the user row.
+  get MEDIA_GC_ENABLED() {
+    return process.env.MEDIA_GC_ENABLED === 'true';
+  },
+  get MEDIA_GC_INTERVAL_MS() {
+    return positiveNumber('MEDIA_GC_INTERVAL_MS', 3_600_000);
+  },
   // ── AI / RAG (all OPTIONAL — degrade, never crash) ─────────────────────────
   // Two independent feature switches derived below. The whole block is optional:
   // absence must NOT crash the API or break existing tests (do NOT use
