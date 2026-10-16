@@ -43,6 +43,7 @@ function positiveEnv(name: string, fallback: number): number {
 function notReferenced(): SQL {
   return sql`not exists (select 1 from sources where cover_media_id = media.id)
     and not exists (select 1 from notes where position(media.id::text in field_values::text) > 0)
+    and not exists (select 1 from note_revisions where position(media.id::text in field_values::text) > 0)
     and not exists (select 1 from messages where position(media.id::text in coalesce(content, '') || coalesce(attachments::text, '') || coalesce(tool_calls::text, '') || coalesce(mentions::text, '') || coalesce(context::text, '')) > 0)
     and not exists (select 1 from notebook_notes where position(media.id::text in title || content || coalesce(citations::text, '')) > 0)
     and not exists (select 1 from notebook_artifacts where position(media.id::text in title || coalesce(content_md, '') || coalesce(content_json::text, '')) > 0)

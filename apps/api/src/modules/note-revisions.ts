@@ -190,6 +190,120 @@ export async function listNoteRevisions(userId: string, noteId: string) {
   }));
 }
 
+export type ExportedNoteRevision = {
+  id: string;
+  userId: string;
+  noteId: string;
+  noteTypeId: string;
+  fieldValues: FieldValues;
+  tags: string[];
+  acceptedAnswers: string[];
+  revisedAt: string;
+  createdAt: string;
+};
+
+const EXPORT_KEY = 'noteRevisions';
+
+export async function readExportedNoteRevisions(tx: Pick<RevisionTx, 'select'>, userId: string): Promise<ExportedNoteRevision[]> {
+  const rows = await tx.select({
+    id: noteRevisions.id,
+    userId: noteRevisions.userId,
+    noteId: noteRevisions.noteId,
+    noteTypeId: noteRevisions.noteTypeId,
+    fieldValues: noteRevisions.fieldValues,
+    tags: noteRevisions.tags,
+    acceptedAnswers: noteRevisions.acceptedAnswers,
+    revisedAt: noteRevisions.revisedAt,
+    createdAt: noteRevisions.createdAt,
+  }).from(noteRevisions).where(eq(noteRevisions.userId, userId));
+  return rows.map((row) => ({
+    id: row.id,
+    userId: row.userId,
+    noteId: row.noteId,
+    noteTypeId: row.noteTypeId,
+    fieldValues: row.fieldValues,
+    tags: row.tags,
+    acceptedAnswers: row.acceptedAnswers,
+    revisedAt: row.revisedAt.toISOString(),
+    createdAt: row.createdAt.toISOString(),
+  })).sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+}
+
+export function attachExportedNoteRevisions<T extends object>(body: T, rows: ExportedNoteRevision[]): T {
+  return Object.assign(body, { [EXPORT_KEY]: rows });
+}
+
+function exportedRows(snapshot: object): unknown {
+  return (snapshot as Record<string, unknown>)[EXPORT_KEY];
+}
+
+function isExportedRevision(row: unknown): row is ExportedNoteRevision {
+  if (!row || typeof row !== 'object') return false;
+  const value = row as ExportedNoteRevision;
+  if ([value.id, value.userId, value.noteId, value.noteTypeId, value.revisedAt, value.createdAt].some((item) => typeof item !== 'string' || item.length === 0)) return false;
+  if (Number.isNaN(Date.parse(value.revisedAt)) || Number.isNaN(Date.parse(value.createdAt))) return false;
+  if (!Array.isArray(value.tags) || value.tags.some((tag) => typeof tag !== 'string')) return false;
+  if (!Array.isArray(value.acceptedAnswers) || value.acceptedAnswers.some((answer) => typeof answer !== 'string')) return false;
+  if (!value.fieldValues || typeof value.fieldValues !== 'object' || Array.isArray(value.fieldValues)) return false;
+  return Object.values(value.fieldValues).every((item) => typeof item === 'string');
+}
+
+/** Version 1 ignores any revision array. Version 2 rejects a file that breaks the bounds instead of dropping rows. */
+export function exportedNoteRevisionsCoherent(snapshot: {
+  schemaVersion?: unknown;
+  user?: { id?: unknown };
+  notes?: { id?: unknown }[];
+}): boolean {
+  if (snapshot.schemaVersion === 1) return true;
+  if (snapshot.schemaVersion !== 2) return false;
+  const rows = exportedRows(snapshot);
+  if (!Array.isArray(rows) || rows.length > NOTE_REVISIONS_PER_USER) return false;
+  const noteIds = new Set((snapshot.notes ?? []).map((note) => String(note.id)));
+  const perNote = new Map<string, number>();
+  const seenId = new Set<string>();
+  const seenStamp = new Set<string>();
+  for (const row of rows) {
+    if (!isExportedRevision(row)) return false;
+    if (row.userId !== snapshot.user?.id) return false;
+    if (!noteIds.has(row.noteId)) return false;
+    if (seenId.has(row.id)) return false;
+    seenId.add(row.id);
+    const revisedAt = new Date(row.revisedAt).getTime();
+    const stamp = `${row.noteId}:${revisedAt}`;
+    if (seenStamp.has(stamp)) return false;
+    seenStamp.add(stamp);
+    const count = (perNote.get(row.noteId) ?? 0) + 1;
+    if (count > NOTE_REVISIONS_PER_NOTE) return false;
+    perNote.set(row.noteId, count);
+    if (noteDocumentBytes(row) > NOTE_REVISION_MAX_BYTES) return false;
+  }
+  return true;
+}
+
+export async function insertExportedNoteRevisions(
+  tx: Pick<RevisionTx, 'insert'>,
+  snapshot: { schemaVersion?: unknown; user?: { id?: string } },
+  noteTypeIds: ReadonlyMap<string, string>,
+): Promise<void> {
+  if (snapshot.schemaVersion !== 2) return;
+  const rows = exportedRows(snapshot);
+  if (!Array.isArray(rows)) throw new Error('incoherent_snapshot');
+  for (const row of rows) {
+    if (!isExportedRevision(row)) throw new Error('incoherent_snapshot');
+    await tx.insert(noteRevisions).values({
+      id: row.id,
+      userId: snapshot.user?.id ?? row.userId,
+      noteId: row.noteId,
+      noteTypeId: noteTypeIds.get(row.noteTypeId) ?? row.noteTypeId,
+      fieldValues: row.fieldValues,
+      tags: row.tags,
+      acceptedAnswers: row.acceptedAnswers,
+      revisedAt: new Date(row.revisedAt),
+      createdAt: new Date(row.createdAt),
+    });
+  }
+}
+
 export async function readNoteRevision(tx: Pick<RevisionTx, 'select'>, userId: string, noteId: string, revisionId: string) {
   const [row] = await tx.select().from(noteRevisions).where(and(
     eq(noteRevisions.id, revisionId),

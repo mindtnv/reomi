@@ -1,10 +1,14 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { cards, db, noteRevisions, notes } from '@reomi/db';
+import { cards, db, deckOptionsPreset, decks, filteredDeck, media, noteRevisions, notes, noteTypes, notificationSettings, studyDayPolicy, user as userTable } from '@reomi/db';
+import { newUuidV7 } from '@reomi/shared';
 import { desc, eq } from 'drizzle-orm';
 import { buildApp } from '../src/app';
+import { __resetMediaGcForTests, runMediaGc } from '../src/media-gc';
 import { canonicalNoteDocument, NOTE_REVISION_MAX_BYTES } from '../src/modules/note-revisions';
+import { applyStudySnapshot } from '../src/profile/restore-rehearsal';
+import { __setObjectDeleterForTests, __setObjectListerForTests } from '../src/storage';
 import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers';
 
 const repoRoot = resolve(import.meta.dir, '../../..');
@@ -294,6 +298,115 @@ describe('note text revisions', () => {
     expect((await converted.json<any>()).cards[0].note.fieldValues).toEqual({ Question: 'question', Answer: 'answer' });
   });
 
+  test('export schema version 2 keeps revisions, version 1 applies without them, and a broken revision file is rejected', async () => {
+    const { cookie, userId, created } = await fixture();
+    const edited = await (await callApp(app, 'PATCH', `/notes/${created.note.id}`, { cookie, body: {
+      fieldValues: { Q: 'current', A: 'answer' }, expectedUpdatedAt: created.note.updatedAt,
+    } })).json<any>();
+    const exported = await callApp(app, 'GET', '/profile/export', { cookie });
+    expect(exported.status).toBe(200);
+    const snapshot = JSON.parse(await exported.text());
+    expect(snapshot.schemaVersion).toBe(2);
+    expect(snapshot.noteRevisions).toHaveLength(1);
+    expect(snapshot.noteRevisions[0]).toMatchObject({
+      noteId: created.note.id, fieldValues: { Q: 'question', A: 'answer' }, tags: [],
+    });
+    expect(Buffer.byteLength(JSON.stringify(snapshot))).toBeGreaterThan(Buffer.byteLength(JSON.stringify({ ...snapshot, noteRevisions: [] })));
+
+    const base = snapshot.noteRevisions[0];
+    const six = structuredClone(snapshot);
+    six.noteRevisions = Array.from({ length: 6 }, (_, index) => ({
+      ...base, id: newUuidV7(), revisedAt: new Date(Date.UTC(2020, 0, 1, 0, 0, index)).toISOString(),
+    }));
+    const huge = 'x'.repeat(65536);
+    const oversize = structuredClone(snapshot);
+    oversize.noteRevisions = [{ ...base, fieldValues: { A: huge, B: huge, C: huge, D: huge } }];
+    const missing = structuredClone(snapshot);
+    missing.noteRevisions = [{ ...base, noteId: newUuidV7() }];
+    const duplicate = structuredClone(snapshot);
+    duplicate.noteRevisions = [base, { ...base, id: newUuidV7() }];
+    const crowded = structuredClone(snapshot);
+    crowded.noteRevisions = [];
+    for (let noteIndex = 0; noteIndex < 201; noteIndex++) {
+      const noteId = newUuidV7();
+      crowded.notes.push({ ...crowded.notes[0], id: noteId });
+      const count = noteIndex < 200 ? 5 : 1;
+      for (let revision = 0; revision < count; revision++) {
+        crowded.noteRevisions.push({
+          ...base, id: newUuidV7(), noteId,
+          revisedAt: new Date(Date.UTC(2021, 0, 1, 0, noteIndex, revision)).toISOString(),
+        });
+      }
+    }
+    expect(crowded.noteRevisions).toHaveLength(1001);
+    for (const file of [six, oversize, missing, duplicate, crowded]) {
+      expect(await applyStudySnapshot(file)).toEqual({ ok: false, error: 'incoherent_snapshot' });
+    }
+    expect((await db.select().from(notes).where(eq(notes.id, created.note.id)))[0]!.fieldValues).toEqual({ Q: 'current', A: 'answer' });
+
+    const versionOne = structuredClone(snapshot);
+    versionOne.schemaVersion = 1;
+    await emptyStudy(userId);
+    expect((await applyStudySnapshot(versionOne)).ok).toBe(true);
+    expect(await storedRevisions(created.note.id)).toHaveLength(0);
+    expect((await db.select().from(notes).where(eq(notes.id, created.note.id)))[0]!.fieldValues.Q).toBe('current');
+
+    await emptyStudy(userId);
+    expect((await applyStudySnapshot(snapshot)).ok).toBe(true);
+    expect((await storedRevisions(created.note.id))[0]!.fieldValues).toEqual({ Q: 'question', A: 'answer' });
+    expect(edited.note.fieldValues.Q).toBe('current');
+  });
+
+  test('DELETE /profile removes note revisions', async () => {
+    const { cookie, userId, created } = await fixture();
+    expect((await callApp(app, 'PATCH', `/notes/${created.note.id}`, { cookie, body: {
+      fieldValues: { Q: 'gone', A: 'answer' }, expectedUpdatedAt: created.note.updatedAt,
+    } })).status).toBe(200);
+    expect(await storedRevisions(created.note.id)).toHaveLength(1);
+    const [account] = await db.select({ email: userTable.email }).from(userTable).where(eq(userTable.id, userId));
+    const deleted = await callApp(app, 'DELETE', '/profile', { cookie, body: { confirmEmail: account!.email } });
+    expect(deleted.status).toBe(200);
+    expect(await storedRevisions(created.note.id)).toHaveLength(0);
+  });
+
+  test('an image that exists only in a pre-image stays referenced and is not collected', async () => {
+    const { cookie, userId, created } = await fixture();
+    const image = newUuidV7();
+    const orphan = newUuidV7();
+    const old = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    await db.insert(media).values([
+      { id: image, userId, s3Key: `media/${image}`, mime: 'image/png', size: 8, verified: true, createdAt: old },
+      { id: orphan, userId, s3Key: `media/${orphan}`, mime: 'image/png', size: 8, verified: true, createdAt: old },
+    ]);
+    const withImage = await (await callApp(app, 'PATCH', `/notes/${created.note.id}`, { cookie, body: {
+      fieldValues: { Q: `see ![](/m/${image})`, A: 'answer' }, expectedUpdatedAt: created.note.updatedAt,
+    } })).json<any>();
+    const cleared = await callApp(app, 'PATCH', `/notes/${created.note.id}`, { cookie, body: {
+      fieldValues: { Q: 'plain', A: 'answer' }, expectedUpdatedAt: withImage.note.updatedAt,
+    } });
+    expect(cleared.status).toBe(200);
+    const exported = JSON.parse(await (await callApp(app, 'GET', '/profile/export', { cookie })).text());
+    expect(exported.notes[0].fieldValues.Q).toBe('plain');
+    expect(exported.media.find((row: { id: string }) => row.id === image).referenced).toBe(true);
+    expect(exported.media.find((row: { id: string }) => row.id === orphan).referenced).toBe(false);
+    expect(exported.noteRevisions.some((row: { fieldValues: { Q: string } }) => row.fieldValues.Q.includes(image))).toBe(true);
+
+    __resetMediaGcForTests();
+    __setObjectDeleterForTests(async () => {});
+    __setObjectListerForTests(async () => ({ items: [] }));
+    try {
+      const report = await runMediaGc({ now: new Date(), pendingMaxAgeMs: 60_000, unreferencedMaxAgeMs: 60_000, batch: 20 });
+      expect(report.unreferencedMedia).toBe(1);
+      const left = (await db.select({ id: media.id }).from(media)).map((row) => row.id);
+      expect(left).toContain(image);
+      expect(left).not.toContain(orphan);
+    } finally {
+      __setObjectDeleterForTests(null);
+      __setObjectListerForTests(null);
+      __resetMediaGcForTests();
+    }
+  });
+
   test('only the revision module assigns note field values or tags', () => {
     const offenders = productionSources().flatMap((file) => {
       const text = stripComments(readFileSync(file, 'utf8'));
@@ -307,6 +420,17 @@ describe('note text revisions', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+async function emptyStudy(userId: string) {
+  await db.delete(notes).where(eq(notes.userId, userId));
+  await db.delete(decks).where(eq(decks.userId, userId));
+  await db.delete(filteredDeck).where(eq(filteredDeck.userId, userId));
+  await db.delete(deckOptionsPreset).where(eq(deckOptionsPreset.userId, userId));
+  await db.delete(media).where(eq(media.userId, userId));
+  await db.delete(noteTypes).where(eq(noteTypes.userId, userId));
+  await db.delete(notificationSettings).where(eq(notificationSettings.userId, userId));
+  await db.delete(studyDayPolicy).where(eq(studyDayPolicy.userId, userId));
+}
 
 function cardCache(card: typeof cards.$inferSelect) {
   return {

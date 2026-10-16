@@ -2,7 +2,7 @@
 
 ## Snapshot
 
-`GET /profile/export` writes schemaVersion 1. The read is one repeatable-read, read-only transaction. The first statement is `select clock_timestamp()`, which pins the PostgreSQL snapshot. Later commits stay outside the file.
+`GET /profile/export` writes schemaVersion 2. The read is one repeatable-read, read-only transaction. The first statement is `select clock_timestamp()`, which pins the PostgreSQL snapshot. Later commits stay outside the file. Version 2 adds `noteRevisions`. A version 1 file still applies and inserts no revision rows.
 
 The file contains the account id, email, and name, the profile, the study-day policy, reminder choices, deck presets, decks, filtered decks, note types, notes, cards, reviews, and a media manifest. Global builtin note types are included. Push subscription endpoints and storage keys are left out.
 
@@ -41,4 +41,4 @@ On 2026-10-16 the fixture apply in `neuronexus_test` returned `elapsedMs` 9. The
 
 ## Rollback
 
-There is no SQL migration. Roll back by reverting this API commit. Older clients ignore the added JSON fields. schemaVersion 1 inserts into the schema already created through `0044_study_day`. It does not run SQL and it does not roll SQL back.
+There is no SQL migration in the export itself. Roll back by reverting this API commit. Older clients ignore the added JSON fields. schemaVersion 1 still applies into the schema created through `0045_note_revisions` and inserts no revision rows. schemaVersion 2 also inserts those pre-images. It does not run SQL and it does not roll SQL back.
