@@ -32,6 +32,7 @@ const m = {
     relearning: 'Relearning',
     due: 'Due',
     suspended: 'Suspended',
+    buried: 'Buried',
   },
   sidebar: {
     resize: 'Resize filters panel',
@@ -65,6 +66,10 @@ const m = {
     tagPrompt: 'Enter tag…',
     deleteConfirm: 'Delete {n} cards? This cannot be undone.',
     clear: 'Clear selection',
+    bury: 'Bury until next study day',
+    unbury: 'Bring back',
+    buryNote: 'Bury note until next study day',
+    unburyNote: 'Bring note back',
   },
   actions: {
     open: 'Actions',

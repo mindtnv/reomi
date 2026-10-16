@@ -9,7 +9,7 @@ const review = (id: string, cardId: string, rating = 3) => reviewFromApi({ id, c
 
 describe('study session ledger', () => {
   test('an editor handoff preserves history and is isolated by owner, scope and card', () => {
-    const session = mergeStudyQueue(emptyStudySession(), [card('a')], 'regular', now);
+    const session = mergeStudyQueue(emptyStudySession(), [card('a')], 'regular', now, []);
     expect(readStudyHandoff(undefined, '/review', null)).toBeNull();
     saveStudyHandoff('owner', '/review?deck=deck', 'a', session);
     expect(readStudyHandoff('owner', '/review?deck=deck', 'a')).toBe(session);
@@ -22,7 +22,7 @@ describe('study session ledger', () => {
   });
   test('only saved answers contribute to totals, and skips keep every card', () => {
     const a = card('a'); const b = card('b');
-    const loaded = mergeStudyQueue(emptyStudySession(), [a, b], 'regular', now);
+    const loaded = mergeStudyQueue(emptyStudySession(), [a, b], 'regular', now, []);
     const skipped = skipStudyCard(loaded, 'regular', now);
     expect(skipped.activeId).toBe('b');
     expect(skipped.pending.map((c) => c.id)).toEqual(['b', 'a']);
@@ -35,18 +35,18 @@ describe('study session ledger', () => {
   test('regular learning returns only when due, while filtered study stays finite', () => {
     const a = card('a');
     const after = { ...a, fsrs: { ...a.fsrs, state: State.Learning, due: new Date(now + 60_000) } };
-    const loaded = mergeStudyQueue(emptyStudySession(), [a], 'regular', now);
+    const loaded = mergeStudyQueue(emptyStudySession(), [a], 'regular', now, []);
     const saved = recordStudyAnswer(loaded, a, after, review('r1', 'a', 1), 'regular', now);
     expect(saved.activeId).toBeNull();
     expect(saved.pending).toEqual([after]);
-    expect(mergeStudyQueue(saved, [], 'regular', now + 30_000).pending).toEqual([after]);
-    expect(mergeStudyQueue(saved, [after], 'regular', now + 60_000).activeId).toBe('a');
+    expect(mergeStudyQueue(saved, [], 'regular', now + 30_000, []).pending).toEqual([after]);
+    expect(mergeStudyQueue(saved, [after], 'regular', now + 60_000, []).activeId).toBe('a');
     expect(recordStudyAnswer(loaded, a, after, review('r1', 'a', 1), 'filtered', now).pending).toEqual([]);
   });
 
   test('multiple undos restore each exact card and remove their own XP and duration', () => {
     const a = card('a'); const b = card('b');
-    let session = mergeStudyQueue(emptyStudySession(), [a, b], 'regular', now);
+    let session = mergeStudyQueue(emptyStudySession(), [a, b], 'regular', now, []);
     session = recordStudyAnswer(session, a, { ...a, suspended: true }, review('r1', 'a', 4), 'regular', now);
     session = recordStudyAnswer(session, b, { ...b, suspended: true }, review('r2', 'b', 2), 'regular', now);
     expect(studyTotals(session.history).xp).toBe(20);
@@ -60,17 +60,17 @@ describe('study session ledger', () => {
 
   test('refresh deduplicates cards and drops a due local step absent from the server', () => {
     const a = card('a');
-    const loaded = mergeStudyQueue(emptyStudySession(), [a, a], 'regular', now);
+    const loaded = mergeStudyQueue(emptyStudySession(), [a, a], 'regular', now, []);
     expect(loaded.pending).toHaveLength(1);
     const after = { ...a, fsrs: { ...a.fsrs, state: State.Learning, due: new Date(now + 60_000) } };
     const saved = recordStudyAnswer(loaded, a, after, review('r1', 'a'), 'regular', now);
-    expect(mergeStudyQueue(saved, [], 'regular', now + 60_000).pending).toEqual([]);
+    expect(mergeStudyQueue(saved, [], 'regular', now + 60_000, []).pending).toEqual([]);
   });
 
   test('skipping a due learning card offers another ready card without losing either', () => {
     const a = { ...card('a'), fsrs: { ...card('a').fsrs, state: State.Learning } };
     const b = card('b');
-    const session = mergeStudyQueue(emptyStudySession(), [a, b], 'regular', now);
+    const session = mergeStudyQueue(emptyStudySession(), [a, b], 'regular', now, []);
     expect(skipStudyCard(session, 'regular', now).activeId).toBe('b');
     expect(skipStudyCard(session, 'regular', now).pending).toEqual([b, a]);
   });

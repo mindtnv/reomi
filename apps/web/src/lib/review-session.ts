@@ -28,17 +28,24 @@ const firstReady = (pending: Card[], mode: StudyMode, now: number) =>
 
 export const emptyStudySession = (): StudySession => ({ pending: [], activeId: null, history: [] });
 
-export function mergeStudyQueue(session: StudySession, incoming: Card[], mode: StudyMode, now: number): StudySession {
+export function mergeStudyQueue(session: StudySession, incoming: Card[], mode: StudyMode, now: number, heldCardIds: readonly string[]): StudySession {
+  const held = new Set(heldCardIds);
   const answered = new Set(mode === 'filtered' ? session.history.map((entry) => entry.before.id) : []);
-  const cards = new Map(incoming.filter((c) => !c.suspended && !answered.has(c.id)).map((c) => [c.id, c]));
+  const cards = new Map(incoming.filter((c) => !c.suspended && !answered.has(c.id) && !held.has(c.id)).map((c) => [c.id, c]));
   if (mode === 'regular') {
     for (const card of session.pending) {
       // Only retain future local steps. Once due, the server decides whether
-      // the card is still available (it may have been suspended elsewhere).
-      if (!cards.has(card.id) && !card.suspended && learning(card) && new Date(card.fsrs.due).getTime() > now) cards.set(card.id, card);
+      // the card is still available (it may have been suspended or held).
+      if (!cards.has(card.id) && !card.suspended && !held.has(card.id) && learning(card) && new Date(card.fsrs.due).getTime() > now) cards.set(card.id, card);
     }
   }
   const pending = [...cards.values()];
+  return { ...session, pending, activeId: firstReady(pending, mode, now) };
+}
+
+export function dropHeldCards(session: StudySession, ids: readonly string[], mode: StudyMode, now: number): StudySession {
+  const held = new Set(ids);
+  const pending = session.pending.filter((card) => !held.has(card.id));
   return { ...session, pending, activeId: firstReady(pending, mode, now) };
 }
 

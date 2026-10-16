@@ -20,7 +20,7 @@ const { NNHome } = await import('./home');
 const { NNDecks } = await import('./decks');
 const { ReviewSessionDone } = await import('../review-session-done');
 
-const counts = { total: 601, newCount: 601, learningCount: 0, reviewCount: 0, suspendedCount: 0, dueLearning: 0, dueReview: 0, nextLearningAt: null, nextDueAt: null, newRemaining: 20, reviewRemaining: 200, availableNew: 20, availableReview: 0, totalAvailable: 20, limitedNew: 581, limitedReview: 0, serverNow: new Date().toISOString() };
+const counts = { total: 601, newCount: 601, learningCount: 0, reviewCount: 0, suspendedCount: 0, buriedCount: 0, dueBuried: 0, dueNew: 0, dueLearning: 0, dueReview: 0, nextLearningAt: null, nextDueAt: null, newRemaining: 20, reviewRemaining: 200, availableNew: 20, availableReview: 0, totalAvailable: 20, limitedNew: 581, limitedReview: 0, serverNow: new Date().toISOString() };
 const overview = { overall: counts, decks: { deck: counts }, direct: { deck: counts } };
 const navigations: string[] = [];
 const router = { bfcacheId: 'test', push(href: string) { navigations.push(href); }, replace() {}, back() {}, forward() {}, refresh() {}, prefetch() {}, hmrRefresh() {} };

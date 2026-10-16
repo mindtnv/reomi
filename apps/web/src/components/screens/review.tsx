@@ -30,7 +30,7 @@ import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useEmptyRedirect } from '@/lib/use-empty-redirect';
 import { resolveDeckConfigClient } from '@/lib/deck-config';
 import { toApiError } from '@/lib/resource-state';
-import { clearStudyHandoff, createAnswerTimer, createStudyClock, readStudyCheckpoint, writeStudyCheckpoint, type StudyCheckpoint, type PendingStudyGrade, emptyStudySession, mergeStudyQueue, readStudyHandoff, recordStudyAnswer, saveStudyHandoff, undoStudyAnswer, skipStudyCard, studyTotals } from '@/lib/review-session';
+import { clearStudyHandoff, createAnswerTimer, createStudyClock, readStudyCheckpoint, writeStudyCheckpoint, type StudyCheckpoint, type PendingStudyGrade, emptyStudySession, mergeStudyQueue, dropHeldCards, readStudyHandoff, recordStudyAnswer, saveStudyHandoff, undoStudyAnswer, skipStudyCard, studyTotals } from '@/lib/review-session';
 import { reconcileStudyCheckpoint } from '@/lib/study-recovery';
 import { diffAnswer } from '@/lib/review-answer';
 import { clearStudyResult, saveStudyResult } from '@/lib/study-result';
@@ -60,6 +60,32 @@ const RATINGS: RatingMeta[] = [
 // Friendly label for the render-kind eyebrow (was a raw English token like
 // "typein" sitting next to the tags — looked like a debug badge). Falls back to
 // the kind string for any future render kinds.
+type EmptyStudyReason = 'filtered' | 'empty' | 'paused' | 'buried' | 'waiting' | 'limited';
+
+function emptyStudyReason(sessionMode: 'regular' | 'filtered', summary: StudySummary | null, nextLearningAt: string | null): EmptyStudyReason | null {
+  return sessionMode === 'filtered' ? 'filtered'
+    : summary?.total === 0 ? 'empty'
+    : summary && summary.total === summary.suspendedCount ? 'paused'
+    : summary && summary.dueBuried > 0 && summary.totalAvailable === 0 && !nextLearningAt
+      && summary.limitedNew === 0 && summary.limitedReview === 0 ? 'buried'
+    : nextLearningAt ? 'waiting'
+    : summary && (summary.limitedNew > 0 || summary.limitedReview > 0) ? 'limited'
+    : null;
+}
+
+function holdClock(endsAt: string, locale: string) {
+  const at = new Date(endsAt);
+  if (Number.isNaN(at.getTime())) return '';
+  return at.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+}
+
+// Eden revives an ISO instant into a Date before the queue body reaches this screen.
+function queueInstant(value: unknown): string | null {
+  if (typeof value === 'string' && value.length > 0) return value;
+  if (value instanceof Date && Number.isFinite(value.getTime())) return value.toISOString();
+  return null;
+}
+
 const renderKindLabel = (kind: string, t: (k: string) => string): string => {
   switch (kind) {
     case 'cloze':
@@ -127,6 +153,8 @@ export const NNReviewClassic = () => {
   const [queueError, setQueueError] = useState<ApiError | null>(null);
   const [queueAttempt, setQueueAttempt] = useState(0);
   const [summary, setSummary] = useState<StudySummary | null>(null);
+  const [heldCardIds, setHeldCardIds] = useState<string[]>([]);
+  const [studyDayEndsAt, setStudyDayEndsAt] = useState<string | null>(null);
   const clock=useRef(createStudyClock());
   const queueRequestActive = useRef(false);
   const [clockRevision,setClockRevision]=useState(0);
@@ -227,6 +255,9 @@ export const NNReviewClassic = () => {
         const fresh = ((res?.new ?? []) as any[]).map(cardFromApi);
         const q = [...due, ...fresh];
         const mode=res?.mode==='filtered'?'filtered':'regular';
+        const heldIds: string[] = Array.isArray(res?.heldCardIds) ? res.heldCardIds.filter((id: unknown): id is string => typeof id === 'string') : [];
+        setHeldCardIds(heldIds);
+        setStudyDayEndsAt(queueInstant(res?.studyDay?.endsAt));
         setSessionMode(mode);setSummary(res?.summary??null);
         const serverNow=res?.summary?.serverNow?new Date(res.summary.serverNow).getTime():Date.now();
         clock.current.sync(serverNow);setClockRevision(n=>n+1);
@@ -234,7 +265,7 @@ export const NNReviewClassic = () => {
         const editorReturn=readStudyHandoff(profile?.userId,reviewHref,resumeCardId);
         const fromEditor=Boolean(base.session.activeId&&(editingCardId.current===base.session.activeId||editorReturn?.activeId===base.session.activeId));
         if(checkpointReady.current && (needsReconciliation.current||base.pending)) {
-          const recovered=await reconcileStudyCheckpoint(base,q,mode,serverNow,{
+          const recovered=await reconcileStudyCheckpoint(base,q,mode,serverNow,heldIds,{
             card:async id=>{const queued=q.find(card=>card.id===id);if(queued)return queued;try{return cardFromApi(await ok(await (api as any).cards({id}).get()));}catch(error){if((error as ApiError).status===404)return null;throw error;}},
             reviews:async ids=>((await ok(await (api as any).reviews.records.get({query:{ids:ids.join(',')}}))) as any).items.map(reviewFromApi),
             operation:async operation=>{try{const receipt:any=await ok(await (api as any).reviews.operations({operationId:operation.id}).get());
@@ -256,7 +287,7 @@ export const NNReviewClassic = () => {
         } else {
           const handoff=readStudyHandoff(profile?.userId,reviewHref,resumeCardId);
           const resumeId=resumeCardId??handoff?.activeId??null;
-          const merged=mergeStudyQueue(handoff??base.session,q,mode,serverNow);
+          const merged=mergeStudyQueue(handoff??base.session,q,mode,serverNow,heldIds);
           if(handoff&&q.some(card=>card.id===resumeId))merged.activeId=resumeId;
           setSession(merged);if(handoff)clearStudyHandoff();
           setRevealed(false);setSubmitted(false);setTypedAnswer('');setMutationError(null);
@@ -403,15 +434,24 @@ export const NNReviewClassic = () => {
       }
     } catch (err) {
       if (mountedRef.current) {
-        const error=toApiError(err);setMutationError(error);needsReconciliation.current=true;
-        if([400,404,409].includes(error.status)){pendingOperationRef.current=null;setPendingOperation(null);persist({pending:null});}
-        if(error.status===401){persist();router.replace(`/auth/sign-in?next=${encodeURIComponent(reviewHref)}`);}
+        const error=toApiError(err);
+        if (error.safeMessage === 'card_held' && current) {
+          pendingOperationRef.current=null;setPendingOperation(null);setMutationError(null);needsReconciliation.current=false;
+          setSession((saved) => dropHeldCards(saved, [current.id], sessionMode, clock.current.now()));
+          raiseToast({ kind: 'info', description: t('review.cardChanged') });
+          persist({ pending: null });
+          refreshQueue();
+        } else {
+          setMutationError(error);needsReconciliation.current=true;
+          if([400,404,409].includes(error.status)){pendingOperationRef.current=null;setPendingOperation(null);persist({pending:null});}
+          if(error.status===401){persist();router.replace(`/auth/sign-in?next=${encodeURIComponent(reviewHref)}`);}
+        }
       }
     } finally {
       lockRef.current = false;
       if (mountedRef.current) setBusy(false);
     }
-  }, [current, grade, session, sessionMode, clockRevision, submitted, revealed, pendingPeek, cardUnavailable, dailyLimit, firstSource, refreshQueue, resetAnswer, queueLoading, persist, router]);
+  }, [current, grade, session, sessionMode, clockRevision, submitted, revealed, pendingPeek, cardUnavailable, dailyLimit, firstSource, refreshQueue, resetAnswer, queueLoading, persist, router, t]);
 
   const handleUndo = useCallback(async () => {
     const last = session.history.at(-1);
@@ -447,6 +487,42 @@ export const NNReviewClassic = () => {
     setSession(next);
     resetAnswer();
   }, [current, pendingPeek, session, sessionMode, clockRevision, resetAnswer]);
+
+  const buryCurrent = useCallback(async (scope: 'card' | 'note') => {
+    if (!current || busy || pendingOperation || pendingPeek) return;
+    const command = scope === 'card'
+      ? { action: 'bury' as const, cardIds: [current.id] }
+      : { action: 'bury' as const, noteId: current.noteId };
+    const bringBack = scope === 'card'
+      ? { action: 'unbury' as const, cardIds: [current.id] }
+      : { action: 'unbury' as const, noteId: current.noteId };
+    let result: { until: string | null; cardIds: string[] };
+    try {
+      result = await useNN.getState().applyCardHold(command);
+    } catch {
+      raiseToast({ kind: 'error', description: t('review.bury.failed') });
+      return;
+    }
+    if (!mountedRef.current) return;
+    setSession((saved) => dropHeldCards(saved, result.cardIds, sessionMode, clock.current.now()));
+    resetAnswer();
+    const time = result.until ? holdClock(result.until, locale) : '';
+    const sentence = t('review.bury.until', { time });
+    const title = time && sentence.includes(time) ? sentence : `${sentence} ${time}`.trim();
+    raiseToast({
+      kind: 'success',
+      title,
+      action: {
+        label: t('cards.bulk.unbury'),
+        onClick: () => {
+          void useNN.getState().applyCardHold(bringBack).then(() => refreshQueue(), () => {
+            raiseToast({ kind: 'error', description: t('review.bury.failed') });
+          });
+        },
+      },
+    });
+    refreshQueue();
+  }, [current, busy, pendingOperation, pendingPeek, sessionMode, resetAnswer, t, locale, refreshQueue]);
 
   const handleTypeSubmit = useCallback(() => {
     if (!current || current.renderKind !== 'typein' || submitted || lockRef.current) return;
@@ -505,6 +581,12 @@ export const NNReviewClassic = () => {
 
       // Skip keeps the unanswered card in this session. Undo is the only
       // way back to a previously saved answer.
+      if (e.key.toLowerCase() === 'b' && !inInput) {
+        e.preventDefault();
+        void buryCurrent(e.shiftKey ? 'note' : 'card');
+        return;
+      }
+
       if (e.key.toLowerCase() === 'k' && !inInput) {
         e.preventDefault();
         handleSkip();
@@ -537,7 +619,7 @@ export const NNReviewClassic = () => {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [revealed, current, handleGrade, handleUndo, router, handleEdit, handleSkip, submitted, handleTypeSubmit, pendingPeek, advanceQueue]);
+  }, [revealed, current, handleGrade, handleUndo, router, handleEdit, handleSkip, buryCurrent, submitted, handleTypeSubmit, pendingPeek, advanceQueue]);
 
   const sessionDone = completed > 0 && !pendingPeek && (finished || (!current && queue.length === 0)) && !queueLoading && !queueError;
   const nextLearningAt = queue.length > 0 && !current
@@ -561,6 +643,23 @@ export const NNReviewClassic = () => {
 
     };
   }, [current, finished, busy, pendingPeek, queueLoading, queueError, nextLearningAt, clockRevision, refreshQueue]);
+
+  useEffect(() => {
+    const reason = emptyStudyReason(sessionMode, summary, nextLearningAt);
+    const filteredHeld = sessionMode === 'filtered' && queue.length === 0 && heldCardIds.length > 0;
+    if ((reason !== 'buried' && !filteredHeld) || current || finished || busy || pendingPeek || queueLoading || queueError || !studyDayEndsAt) return;
+    const dueAt = Date.parse(studyDayEndsAt);
+    if (!Number.isFinite(dueAt)) return;
+    let fired = false;
+    const resume = () => {
+      if (!fired && !document.hidden && clock.current.now() >= dueAt) {
+        fired = true;
+        refreshQueue();
+      }
+    };
+    const timer = setTimeout(resume, Math.min(2_147_483_647, Math.max(250, dueAt - clock.current.now() + 50)));
+    return () => { clearTimeout(timer); };
+  }, [sessionMode, summary, nextLearningAt, queue.length, heldCardIds, current, finished, busy, pendingPeek, queueLoading, queueError, studyDayEndsAt, clockRevision, refreshQueue]);
 
   // Only successful server answers enter this snapshot. Undo invalidates a
   // previously saved result; a later completion writes the revised totals.
@@ -597,15 +696,12 @@ export const NNReviewClassic = () => {
   if (sessionDone) return <ReviewSessionDone completed={completed} xp={xpGained} stats={{ cards: totals.uniqueCards, durationMs: totals.durationMs, grades: gradeCounts, answers: session.history.map(({ review }) => ({ durationMs: review.durationMs, rating: review.rating })) }} onUndo={canUndo ? handleUndo : undefined} busy={busy} />;
 
   if (!current) {
-    const reason = sessionMode === 'filtered' ? 'filtered'
-      : summary?.total === 0 ? 'empty'
-      : summary && summary.total === summary.suspendedCount ? 'paused'
-      : nextLearningAt ? 'waiting'
-      : summary && (summary.limitedNew > 0 || summary.limitedReview > 0) ? 'limited'
-      : null;
+    const reason = emptyStudyReason(sessionMode, summary, nextLearningAt);
     if (reason) {
       const next = nextLearningAt;
-      const time = next ? new Date(next).toLocaleString(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+      const time = reason === 'buried'
+        ? (studyDayEndsAt ? holdClock(studyDayEndsAt, locale) : '')
+        : next ? new Date(next).toLocaleString(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
       return <ReviewEmpty role="status" title={t(`review.emptyStates.${reason}.title`)}
         subtitle={`${t(`review.emptyStates.${reason}.body`, { time })}${reason === 'waiting' ? ` ${t('review.waitingAuto')}` : ''}`}
         cta={reason === 'waiting' ? undefined : t(reason === 'empty' ? 'review.allCaught.cta' : reason === 'paused' ? 'nav.cards' : 'review.refreshQueue')}
@@ -976,6 +1072,8 @@ export const NNReviewClassic = () => {
         <div className="reomi-review-utilities">
           <span className="reomi-review-info-mobile"><NNBtn size="sm" variant="ghost" icon="info" onClick={() => setInfoOpen(true)}>{t('review.info.title')}</NNBtn></span>
           <NNBtn size="sm" variant="ghost" disabled={busy || Boolean(pendingOperation) || Boolean(pendingPeek) || skipStudyCard(session, sessionMode, clock.current.now()).activeId === session.activeId} onClick={handleSkip}><NNKbd>K</NNKbd>{t('review.hints.skip')}</NNBtn>
+          <NNBtn size="sm" variant="ghost" disabled={busy || Boolean(pendingOperation) || Boolean(pendingPeek)} onClick={() => void buryCurrent('card')}><NNKbd>B</NNKbd>{t('review.bury.card')}</NNBtn>
+          <NNBtn size="sm" variant="ghost" disabled={busy || Boolean(pendingOperation) || Boolean(pendingPeek)} onClick={() => void buryCurrent('note')}><NNKbd>⇧B</NNKbd>{t('review.bury.note')}</NNBtn>
           <NNBtn size="sm" variant="ghost" disabled={busy || Boolean(pendingPeek)} onClick={handleEdit}><NNKbd>E</NNKbd>{t('review.hints.edit')}</NNBtn>
           {completed > 0 && <NNBtn size="sm" variant="ghost" icon="pause" disabled={busy||Boolean(pendingOperation)} onClick={() => { setPendingPeek(null); setFinished(true); }}>{t('review.finish')}</NNBtn>}
           <NNBtn size="sm" variant="ghost" disabled={busy} onClick={() => router.push('/')}><NNKbd>Esc</NNKbd>{t('review.hints.home')}</NNBtn>

@@ -1,4 +1,5 @@
-import {mergeStudyQueue,recordStudyAnswer,type StudyMode} from './review-session';
+import {holdIsActive} from '@reomi/shared';
+import {dropHeldCards,mergeStudyQueue,recordStudyAnswer,type StudyMode} from './review-session';
 import type {PendingStudyGrade,StudyCheckpoint} from './study-checkpoint';
 import type {Card,Review} from './types';
 
@@ -16,7 +17,7 @@ export function sameStudyCardVersion(a:Card,b:Card) {
 }
 
 /** Recovery only reads. An absent receipt never causes automatic grade replay. */
-export async function reconcileStudyCheckpoint(checkpoint:StudyCheckpoint,queue:Card[],mode:StudyMode,now:number,reads:StudyRecoveryReads,acceptUpdated=false) {
+export async function reconcileStudyCheckpoint(checkpoint:StudyCheckpoint,queue:Card[],mode:StudyMode,now:number,heldCardIds:readonly string[],reads:StudyRecoveryReads,acceptUpdated=false) {
   let session={...checkpoint.session,history:[...checkpoint.session.history]};
   let view={...checkpoint.view};let pending=checkpoint.pending;
   if(session.history.length){
@@ -37,12 +38,15 @@ export async function reconcileStudyCheckpoint(checkpoint:StudyCheckpoint,queue:
   const wanted=session.activeId;
   const previous=session.pending.find(card=>card.id===wanted);
   const order=new Map(session.pending.map((card,index)=>[card.id,index]));
-  const merged=mergeStudyQueue(session,queue,mode,now);
+  const merged=mergeStudyQueue(session,queue,mode,now,heldCardIds);
   merged.pending.sort((a,b)=>(order.get(a.id)??Infinity)-(order.get(b.id)??Infinity));
   let stale:'changed'|'missing'|null=null;
   let acceptedUpdate=false;
   if(wanted&&previous&&!view.finished){
     const live=await reads.card(wanted);
+    if(live&&holdIsActive(live.hold,now)){
+      return {...checkpoint,session:dropHeldCards(merged,[wanted],mode,now),view:{...view,typedAnswer:'',revealed:false,submitted:false,elapsedMs:0,pendingPeek:null},pending,stale:null,acceptedUpdate:false};
+    }
     if(acceptUpdated&&!pending&&!queue.some(card=>card.id===wanted)&&!view.typedAnswer){
       return {...checkpoint,session:merged,view:{...view,revealed:false,submitted:false,elapsedMs:0,pendingPeek:null},pending,stale:null,acceptedUpdate:false};
     }

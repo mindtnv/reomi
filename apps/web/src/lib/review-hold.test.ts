@@ -56,7 +56,7 @@ test('reloading a live card with an active hold removes it before treating the q
     card: async () => live as Card,
     operation: async () => ({ status: 'missing' as const }),
   };
-  const recovered = await reconcileStudyCheckpoint(checkpoint, [], 'regular', now, reads, true);
+  const recovered = await reconcileStudyCheckpoint(checkpoint, [], 'regular', now, [], reads, true);
   expect(recovered.session.pending.map((row) => row.id)).toEqual([]);
   expect(recovered.session.activeId).toBeNull();
   expect(recovered.stale).toBeNull();

@@ -30,6 +30,7 @@ export function DeckDetails({ deck, decks, counts, onBack, onAppearance }: {
     { label: t('cards.states.learning'), value: counts?.learningCount, color: 'var(--amber-500)' },
     { label: t('cards.states.review'), value: counts?.reviewCount, color: 'var(--lime-500)' },
     { label: t('cards.states.suspended'), value: counts?.suspendedCount, color: 'var(--text-dim)' },
+    { label: t('cards.states.buried'), value: counts?.buriedCount, color: 'var(--text-dim)' },
   ];
   const buckets = new Map(forecast.data?.buckets.map(b => [b.day, b.count]));
   const days = (forecast.data?.labels ?? []).map((label) => ({

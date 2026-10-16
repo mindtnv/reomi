@@ -29,7 +29,7 @@ beforeEach(() => {
   ensureTestDom();
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   originalFetch = globalThis.fetch;
-  globalThis.fetch = (async () => Response.json({ days: 7, labels: [], buckets: [], overdueCount: 0, total: 0 })) as typeof fetch;
+  globalThis.fetch = (async () => Response.json({ days: 7, labels: [], buckets: [], overdueCount: 0, total: 0 })) as unknown as typeof fetch;
   useNN.setState({ bootstrapped: true, profile: { userId: 'deck-owner' } as never });
   container = document.createElement('div');
   document.body.appendChild(container);

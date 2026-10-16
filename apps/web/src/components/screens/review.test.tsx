@@ -88,7 +88,7 @@ describe('review screen lifecycle', () => {
   test('returning from editing preserves saved answers and the active filtered card', async () => {
     const second = { ...studyCard, id: '01900000-0000-7000-8000-000000000099', note: { ...studyCard.note, fieldValues: { Front: 'Resumed prompt', Back: 'Updated answer' } } };
     const before = cardFromApi(studyCard);
-    let session = mergeStudyQueue(emptyStudySession(), [before, cardFromApi(second)], 'filtered', Date.now());
+    let session = mergeStudyQueue(emptyStudySession(), [before, cardFromApi(second)], 'filtered', Date.now(), []);
     session = recordStudyAnswer(session, before, before, reviewFromApi({ id: 'saved', cardId: before.id, rating: 3, durationMs: 1000 }), 'filtered', Date.now());
     saveStudyHandoff('test-user', '/review?filteredDeckId=filter', second.id, session);
     globalThis.fetch = ((url: any) => Promise.resolve(Response.json(String(url).includes('/cards/queue')

@@ -9,6 +9,7 @@ import { useAppNavigation, useNavigationWorkspace, useWorkspaceState, Navigation
 import { format } from 'date-fns';
 import {
   buildCardPredicate,
+  holdIsActive,
   parseCardQuery,
   CardQueryError,
   stateLabel,
@@ -32,7 +33,7 @@ import { cardCreationDeck } from '@/lib/card-creation-deck';
 import { CardDetailPanel } from '@/components/card-detail-panel';
 
 import { RENDER_KIND_BADGE_TONE } from '@/lib/source-kind';
-import { mirrorAccountGeneration, useNN } from '@/lib/store';
+import { mirrorAccountGeneration, useNN, type CardHoldCommand } from '@/lib/store';
 import type { Card } from '@/lib/types';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useT, useDateLocale } from '@/lib/i18n';
@@ -97,6 +98,7 @@ function toCardLike(card: Card): CardLike {
     stability: card.fsrs.stability ?? 0,
     difficulty: card.fsrs.difficulty ?? 0,
     scheduledDays: card.fsrs.scheduled_days ?? 0,
+    hold: card.hold ?? null,
   };
 }
 
@@ -130,6 +132,7 @@ export const NNCardsBrowser = () => {
   const noteTypes = useNN((s) => s.noteTypes);
   const searchCards = useNN((s) => s.searchCards);
   const bulkCards = useNN((s) => s.bulkCards);
+  const applyCardHold = useNN((s) => s.applyCardHold);
   const refetchCard = useNN((s) => s.refetchCard);
   const getCardTags = useNN((s) => s.getCardTags);
 
@@ -692,6 +695,26 @@ export const NNCardsBrowser = () => {
   const gridTemplate = `28px 32px ${visibleColumns.map((c) => c.width).join(' ')}`;
 
   const selectedCards = rows.filter(card => selected.has(card.id));
+  const oneCard = selectedCards.length === 1 ? selectedCards[0] : null;
+  const holdCards = (build: (ids: string[]) => CardHoldCommand) =>
+    performBulk(async (ids) => { await applyCardHold(build(ids)); });
+  const noteHold = (action: 'bury' | 'unbury') => (ids: string[]): CardHoldCommand => {
+    const card = rows.find((row) => row.id === ids[0]);
+    if (ids.length !== 1 || !card) throw new Error('hold_note_needs_one_card');
+    return { action, noteId: card.noteId };
+  };
+  const holdActions: CardMenuAction[] = oneCard
+    ? [
+        holdIsActive(oneCard.hold, Date.now())
+          ? { label: t('cards.bulk.unbury'), icon: 'arrow', run: () => { void holdCards((ids) => ({ action: 'unbury', cardIds: ids })); } }
+          : { label: t('cards.bulk.bury'), icon: 'archive', run: () => { void holdCards((ids) => ({ action: 'bury', cardIds: ids })); } },
+        { label: t('cards.bulk.buryNote'), icon: 'archive', run: () => { void holdCards(noteHold('bury')); } },
+        { label: t('cards.bulk.unburyNote'), icon: 'arrow', run: () => { void holdCards(noteHold('unbury')); } },
+      ]
+    : [
+        { label: t('cards.bulk.bury'), icon: 'archive', run: () => { void holdCards((ids) => ({ action: 'bury', cardIds: ids })); } },
+        { label: t('cards.bulk.unbury'), icon: 'arrow', run: () => { void holdCards((ids) => ({ action: 'unbury', cardIds: ids })); } },
+      ];
   const cardActions: CardMenuAction[] = [
     ...(selectedCards.length === 1 ? [{ label: t('cards.panel.edit'), icon: 'edit', run: () => { void changeFocused(selectedCards[0].id); } }] : []),
     { label: t('noteTypes.convert.open'), icon: 'card-type', run: () => {
@@ -706,6 +729,7 @@ export const NNCardsBrowser = () => {
     { label: t('cards.actions.setDue'), icon: 'clock', run: () => { void runSetDue(); } },
     { label: t('cards.actions.forget'), icon: 'sync', run: () => { void runForget(); } },
     { label: t('cards.bulk.delete'), icon: 'x', danger: true, run: () => { void runBulk('delete'); } },
+    ...holdActions,
   ].map(action => ({ ...action, disabled: actionsUnavailable }));
 
   const loading = !bootstrapped;
@@ -1069,6 +1093,7 @@ export const NNCardsBrowser = () => {
                         {col.id === 'question' && (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                             {card.suspended && <NNBadge tone="rose" size="xs">{t('cards.states.suspended')}</NNBadge>}
+                            {holdIsActive(card.hold, Date.now()) && <NNBadge tone="amber" size="xs">{t('cards.states.buried')}</NNBadge>}
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{truncate(q)}</span>
                           </span>
                         )}

@@ -36,8 +36,8 @@ test('study count keys are the numeric study counts', () => {
     nextLearningAt: null,
     nextDueAt: null,
   };
-  const numeric = (Object.keys(zero) as (keyof StudyCounts)[]).filter((key) => typeof zero[key] === 'number');
-  expect([...STUDY_COUNT_KEYS].sort()).toEqual(numeric.sort());
+  const numeric = Object.keys(zero).filter((key) => typeof zero[key as keyof StudyCounts] === 'number');
+  expect(numeric.sort()).toEqual([...STUDY_COUNT_KEYS].sort());
 });
 
 test('both isMatch switches name every card is: value', () => {
