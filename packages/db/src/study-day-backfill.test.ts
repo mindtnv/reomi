@@ -20,7 +20,7 @@ test('0044 backfills UTC dates and does not insert a study-day policy', async ()
   const studyDay = journal.entries.find((row) => row.tag === '0044_study_day');
   expect(studyDay?.idx).toBe(44);
   expect(studyDay?.when).toBeGreaterThan(1792079543018);
-  expect(journal.entries.at(-1)?.tag).toBe('0045_card_holds');
+  expect(journal.entries.at(-1)?.tag).toBe('0046_blushing_professor_monster');
 
   const prior = journal.entries.filter((row) => row.idx < 44);
   expect(prior.at(-1)?.tag).toBe('0043_topic_plan');

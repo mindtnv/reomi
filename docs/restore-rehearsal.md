@@ -41,4 +41,4 @@ On 2026-10-16 the fixture apply in `neuronexus_test` returned `elapsedMs` 9. The
 
 ## Rollback
 
-There is no SQL migration in the export itself. Roll back by reverting this API commit. Older clients ignore the added JSON fields. schemaVersion 1 still applies into the schema created through `0045_note_revisions` and inserts no revision rows. schemaVersion 2 also inserts those pre-images. It does not run SQL and it does not roll SQL back.
+There is no SQL migration in the export itself. Roll back by reverting this API commit. Older clients ignore the added JSON fields. schemaVersion 1 still applies into the schema created through `0046_blushing_professor_monster` and inserts no revision rows. schemaVersion 2 also inserts those pre-images. It does not run SQL and it does not roll SQL back.
