@@ -18,8 +18,9 @@ import { useT } from '@/lib/i18n';
 // NNSelect — reusable searchable single-select dropdown
 //
 // A design-system replacement for the native <select>. The trigger mimics the
-// standard input look; the popover is portaled to <body> and anchored under the
-// trigger via getBoundingClientRect (flips above when there's no room below).
+// standard input look; the popover is portaled into the nearest open dialog,
+// otherwise document.body, and anchored under the trigger via
+// getBoundingClientRect (flips above when there's no room below).
 //
 // Supports nested option indentation (decks) when NOT searching, and shows the
 // full `searchText` (e.g. a deck path) while filtering so hierarchy context is
@@ -176,6 +177,13 @@ export function NNSelect<T extends string>({
   useLayoutEffect(() => {
     if (!open) return;
     reposition();
+    const popover = popoverRef.current;
+    if (!popover || typeof popover.showPopover !== 'function') return;
+    try {
+      if (!popover.matches(':popover-open')) popover.showPopover();
+    } catch {
+      /* The test document has no popover top layer. */
+    }
   }, [open, reposition]);
 
   useEffect(() => {
@@ -299,13 +307,18 @@ export function NNSelect<T extends string>({
           <div
             ref={popoverRef}
             className="nn-scroll reomi-select-popover"
+            popover="manual"
             tabIndex={-1}
             onKeyDown={onKeyDown}
             style={{
               position: 'fixed',
+              margin: 0,
+              padding: 0,
+              height: 'auto',
               left: rect.left,
-              top: rect.flipUp ? undefined : rect.top,
-              bottom: rect.flipUp ? window.innerHeight - rect.top + 4 : undefined,
+              right: 'auto',
+              top: rect.flipUp ? 'auto' : rect.top,
+              bottom: rect.flipUp ? window.innerHeight - rect.top + 4 : 'auto',
               width: rect.width,
               maxHeight: 320,
               overflowY: 'auto',
@@ -453,7 +466,7 @@ export function NNSelect<T extends string>({
               )}
             </div>
           </div>,
-          document.body,
+          triggerRef.current?.closest('dialog') ?? document.body,
         )
       : null;
 
