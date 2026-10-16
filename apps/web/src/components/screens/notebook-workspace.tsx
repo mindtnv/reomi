@@ -223,7 +223,7 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
   // M5 — composer prefill ref (chat ← library «Спросить» handoff + viewer).
   const composerPrefillRef = useRef<ComposerPrefillHandle | null>(null);
 
-  // ── Right dock (Р12): tabs + collapse ─────────────────────────────────────────
+  // ── Right dock (Р12): tabs (Обзор/Заметки/Студия) + collapse ───────────────────
   const dockKey = `nn:nb:dock:${notebookId}`;
   const dockTabKey = `nn:nb:docktab:${notebookId}`;
   const [, setDockTab] = useWorkspaceState<DockTab>(navigationScope, 'dockTab', 'overview');
@@ -248,8 +248,7 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
 
   // Hydrate route-local dock state for every notebook. The component can stay
   // mounted while `[id]` changes, so a one-time boolean would leak the previous
-  // notebook's preference into the next workspace. Tab choice stays unread
-  // (`undefined`) until this effect, and a missing key stays null.
+  // notebook's preference into the next workspace.
   const [dockStorage, setDockStorage] = useState<{ id: string; tab: string | null } | null>(null);
   const storedTab = dockStorage?.id === notebookId ? dockStorage.tab : undefined;
   const dockHydratedNotebookRef = useRef<string | null>(null);
@@ -384,7 +383,6 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
     if (resolution === 'wait') return;
     if (journalTab === resolution) return;
     const storedChoice = storedTab === 'overview' || storedTab === 'notes' || storedTab === 'studio';
-    // A missing plan is the default Overview. Writing it would hide a plan that arrives later.
     if (resolution === 'plan' || deepLink !== null || storedChoice) setDockTab(resolution);
   }, [resolution, journalTab, storedTab, deepLink, setDockTab]);
   const consumeStudyLink = useCallback((kind: 'note' | 'artifact') => {

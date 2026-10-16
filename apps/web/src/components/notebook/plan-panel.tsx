@@ -51,9 +51,7 @@ export function useNotebookPlan(notebookId: string): PlanRead {
         const body = await getNotebookPlan(notebookId);
         if (!current() || body == null) return;
         setState({ load: 'present', plan: parseNotebookPlan(body) });
-      } catch {
-        // A failed refresh leaves the plan already on screen.
-      }
+      } catch {}
     };
     if (operations) return followOperationRefresh(operations.observer, refresh);
     const timer = setInterval(() => void refresh(() => !cancelled), 2000);

@@ -185,7 +185,6 @@ function tree() {
           <I18nProvider>
             <AppNavigationProvider>
               <DialogProvider>
-                {/* The notebook chat entry reads the shell assistant. Without it the dock never mounts. */}
                 <AssistantProvider transportFactory={() => transport} statusLoader={statusLoader}>
                   <NotebookWorkspace notebookId={NOTEBOOK} />
                 </AssistantProvider>
@@ -233,11 +232,23 @@ test('a notebook with a studied plan selects Plan and shows every module status'
   storageUntouched();
 });
 
+test('a missing plan leaves Overview unstored so a later plan can open first', async () => {
+  useNN.setState({ getNotebookPlan: async () => null } as never);
+  await renderWorkspace();
+  expect(radio('Overview')?.getAttribute('aria-checked')).toBe('true');
+  expect(radio('Plan')).toBeUndefined();
+  storageUntouched();
+  await act(async () => { useNN.setState({ getNotebookPlan: async () => studiedPlan } as never); });
+  await renderWorkspace();
+  expect(radio('Plan')?.getAttribute('aria-checked')).toBe('true');
+  expect(document.querySelector('.reomi-notebook-plan')?.textContent).toContain('No pages yet');
+});
+
 test('a stored Overview stays selected while Plan remains available', async () => {
   localStorage.setItem(STORED_DOCK_KEY, 'overview');
   await renderWorkspace();
   expect(radio('Overview')?.getAttribute('aria-checked')).toBe('true');
-  expect(radio('Plan')).not.toBeUndefined();
+  expect(radio('Plan')?.getAttribute('aria-checked')).toBe('false');
   expect(document.querySelector('.reomi-notebook-plan')).toBeNull();
   expect(document.body.textContent).toContain('Add sources to generate an overview.');
 });
