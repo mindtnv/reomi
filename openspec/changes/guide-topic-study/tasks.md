@@ -31,9 +31,9 @@ Each numbered section is one pull request. Land them in order. A later section s
 
 ## 6. Show the plan on the notebook
 
-- [ ] 6.1 Add failing tests for empty, ingesting, readable, and unavailable module status, and for opening a linked source in the existing reader. Verify the tests fail while the dock has no Plan tab, and verify the tab is not a goal or URL form.
-- [ ] 6.2 Add the Plan tab and select it on first open when a plan exists. Verify 6.1 passes, overview and studio still render, and neither opening the tab nor reading the plan creates a card.
-- [ ] 6.3 Update `CLAUDE.md` with the chat proposal, the confirm ingest, the four tables, and the API-before-web rollback, then mirror the body into `AGENTS.md`. Verify the files differ only by the Codex header.
+- [x] 6.1 Add failing tests for empty, ingesting, readable, and unavailable module status, and for opening a linked source in the existing reader. Verify the tests fail while the dock has no Plan tab, and verify the tab is not a goal or URL form.
+- [x] 6.2 Add the Plan tab and select it on first open when a plan exists. Verify 6.1 passes, overview and studio still render, and neither opening the tab nor reading the plan creates a card.
+- [x] 6.3 Update `CLAUDE.md` with the chat proposal, the confirm ingest, the four tables, and the API-before-web rollback, then mirror the body into `AGENTS.md`. Verify the files differ only by the Codex header.
 
 ## 7. Fresh verification after the last edit
 
