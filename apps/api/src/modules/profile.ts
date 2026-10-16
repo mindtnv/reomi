@@ -1,20 +1,11 @@
 import { Elysia, t } from 'elysia';
-import { eq, isNull, or } from 'drizzle-orm';
-import {
-  cards,
-  db,
-  decks,
-  noteTypes,
-  notes,
-  notificationSettings,
-  profile,
-  reviews,
-  user as userTable,
-} from '@reomi/db';
+import { eq } from 'drizzle-orm';
+import { db, profile, user as userTable } from '@reomi/db';
 import { MAX_RETENTION, MIN_RETENTION, PLANT_SPECIES, type PlantSpecies } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin.ts';
 import { requestLogFromContext } from '../logger.ts';
 import { deleteAccountStorage } from '../media-gc.ts';
+import { StudyExportTooLarge, loadStudySnapshot, rehearsalReport } from '../profile/study-snapshot.ts';
 
 const plantSpeciesSchema = t.Union([
   t.Literal('fern'),
@@ -97,49 +88,39 @@ export const profileModule = new Elysia({ prefix: '/profile' })
       ),
     },
   )
-  // Full data export. Returns everything we have on the user in a single JSON
-  // blob — profile, decks, note-types, notes, cards, reviews. Intentionally not
-  // paginated: a dedicated user shouldn't have more than a few MB of history,
-  // and GDPR wants "the whole thing". Note-types include the user's own types
-  // PLUS the global builtins their notes reference (so the export is complete).
+  // One repeatable-read snapshot. The first statement pins the view so a grade
+  // that commits during the read cannot appear without its card state.
   .get(
     '/export',
-    async ({ user }) => {
-      const [profileRow] = await db.select().from(profile).where(eq(profile.userId, user.id));
-      const [reminderRow] = await db.select().from(notificationSettings).where(eq(notificationSettings.userId, user.id));
-      const [decksRows, noteTypesRows, notesRows, cardsRows, reviewsRows] = await Promise.all([
-        db.select().from(decks).where(eq(decks.userId, user.id)),
-        db
-          .select()
-          .from(noteTypes)
-          .where(or(eq(noteTypes.userId, user.id), isNull(noteTypes.userId))),
-        db.select().from(notes).where(eq(notes.userId, user.id)),
-        db.select().from(cards).where(eq(cards.userId, user.id)),
-        db.select().from(reviews).where(eq(reviews.userId, user.id)),
-      ]);
-      return {
-        exportedAt: new Date().toISOString(),
-        user: { id: user.id, email: user.email, name: user.name },
-        profile: profileRow ?? null,
-        decks: decksRows,
-        noteTypes: noteTypesRows,
-        notes: notesRows,
-        cards: cardsRows,
-        reviews: reviewsRows,
-        reminders: reminderRow
-          ? {
-              digestEnabled: reminderRow.digestEnabled,
-              streakWarningEnabled: reminderRow.streakWarningEnabled,
-              timeZone: reminderRow.timeZone,
-              digestHour: reminderRow.digestHour,
-              streakHour: reminderRow.streakHour,
-              emailEnabled: reminderRow.emailEnabled,
-              pushEnabled: reminderRow.pushEnabled,
-              locale: reminderRow.locale,
-              updatedAt: reminderRow.updatedAt,
-            }
-          : null,
-      };
+    async ({ user, set, status }) => {
+      try {
+        const snapshot = await loadStudySnapshot(user.id);
+        set.headers['content-disposition'] = 'attachment; filename="reomi-study-export.json"';
+        set.headers['cache-control'] = 'no-store';
+        set.headers['x-content-type-options'] = 'nosniff';
+        return snapshot;
+      } catch (error) {
+        if (error instanceof StudyExportTooLarge) {
+          return status(413, { error: 'export_too_large', maxBytes: error.maxBytes });
+        }
+        throw error;
+      }
+    },
+    { auth: true },
+  )
+  .post(
+    '/export/rehearse',
+    async ({ user, status }) => {
+      const started = Date.now();
+      try {
+        const snapshot = await loadStudySnapshot(user.id);
+        return rehearsalReport(snapshot, started);
+      } catch (error) {
+        if (error instanceof StudyExportTooLarge) {
+          return status(413, { error: 'export_too_large', maxBytes: error.maxBytes });
+        }
+        throw error;
+      }
     },
     { auth: true },
   )
