@@ -19,6 +19,7 @@ import {
   quizAttemptFromApi,
   reviewFromApi,
 } from './mappers';
+import { normalizeNoteTags } from '@reomi/shared';
 import type { NoteConversionInput, CardTemplate, FieldValues, NoteField, RenderKind } from '@reomi/shared';
 import type { Card, ConceptMapResult, Deck, DeckOptionsPreset, FilteredDeck, FilteredDeckSortOrder, HarvestCandidate, LibraryItem, LibraryItemDetail, LibrarySearchResult, Notebook, NotebookArtifact, NotebookCoverage, NotebookNote, NoteType, Profile, QuizAttempt, Rating, ReadingStatus, Review, Source, SourceChunkPage, SourceLinkedCard, SuggestSourcesResult } from './types';
 import type { NotebookArtifactType, NotebookColor, NotebookNoteKind, QuizAttemptAnswerInput, SourceKind, SourceMime } from '@reomi/shared';
@@ -993,22 +994,24 @@ export const useNN = create<State>()((set, get) => ({
             cards: s.cards.map((c) => (idSet.has(c.id) ? { ...c, suspended: false } : c)),
           };
         case 'addTag': {
-          const tag = payload?.tag;
-          if (!tag) return s;
+          const parsed = payload?.tag === undefined ? null : normalizeNoteTags(payload.tag);
+          if (!parsed?.ok || parsed.tags.length === 0) return s;
           return {
-            cards: s.cards.map((c) =>
-              noteIdSet.has(c.noteId) && !c.tags.includes(tag)
-                ? { ...c, tags: [...c.tags, tag] }
-                : c,
-            ),
+            cards: s.cards.map((c) => {
+              if (!noteIdSet.has(c.noteId)) return c;
+              const next = [...c.tags];
+              for (const tag of parsed.tags) if (!next.includes(tag)) next.push(tag);
+              return next.length === c.tags.length ? c : { ...c, tags: next };
+            }),
           };
         }
         case 'removeTag': {
-          const tag = payload?.tag;
-          if (!tag) return s;
+          const parsed = payload?.tag === undefined ? null : normalizeNoteTags(payload.tag);
+          if (!parsed?.ok || parsed.tags.length === 0) return s;
+          const drop = new Set(parsed.tags);
           return {
             cards: s.cards.map((c) =>
-              noteIdSet.has(c.noteId) ? { ...c, tags: c.tags.filter((t) => t !== tag) } : c,
+              noteIdSet.has(c.noteId) ? { ...c, tags: c.tags.filter((tag) => !drop.has(tag)) } : c,
             ),
           };
         }

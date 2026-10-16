@@ -534,7 +534,7 @@ describe('editor draft recovery', () => {
     const other = noteTypeFromApi({ ...BASIC_NOTE_TYPE, id: 'other-type', name: 'Other type', isBuiltin: false });
     useNN.setState({ noteTypes: [noteTypeFromApi(BASIC_NOTE_TYPE), other], decks: [...useNN.getState().decks, { id: 'deck-2', name: 'Second', color: 'sky', species: 'fern', createdAt: 0 }] });
     writeEditorDraft({ ...draftScope, entityId: 'new' }, { fieldValues: { Front: 'Tagged question', Back: 'Answer' }, deckId: 'deck-2', noteTypeId: other.id,
-      tagsText: '  Grammar , grammar, Grammar, a, b, caf\u00e9, cafe\u0301, hello   world, gram\u0000mar', acceptedAnswersText: '', noteType: other }, null);
+      tagsText: '  Grammar , grammar, Grammar, a, b, hello   world, caf\u00e9, cafe\u0301, gram\u0000mar', acceptedAnswersText: '', noteType: other }, null);
     await render({ card: null });
     await act(async () => button('editor.draft.restore').click());
     let created: any;
@@ -550,7 +550,7 @@ describe('editor draft recovery', () => {
     await render({ card: null });
     await act(async () => button('editor.draft.restore').click());
     let created = false;
-    globalThis.fetch = adaptRecoveryFetch((async () => { created = true; return Response.json({ error: 'offline' }, { status: 503 }); }) as typeof fetch);
+    globalThis.fetch = adaptRecoveryFetch((async (_url: any, _init: any) => { created = true; return Response.json({ error: 'offline' }, { status: 503 }); }) as typeof fetch);
     await act(async () => button('actions.create').click());
     expect(created).toBe(false);
     expect(container.querySelector('[role="alert"]')?.textContent).toContain('editor.errors.tagTooLong');

@@ -22,6 +22,8 @@ import {
   acceptedAnswerVariants,
   ClozeSyntaxError,
   NoteContentError,
+  NoteTagError,
+  normalizeNoteTags,
   type NoteContentErrorCode,
   isLegacyClozeCard,
   MAX_CLOZE_NUMBER,
@@ -162,6 +164,8 @@ export async function insertNoteAndCards(
   },
 ): Promise<{ note: typeof notes.$inferSelect; cards: (typeof cards.$inferSelect)[] }> {
   const now = input.now ?? new Date();
+  const tags = normalizeNoteTags(input.tags);
+  if (!tags.ok) throw new NoteTagError(tags.error);
   const [currentType] = await tx.select().from(noteTypes).where(eq(noteTypes.id, input.noteTypeId)).for('share');
   if (!currentType || currentType.updatedAt.getTime() !== input.expectedTypeUpdatedAt.getTime()) throw new NoteWriteConflict('note_type_changed');
   const [note] = await tx
@@ -171,7 +175,7 @@ export async function insertNoteAndCards(
       noteTypeId: input.noteTypeId,
       fieldValues: input.sanitized,
       acceptedAnswers: input.acceptedAnswers ?? [],
-      tags: input.tags,
+      tags: tags.tags,
     })
     .returning();
 
@@ -208,7 +212,7 @@ export type NoteUpdateResolution =
       generated: ReturnType<typeof generateCards>;
       typeUpdatedAt: Date;
     }
-  | { ok: false; error: 'not_found' | 'note_type_not_found' | 'invalid_cloze' | 'invalid_cloze_split' | NoteContentErrorCode };
+  | { ok: false; error: 'not_found' | 'note_type_not_found' | 'invalid_cloze' | 'invalid_cloze_split' | 'tag_too_long' | 'too_many_tags' | NoteContentErrorCode };
 
 /**
  * Load + validate a note for a field/tags update and pre-compute the next
@@ -240,7 +244,12 @@ export async function resolveNoteUpdate(
     patch.fieldValues !== undefined
       ? sanitizeFieldValues(patch.fieldValues)
       : (note.fieldValues as FieldValues);
-  const nextTags = patch.tags ?? note.tags;
+  let nextTags = note.tags;
+  if (patch.tags !== undefined) {
+    const parsedTags = normalizeNoteTags(patch.tags);
+    if (!parsedTags.ok) return { ok: false, error: parsedTags.error };
+    nextTags = parsedTags.tags;
+  }
   let nextAcceptedAnswers: string[];
   try { nextAcceptedAnswers = acceptedAnswerVariants(patch.acceptedAnswers ?? note.acceptedAnswers); }
   catch (error) { if (error instanceof NoteContentError) return { ok: false, error: error.code }; throw error; }
@@ -412,6 +421,8 @@ export async function createNoteForRequest(context: { user: { id: string }; body
       if (!resolved.ok) return status(400, { error: resolved.error });
       if (body.expectedTypeUpdatedAt && new Date(body.expectedTypeUpdatedAt).getTime() !== resolved.typeUpdatedAt.getTime()) return status(409, { error: 'note_type_changed' });
       if (resolved.generated.length === 0) return status(400, { error: 'no_cards_generated' });
+      const tags = normalizeNoteTags(body.tags ?? []);
+      if (!tags.ok) return status(400, { error: tags.error });
 
       const now = new Date();
       const run = (tx: Tx) =>
@@ -422,12 +433,16 @@ export async function createNoteForRequest(context: { user: { id: string }; body
           expectedTypeUpdatedAt: resolved.typeUpdatedAt,
           sanitized: resolved.sanitized,
           acceptedAnswers: resolved.acceptedAnswers,
-          tags: body.tags ?? [],
+          tags: tags.tags,
           generated: resolved.generated,
           now,
         });
-      const result = await (transaction ? run(transaction) : db.transaction(run)).catch((error) => { if (error instanceof NoteWriteConflict) return error; throw error; });
+      const result = await (transaction ? run(transaction) : db.transaction(run)).catch((error) => {
+        if (error instanceof NoteWriteConflict || error instanceof NoteTagError) return error;
+        throw error;
+      });
       if (result instanceof NoteWriteConflict) return status(409, { error: result.code });
+      if (result instanceof NoteTagError) return status(400, { error: result.code });
 
       log.info(
         {
@@ -543,13 +558,14 @@ async function readOwnedNote(executor: Pick<Db, 'select'>, userId: string, noteI
 }
 
 function noteOperationHash(body: typeof noteCreateBody.static) {
+  const tags = normalizeNoteTags(body.tags ?? []);
   return actionHash({
     noteTypeId: body.noteTypeId,
     expectedTypeUpdatedAt: body.expectedTypeUpdatedAt ?? null,
     deckId: body.deckId,
     fieldValues: body.fieldValues,
     acceptedAnswers: body.acceptedAnswers ?? [],
-    tags: body.tags ?? [],
+    tags: tags.ok ? tags.tags : (body.tags ?? []),
   });
 }
 
