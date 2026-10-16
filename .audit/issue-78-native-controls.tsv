@@ -1,8 +1,0 @@
-ts	phase	decision	why	evidence	result
-2026-10-15T23:20:00Z	start	picked up the native-control migration on cursor/migrate-native-controls-f81a	this run continues the work already on disk	bc-205e5724-aeaa-5473-9ac0-0f48e7c6f81a	open
-2026-10-15T23:20:00Z	controls	added Button variant bare and left file, hidden, and range inputs without reomi-input	existing chrome must stay, and a shared button skin would change toolbars, menus, and tabs	apps/web/src/components/design-system/primitives.tsx	open
-2026-10-15T23:20:00Z	controls	renamed button and input tags with apps/web/scripts/migrate-native-controls.mjs	one mechanical pass is safer than editing 60 files by hand	apps/web/scripts/migrate-native-controls.mjs	open
-2026-10-15T23:30:00Z	controls	replaced the remaining select elements with NNSelect and deleted the file-level eslint disables	the lint rule is file-wide, so one native select kept the whole file exempt	apps/web/src/components/nn-select.tsx	open
-2026-10-15T23:30:00Z	controls	moved the closed NNSelect look into .reomi-select so library filters, settings, and the assistant picker can stay compact	inline trigger styles would ignore the existing size rules	apps/web/src/components/design-system/components.css	open
-2026-10-16T00:05:00Z	rebase	kept Checkbox from main on the column picker and assistant scope, and kept Button bare plus unchromed file and range inputs	main already painted those two checks; replacing them with TextInput would undo that	apps/web/src/components/card-column-picker.tsx	kept
-2026-10-16T00:05:00Z	rebase	visual audit opens mobile settings through NNSelect when the native select is gone	the new harness selected .reomi-settings-mobile-nav select, which this migration removes	e2e/visual-audit.e2e.ts	kept

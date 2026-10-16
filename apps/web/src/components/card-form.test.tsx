@@ -75,7 +75,7 @@ describe('card editor', () => {
     expect(preview.textContent).toContain('[city] is in France');
     await act(async () => preview.click());
     expect(preview.textContent).toContain('Paris is in France');
-    await act(async () => (container.querySelector('[aria-label="editor.previewQuestion"]') as HTMLButtonElement).click());
+    await act(async () => (container.querySelector('[aria-label^="editor.previewQuestion"]') as HTMLButtonElement).click());
     const option = Array.from(document.querySelectorAll('[role="option"]')).find((node) => node.textContent?.includes('c2'))!;
     await act(async () => (option as HTMLElement).click());
     expect(preview.textContent).toContain('Paris is in […]');
@@ -92,7 +92,7 @@ describe('card editor', () => {
     await act(async () => button('editor.previewToggle').click());
     const preview = container.querySelector('[role="button"]') as HTMLElement;
     expect(preview.textContent).toContain('Question');
-    await act(async () => (container.querySelector('[aria-label="editor.previewQuestion"]') as HTMLButtonElement).click());
+    await act(async () => (container.querySelector('[aria-label^="editor.previewQuestion"]') as HTMLButtonElement).click());
     const reverse = Array.from(document.querySelectorAll('[role="option"]')).find((node) => node.textContent === 'Reverse')!;
     await act(async () => (reverse as HTMLElement).click());
     expect(preview.textContent).toContain('Answer');
@@ -112,7 +112,7 @@ describe('card editor', () => {
     }) as typeof fetch);
     await render({ card: cardFromApi(clozeRow) });
     await act(async () => button('editor.cloze.split').click());
-    await act(async () => (container.querySelector('[aria-label="editor.cloze.historyTarget"]') as HTMLButtonElement).click());
+    await act(async () => (container.querySelector('[aria-label^="editor.cloze.historyTarget"]') as HTMLButtonElement).click());
     const option = Array.from(document.querySelectorAll('[role="option"]')).find((node) => node.textContent === 'c2')!;
     await act(async () => (option as HTMLElement).click());
     await act(async () => button('actions.save').click());
@@ -354,7 +354,7 @@ test('conversion keeping the card id replaces the editor fields and type, not on
   } : { noteIds: [row.noteId], cards: [{ ...row, noteType: target, note: { ...row.note, fieldValues: { Question: 'Mapped question', Answer: 'Mapped answer' } } }] })) as unknown as typeof fetch);
   await render({ card: cardFromApi({ ...row, noteType: source }), onSaved: (card) => { saved = card; } });
   await act(async () => button('noteTypes.convert.open').click());
-  const select = document.querySelector('[aria-label="noteTypes.convert.target"]') as HTMLButtonElement;
+  const select = document.querySelector('[aria-label^="noteTypes.convert.target"]') as HTMLButtonElement;
   await act(async () => select.click());
   await act(async () => Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find((option) => option.textContent?.includes('Mapped type'))!.click());
   const modalButton = (text: string) => Array.from(document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).find((button) => button.textContent?.includes(text))!;

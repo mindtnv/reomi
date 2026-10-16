@@ -97,6 +97,8 @@ export function NNSelect<T extends string>({
   const [highlight, setHighlight] = useState(0);
   const [rect, setRect] = useState<{ left: number; top: number; width: number; flipUp: boolean } | null>(null);
   const [mounted, setMounted] = useState(false);
+  const typeahead = useRef('');
+  const typeaheadAt = useRef(0);
 
   useEffect(() => setMounted(true), []);
 
@@ -122,6 +124,10 @@ export function NNSelect<T extends string>({
     },
     [],
   );
+  const lastEnabled = useCallback((list: NNSelectOption<T>[]) => {
+    for (let i = list.length - 1; i >= 0; i--) if (!list[i]?.disabled) return i;
+    return 0;
+  }, []);
 
   // Anchor the popover under the trigger; flip above when out of room.
   const reposition = useCallback(() => {
@@ -141,15 +147,21 @@ export function NNSelect<T extends string>({
     });
   }, []);
 
-  const openMenu = useCallback(() => {
+  const openMenu = useCallback((bias: 'selected' | 'first' | 'last' | 'previous' = 'selected') => {
     if (disabled) return;
     reposition();
     setQuery('');
-    // Highlight the currently-selected row if present, else the first enabled.
-    const selIdx = options.findIndex((o) => o.value === value && !o.disabled);
-    setHighlight(selIdx >= 0 ? selIdx : firstEnabled(options));
+    const selIdx = options.findIndex((o) => o.value === value);
+    if (bias === 'first') setHighlight(firstEnabled(options));
+    else if (bias === 'last') setHighlight(lastEnabled(options));
+    else if (bias === 'previous') {
+      const start = selIdx >= 0 ? selIdx : options.length;
+      let next = lastEnabled(options);
+      for (let i = start - 1; i >= 0; i--) if (!options[i]?.disabled) { next = i; break; }
+      setHighlight(next);
+    } else setHighlight(selIdx >= 0 ? selIdx : firstEnabled(options));
     setOpen(true);
-  }, [disabled, reposition, options, value, firstEnabled]);
+  }, [disabled, reposition, options, value, firstEnabled, lastEnabled]);
 
   const closeMenu = useCallback(
     (returnFocus = true) => {
@@ -161,6 +173,34 @@ export function NNSelect<T extends string>({
   );
 
   useTransientLayer({ root: popoverRef, enabled: open, portals: () => [triggerRef.current], onClose: reason => closeMenu(reason !== 'outside' && reason !== 'navigation'), restoreFocus: false });
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    let outsidePointer = false;
+    const consume = (event: Event) => {
+      if (event instanceof MouseEvent && event.button !== 0) return;
+      const target = event.target;
+      if (target instanceof Node && (popoverRef.current?.contains(target) || triggerRef.current?.contains(target))) return;
+      if (event.type === 'pointerdown') outsidePointer = true;
+      if (event.type === 'click') outsidePointer = false;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    document.addEventListener('pointerdown', consume, true);
+    document.addEventListener('click', consume, true);
+    return () => {
+      document.removeEventListener('pointerdown', consume, true);
+      document.removeEventListener('click', consume, true);
+      if (!outsidePointer) return;
+      const once = (event: Event) => {
+        if (event instanceof MouseEvent && event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        document.removeEventListener('click', once, true);
+      };
+      document.addEventListener('click', once, true);
+    };
+  }, [open]);
 
   const commit = useCallback(
     (opt: NNSelectOption<T> | undefined) => {
@@ -178,12 +218,16 @@ export function NNSelect<T extends string>({
     if (!open) return;
     reposition();
     const popover = popoverRef.current;
-    if (!popover || typeof popover.showPopover !== 'function') return;
-    try {
-      if (!popover.matches(':popover-open')) popover.showPopover();
-    } catch {
-      /* The test document has no popover top layer. */
+    if (!popover) return;
+    if (typeof popover.showPopover !== 'function') {
+      popover.removeAttribute('popover');
+      return;
     }
+    let opened = false;
+    try { opened = popover.matches(':popover-open'); } catch { opened = false; }
+    if (opened) return;
+    try { popover.showPopover(); }
+    catch { popover.removeAttribute('popover'); }
   }, [open, reposition]);
 
   useEffect(() => {
@@ -205,11 +249,8 @@ export function NNSelect<T extends string>({
   // Focus the search box (or the popover) on open.
   useEffect(() => {
     if (!open) return;
-    const raf = window.requestAnimationFrame(() => {
-      if (showSearch) searchRef.current?.focus();
-      else popoverRef.current?.focus();
-    });
-    return () => window.cancelAnimationFrame(raf);
+    if (showSearch) searchRef.current?.focus();
+    else popoverRef.current?.focus();
   }, [open, showSearch]);
 
   // When the filter changes, clamp the highlight to a visible enabled row.
@@ -221,10 +262,10 @@ export function NNSelect<T extends string>({
     }
     setHighlight((h) => {
       const cur = filtered[h];
-      if (cur && !cur.disabled) return h;
+      if (cur && (!cur.disabled || cur.value === value)) return h;
       return firstEnabled(filtered);
     });
-  }, [filtered, open, firstEnabled]);
+  }, [filtered, open, firstEnabled, value]);
 
   // Scroll the highlighted row into view.
   useEffect(() => {
@@ -279,6 +320,8 @@ export function NNSelect<T extends string>({
           break;
         }
         case 'Enter':
+        case ' ':
+          if (e.key === ' ' && (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) break;
           e.preventDefault();
           commit(filtered[highlight]);
           break;
@@ -286,12 +329,44 @@ export function NNSelect<T extends string>({
           e.preventDefault();
           closeMenu();
           break;
-        case 'Tab':
-          // Let focus move on naturally; just close the menu.
+        case 'Tab': {
+          const dialog = triggerRef.current?.closest('dialog, [role="dialog"]');
+          if (!dialog) {
+            closeMenu(false);
+            break;
+          }
+          e.preventDefault();
+          const trigger = triggerRef.current;
+          const popover = popoverRef.current;
+          const tabbables = [...dialog.querySelectorAll<HTMLElement>('a[href],button,input,select,textarea,[tabindex]')]
+            .filter((node) => !node.matches(':disabled') && node.tabIndex >= 0 && !popover?.contains(node));
+          const index = trigger ? tabbables.indexOf(trigger) : -1;
+          const next = e.shiftKey ? tabbables[index - 1] ?? tabbables.at(-1) : tabbables[index + 1] ?? tabbables[0];
           closeMenu(false);
+          next?.focus({ preventScroll: true });
           break;
-        default:
+        }
+        default: {
+          if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) break;
+          if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) break;
+          e.preventDefault();
+          const now = Date.now();
+          const buffer = now - typeaheadAt.current < 500 ? `${typeahead.current}${e.key}` : e.key;
+          typeahead.current = buffer;
+          typeaheadAt.current = now;
+          const queryText = buffer.toLowerCase();
+          const start = buffer.length > 1 ? highlight : highlight + 1;
+          for (let step = 0; step < filtered.length; step++) {
+            const index = (start + step) % filtered.length;
+            const opt = filtered[index];
+            if (!opt || opt.disabled) continue;
+            if ((opt.searchText ?? opt.label).toLowerCase().startsWith(queryText)) {
+              setHighlight(index);
+              break;
+            }
+          }
           break;
+        }
       }
     },
     [moveHighlight, firstEnabled, filtered, commit, highlight, closeMenu],
@@ -300,6 +375,10 @@ export function NNSelect<T extends string>({
   // Trigger label: show the LEAF label (not the full searchText path) so deep
   // deck paths don't truncate badly; placeholder (muted) when nothing selected.
   const triggerLabel = selected ? selected.label : '';
+  const visibleLabel = triggerLabel || placeholder || '';
+  const accessibleName = ariaLabel && visibleLabel ? `${ariaLabel}, ${visibleLabel}` : ariaLabel;
+  const menuParent = triggerRef.current?.closest('dialog, [role="dialog"]') ?? document.body;
+  const activeId = filtered[highlight] ? `${optionIdBase}-${highlight}` : undefined;
 
   const popover =
     open && rect && mounted
@@ -309,6 +388,10 @@ export function NNSelect<T extends string>({
             className="nn-scroll reomi-select-popover"
             popover="manual"
             tabIndex={-1}
+            role={showSearch ? undefined : 'listbox'}
+            id={showSearch ? undefined : listboxId}
+            aria-label={showSearch ? undefined : ariaLabel}
+            aria-activedescendant={showSearch ? undefined : activeId}
             onKeyDown={onKeyDown}
             style={{
               position: 'fixed',
@@ -350,6 +433,7 @@ export function NNSelect<T extends string>({
                   </span>
                   <input
                     ref={searchRef}
+                    className="reomi-select-search"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onFocus={() => setSearchFocused(true)}
@@ -357,9 +441,7 @@ export function NNSelect<T extends string>({
                     placeholder={t('selectSearch')}
                     aria-label={t('selectSearch')}
                     aria-controls={listboxId}
-                    aria-activedescendant={
-                      filtered[highlight] ? `${optionIdBase}-${highlight}` : undefined
-                    }
+                    aria-activedescendant={activeId}
                     style={{
                       width: '100%',
                       padding: '8px 10px 8px 28px',
@@ -369,7 +451,6 @@ export function NNSelect<T extends string>({
                       boxShadow: searchFocused ? '0 0 0 2px color-mix(in srgb, var(--accent-500) 10%, transparent)' : undefined,
                       color: 'var(--text)',
                       fontFamily: 'var(--font-sans)',
-                      fontSize: 13.5,
                       outline: 'none',
                       boxSizing: 'border-box',
                       caretColor: 'var(--accent-400)',
@@ -380,12 +461,9 @@ export function NNSelect<T extends string>({
             )}
 
             <div
-              id={listboxId}
-              role="listbox"
-              aria-label={ariaLabel}
-              aria-activedescendant={
-                filtered[highlight] ? `${optionIdBase}-${highlight}` : undefined
-              }
+              id={showSearch ? listboxId : undefined}
+              role={showSearch ? 'listbox' : undefined}
+              aria-label={showSearch ? ariaLabel : undefined}
               style={{ padding: 4, display: 'flex', flexDirection: 'column', gap: 2 }}
             >
               {options.length === 0 ? (
@@ -466,7 +544,7 @@ export function NNSelect<T extends string>({
               )}
             </div>
           </div>,
-          triggerRef.current?.closest('dialog') ?? document.body,
+          menuParent,
         )
       : null;
 
@@ -484,7 +562,7 @@ export function NNSelect<T extends string>({
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={ariaLabel}
+        aria-label={accessibleName}
         aria-describedby={describedBy}
         aria-invalid={invalid}
         aria-controls={open ? listboxId : undefined}
@@ -495,9 +573,9 @@ export function NNSelect<T extends string>({
           // On open, focus moves to the search box / popover which handles keys,
           // so the trigger only needs the openers here.
           if (open) return;
-          if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Home' || e.key === 'End' || e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            openMenu();
+            openMenu(e.key === 'Home' ? 'first' : e.key === 'End' ? 'last' : e.key === 'ArrowUp' ? 'previous' : 'selected');
           }
         }}
         style={{

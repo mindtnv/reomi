@@ -79,9 +79,11 @@
 .reomi-reading :is(pre,code,kbd) { font-family: var(--font-mono); }
 .reomi-reading > :first-child { margin-top: 0; }
 .reomi-reading > :last-child { margin-bottom: 0; }
+.reomi-select-search { font-size: 13.5px; }
 @media (pointer: coarse) {
   .reomi-button,.reomi-segments > button { min-height: 44px; }
   .reomi-input { min-height: 44px; font-size: 16px; }
+  .reomi-select-search { font-size: 16px; }
   .reomi-input[type='checkbox'],
   .reomi-input[type='radio'] { width: 20px; min-width: 20px; height: 20px; min-height: 20px; font-size: inherit; }
 }
@@ -1041,8 +1043,10 @@ body:has(.reomi-resize-handle[data-dragging='true']) { user-select: none; cursor
 .reomi-flow-dialog .reomi-flow-intro { color: var(--text-muted); margin: 0 0 22px; font-size: 13px; }
 .reomi-flow-dialog label { display: flex; flex-direction: column; gap: 7px; color: var(--text-muted); font-size: 12px; }
 .reomi-flow-dialog label:has(input[type='checkbox']) { flex-direction: row; align-items: flex-start; gap: 8px; }
-.reomi-flow-dialog select { min-height: 40px; background: var(--surface-2) !important; border-color: var(--panel-edge) !important; font: 13px var(--font-sans); }
-.reomi-flow-dialog select:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 2px; }
+.reomi-flow-dialog select,
+.reomi-flow-dialog .reomi-select { min-height: 40px; background: var(--surface-2) !important; border-color: var(--panel-edge) !important; font: 13px var(--font-sans); }
+.reomi-flow-dialog select:focus-visible,
+.reomi-flow-dialog .reomi-select:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 2px; }
 .reomi-flow-dialog p { margin-block: 8px; }
 .reomi-flow-dialog ul { padding: 12px 16px 12px 30px; border-radius: 12px; background: color-mix(in srgb,var(--surface-2) 60%,transparent); overflow-wrap: anywhere; }
 .reomi-flow-dialog li + li { margin-top: 8px; }

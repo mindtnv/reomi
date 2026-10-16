@@ -139,7 +139,7 @@ test('type-in authors can explicitly select an answer field', async () => {
     saved = body; return Response.json({ ...type, ...body });
   }) as typeof fetch;
   await render();
-  const select = host.querySelector('[aria-label="noteTypes.answerField"]') as HTMLButtonElement;
+  const select = host.querySelector('[aria-label^="noteTypes.answerField"]') as HTMLButtonElement;
   expect(select.textContent).toContain('A');
   await act(async () => select.click());
   await act(async () => Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find((option) => option.textContent === 'Q')!.click());
@@ -164,7 +164,7 @@ test('mode conversion previews separately and applies only the exact confirmed i
   const modeDialog = document.querySelector('[aria-labelledby="note-type-mode-title"]')!;
   expect(modeDialog.textContent).toContain('noteTypes.kind.intro');
   expect(host.textContent).toContain('noteTypes.list.title');
-  const mode = modeDialog.querySelector('[aria-label="noteTypes.kind.mode"]') as HTMLButtonElement;
+  const mode = modeDialog.querySelector('[aria-label^="noteTypes.kind.mode"]') as HTMLButtonElement;
   await act(async () => mode.click());
   await act(async () => Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find((option) => option.textContent === 'editor.variants.type')!.click());
   await act(async () => Array.from(modeDialog.querySelectorAll('button')).find(button => button.textContent?.includes('noteTypes.kind.preview'))!.click());
