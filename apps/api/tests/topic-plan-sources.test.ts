@@ -16,7 +16,13 @@ const app = buildApp();
 
 interface SavedPlan {
   notebook: { id: string };
-  plan: { modules: Array<{ id: string; sources: Array<{ sourceId: string; status: string }> }> };
+  plan: {
+    modules: Array<{
+      id: string;
+      status: string;
+      sources: Array<{ sourceId: string; openable: boolean }>;
+    }>;
+  };
 }
 
 interface AddResult {
@@ -112,10 +118,16 @@ describe('topic plan sources', () => {
     await drainSourceIngest({ timeoutMs: 4000 });
     const plan = await callApp(app, 'GET', `/notebooks/${notebookId}/plan`, { cookie });
     const saved = await plan.json<SavedPlan>();
-    expect(saved.plan.modules[0]?.sources.map((source) => source.sourceId)).toEqual([
-      created.items[0]?.sourceId,
-    ]);
-    expect(saved.plan.modules[0]?.sources[0]?.status).toBe('error');
+    const sourceId = created.items[0]?.sourceId;
+    const [row] = await db
+      .select({ status: sourcesTable.status, errorCode: sourcesTable.errorCode })
+      .from(sourcesTable)
+      .where(eq(sourcesTable.id, sourceId!));
+    expect(row?.status).toBe('error');
+    expect(row?.errorCode).not.toBe('index_failed');
+    expect(saved.plan.modules[0]?.sources.map((source) => source.sourceId)).toEqual([sourceId]);
+    expect(saved.plan.modules[0]?.status).toBe('unavailable');
+    expect(saved.plan.modules[0]?.sources[0]?.openable).toBe(false);
   });
 
   test('the oldest owned non-deleting URL is reused', async () => {

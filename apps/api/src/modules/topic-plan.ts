@@ -14,6 +14,7 @@ import {
   topicPlans,
 } from '@reomi/db';
 import { authPlugin } from '../auth-plugin.ts';
+import { studyModule, type NotebookPlan, type NotebookPlanModule, type PlanLinkFact } from '@reomi/shared';
 import { env } from '../env.ts';
 import { isUniqueViolation } from './sources-shared.ts';
 import { addModuleSources } from './topic-plan-sources.ts';
@@ -123,27 +124,7 @@ export class PlanWriteError extends Error {
   }
 }
 
-export interface PlanModuleView {
-  id: string;
-  position: number;
-  title: string;
-  outcome: string;
-  prerequisiteIds: string[];
-  sources: Array<{ sourceId: string; title: string; status: string }>;
-}
-
-export interface PlanView {
-  notebook: { id: string; title: string };
-  plan: {
-    id: string;
-    userId: string;
-    goal: string;
-    level: string | null;
-    modules: PlanModuleView[];
-  };
-}
-
-async function loadPlan(userId: string, notebookId: string): Promise<PlanView | null> {
+async function loadPlan(userId: string, notebookId: string): Promise<NotebookPlan | null> {
   const [notebook] = await db
     .select({ id: notebooks.id, title: notebooks.title })
     .from(notebooks)
@@ -192,6 +173,7 @@ async function loadPlan(userId: string, notebookId: string): Promise<PlanView | 
           sourceId: sources.id,
           title: sources.title,
           status: sources.status,
+          errorCode: sources.errorCode,
         })
         .from(topicModuleSources)
         .innerJoin(sources, eq(sources.id, topicModuleSources.sourceId))
@@ -200,11 +182,16 @@ async function loadPlan(userId: string, notebookId: string): Promise<PlanView | 
         )
         .orderBy(asc(sources.createdAt), asc(sources.id))
     : [];
-  const sourcesByModule = new Map<string, PlanModuleView['sources']>();
+  const factsByModule = new Map<string, PlanLinkFact[]>();
   for (const link of links) {
-    const list = sourcesByModule.get(link.moduleId) ?? [];
-    list.push({ sourceId: link.sourceId, title: link.title, status: link.status });
-    sourcesByModule.set(link.moduleId, list);
+    const list = factsByModule.get(link.moduleId) ?? [];
+    list.push({
+      sourceId: link.sourceId,
+      title: link.title,
+      status: link.status,
+      errorCode: link.errorCode,
+    });
+    factsByModule.set(link.moduleId, list);
   }
 
   return {
@@ -214,14 +201,18 @@ async function loadPlan(userId: string, notebookId: string): Promise<PlanView | 
       userId: plan.userId,
       goal: plan.goal,
       level: plan.level,
-      modules: modules.map((module) => ({
-        id: module.id,
-        position: module.position,
-        title: module.title,
-        outcome: module.outcome,
-        prerequisiteIds: prereqByModule.get(module.id) ?? [],
-        sources: sourcesByModule.get(module.id) ?? [],
-      })),
+      modules: modules.map((module): NotebookPlanModule => {
+        const studied = studyModule(factsByModule.get(module.id) ?? []);
+        const base = {
+          id: module.id,
+          position: module.position,
+          title: module.title,
+          outcome: module.outcome,
+          prerequisiteIds: prereqByModule.get(module.id) ?? [],
+        };
+        if (studied.status === 'empty') return { ...base, status: 'empty', sources: [] };
+        return { ...base, status: studied.status, sources: studied.sources };
+      }),
     },
   };
 }
@@ -231,7 +222,7 @@ async function writePlan(
   mode: 'create' | 'replace',
   notebookId: string | undefined,
   parsed: ParsedPlan,
-): Promise<PlanView> {
+): Promise<NotebookPlan> {
   const notebookIdOut = await db.transaction(async (tx) => {
     let targetId = notebookId;
     if (!targetId) {
@@ -369,7 +360,7 @@ async function writePlan(
   return loaded;
 }
 
-export async function createPlanNotebook(userId: string, parsed: ParsedPlan): Promise<PlanView> {
+export async function createPlanNotebook(userId: string, parsed: ParsedPlan): Promise<NotebookPlan> {
   return writePlan(userId, 'create', undefined, parsed);
 }
 

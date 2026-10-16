@@ -66,7 +66,9 @@ import { SourceStudyWorkspace } from '@/components/screens/library-reader';
 import { createPortal } from 'react-dom';
 import { NotesPanel } from '@/components/notebook/notes-panel';
 import { OverviewPanel } from '@/components/notebook/overview-panel';
+import { PlanPanel, useNotebookPlan } from '@/components/notebook/plan-panel';
 import { StudioPanel } from '@/components/notebook/studio-panel';
+import { DOCK_TAB_LABELS, dockTabOptions, resolveDockTab, type DockTab } from '@/lib/plan-dock';
 import { sourceOperationLabel } from '@/lib/source-operation-label';
 import { useKnowledgeRefresh } from '@/lib/use-knowledge-refresh';
 import { useSourceStatus } from '@/lib/use-source-status';
@@ -77,14 +79,6 @@ import type { LibraryItem, SuggestedSource, SuggestSourcesResult } from '@/lib/t
 import { SegmentedControl, Button, TextInput } from '@/components/design-system/primitives';
 
 type WorkspaceTab = 'sources' | 'chat' | 'dock';
-
-// Right-dock tabs (Р12): «Обзор» (default) / «Заметки» / «Студия» (N2).
-type DockTab = 'overview' | 'notes' | 'studio';
-const DOCK_TABS: { key: DockTab; labelKey: string }[] = [
-  { key: 'overview', labelKey: 'notebooks.overview.tab' },
-  { key: 'notes', labelKey: 'notebooks.notes.tab' },
-  { key: 'studio', labelKey: 'notebooks.studio.tab' },
-];
 
 /**
  * Derive a saved-answer note title (Р7): the first ~60 chars of the content with
@@ -232,7 +226,7 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
   // ── Right dock (Р12): tabs (Обзор/Заметки/Студия) + collapse ───────────────────
   const dockKey = `nn:nb:dock:${notebookId}`;
   const dockTabKey = `nn:nb:docktab:${notebookId}`;
-  const [dockTab, setDockTab] = useWorkspaceState<DockTab>(navigationScope, 'dockTab', 'overview');
+  const [, setDockTab] = useWorkspaceState<DockTab>(navigationScope, 'dockTab', 'overview');
   const [dockCollapsed, setDockCollapsed] = useWorkspaceState(navigationScope, 'dockCollapsed', false);
   // Tablet (720–1100): the dock is a right-side sheet over the sources│chat layout
   // (Р12), toggled from a header button (with a badge-dot when notes are present).
@@ -255,23 +249,22 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
   // Hydrate route-local dock state for every notebook. The component can stay
   // mounted while `[id]` changes, so a one-time boolean would leak the previous
   // notebook's preference into the next workspace.
+  const [dockStorage, setDockStorage] = useState<{ id: string; tab: string | null } | null>(null);
+  const storedTab = dockStorage?.id === notebookId ? dockStorage.tab : undefined;
   const dockHydratedNotebookRef = useRef<string | null>(null);
   useEffect(() => {
     if (dockHydratedNotebookRef.current === notebookId) return;
     dockHydratedNotebookRef.current = notebookId;
+    let tab: string | null = null;
     try {
       const saved=navigationWorkspace?.entry?.views[navigationScope]?.fields;
       if(saved?.dockCollapsed===undefined)setDockCollapsed(readBrowserValue(localStorage, dockKey) === 'collapsed');
-      const storedTab = readBrowserValue(localStorage, dockTabKey);
-      if(!saved?.dockTab)setDockTab(
-        storedTab === 'overview' || storedTab === 'notes' || storedTab === 'studio'
-          ? storedTab
-          : 'overview',
-      );
+      tab = readBrowserValue(localStorage, dockTabKey);
     } catch {
       setDockCollapsed(false);
-      setDockTab('overview');
+      tab = null;
     }
+    setDockStorage({ id: notebookId, tab });
     if(!navigationWorkspace?.entry?.views[navigationScope]?.fields.dockSheetOpen)setDockSheetOpen(false);
   }, [dockKey, dockTabKey, notebookId]);
 
@@ -375,11 +368,23 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
   const newNoteParam = searchParams.get('newNote') === '1';
   useEffect(() => {
     if (!noteParam && !artifactParam && !newNoteParam) return;
-    setDockTab(artifactParam ? 'studio' : 'notes');
     setDockCollapsed(false);
     if (isTablet) setDockSheetOpen(true);
     if (!isDesktop && !isTablet) setTab('dock');
   }, [noteParam, artifactParam, newNoteParam, isDesktop, isTablet]);
+  const planRead = useNotebookPlan(notebookId);
+  const journalDock = navigationWorkspace?.entry?.views[navigationScope]?.fields.dockTab;
+  const journalTab = typeof journalDock === 'string' ? journalDock : null;
+  const deepLink = artifactParam ? 'studio' : noteParam || newNoteParam ? 'notes' : null;
+  const resolution = resolveDockTab({ deepLink, journalTab, storedTab, plan: planRead.load });
+  const dockOptions = dockTabOptions(planRead.load === 'present');
+  const shown = resolution !== 'wait' && dockOptions.includes(resolution) ? resolution : null;
+  useEffect(() => {
+    if (resolution === 'wait') return;
+    if (journalTab === resolution) return;
+    const storedChoice = storedTab === 'overview' || storedTab === 'notes' || storedTab === 'studio';
+    if (resolution === 'plan' || deepLink !== null || storedChoice) setDockTab(resolution);
+  }, [resolution, journalTab, storedTab, deepLink, setDockTab]);
   const consumeStudyLink = useCallback((kind: 'note' | 'artifact') => {
     const next = new URLSearchParams(searchParams.toString());
     next.delete(kind);
@@ -999,8 +1004,34 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
     />
   );
 
-  const dockBody = (active: DockTab) =>
-    active === 'overview' ? overviewPanel : active === 'studio' ? studioPanel : notesPanel;
+  const dockSegments = shown ? (
+    <SegmentedControl
+      label={dockOptions.map((tab) => t(DOCK_TAB_LABELS[tab])).join(' / ')}
+      value={shown}
+      onChange={selectDockTab}
+      options={dockOptions.map((tab) => ({ value: tab, label: t(DOCK_TAB_LABELS[tab]) }))}
+      style={{ flex: 1, minWidth: 0 }}
+    />
+  ) : (
+    <NNSkeleton height={28} style={{ flex: 1 }} />
+  );
+  const dockContent = shown === 'plan' && planRead.load === 'present' ? (
+    <PlanPanel plan={planRead.plan} onOpenSource={(sourceId) => openViewer({ sourceId })} />
+  ) : shown === 'overview' ? (
+    overviewPanel
+  ) : shown === 'notes' ? (
+    notesPanel
+  ) : shown === 'studio' ? (
+    studioPanel
+  ) : planRead.load === 'error' ? (
+    <div style={{ padding: 18 }}>
+      <NNLoadError title={t('toasts.error')} retryLabel={t('notebooks.overview.retry')} onRetry={planRead.retry} />
+    </div>
+  ) : (
+    <div style={{ padding: 18 }}>
+      <NNSkeleton height={120} />
+    </div>
+  );
 
   // Dock header: tab pills (Обзор/Заметки/Студия) + a collapse toggle (desktop).
   // The collapse toggle lives in the dock header so the chat column reclaims width.
@@ -1017,12 +1048,7 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
         minHeight: 44,
       }}
     >
-      <SegmentedControl
-        label={t('notebooks.overview.tab') + ' / ' + t('notebooks.notes.tab') + ' / ' + t('notebooks.studio.tab')}
-        value={dockTab} onChange={selectDockTab}
-        options={DOCK_TABS.map(({ key, labelKey }) => ({ value: key, label: t(labelKey) }))}
-        style={{ flex: 1, minWidth: 0 }}
-      />
+      {dockSegments}
       <NNBtn
         variant="ghost"
         size="sm"
@@ -1049,7 +1075,7 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
     >
       {dockHeader}
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        {dockBody(dockTab)}
+        {dockContent}
       </div>
     </div>
   );
@@ -1237,16 +1263,11 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
               }}
             >
               <div className="nn-chrome" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0, minHeight: 44 }}>
-                <SegmentedControl
-                  label={t('notebooks.overview.tab') + ' / ' + t('notebooks.notes.tab') + ' / ' + t('notebooks.studio.tab')}
-                  value={dockTab} onChange={selectDockTab}
-                  options={DOCK_TABS.map(({ key, labelKey }) => ({ value: key, label: t(labelKey) }))}
-                  style={{ flex: 1, minWidth: 0 }}
-                />
+                {dockSegments}
                 <NNBtn variant="ghost" size="sm" icon="x" ariaLabel={t('library.details.close')} title={t('library.details.close')} onClick={() => setDockSheetOpen(false)} />
               </div>
               <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                {dockBody(dockTab)}
+                {dockContent}
               </div>
             </div>
           </>
@@ -1342,15 +1363,10 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
                 flexShrink: 0,
               }}
             >
-              <SegmentedControl
-                label={t('notebooks.overview.tab') + ' / ' + t('notebooks.notes.tab') + ' / ' + t('notebooks.studio.tab')}
-                value={dockTab} onChange={selectDockTab}
-                options={DOCK_TABS.map(({ key, labelKey }) => ({ value: key, label: t(labelKey) }))}
-                style={{ flex: 1, minWidth: 0 }}
-              />
+              {dockSegments}
             </div>
             <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-              {dockBody(dockTab)}
+              {dockContent}
             </div>
           </div>
         )}

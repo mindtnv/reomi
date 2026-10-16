@@ -363,6 +363,12 @@ describe('i18n parity — en/notebooks.ts vs ru/notebooks.ts (NotebookLM M1, T8)
   // «Блокноты 2.0» N2 — studio + overview keys. A key absent from BOTH locales
   // slips the symmetric diff (mirrors REQUIRED_NOTIFICATION_KEYS).
   const REQUIRED_STUDIO_OVERVIEW_KEYS = [
+    'plan.tab',
+    'plan.empty',
+    'plan.ingesting',
+    'plan.readable',
+    'plan.unavailable',
+    'plan.open',
     // Overview tab.
     'overview.tab',
     'overview.heading',
