@@ -1,4 +1,6 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { eq, isNull, or, sql } from 'drizzle-orm';
 import {
   cards,
@@ -24,10 +26,27 @@ export const MEDIA_NOTE =
   'Image bytes stay in object storage. The snapshot lists each owned file and rebuilds its key as media/<id> on an empty account. It does not copy the bytes.';
 
 const MEDIA_TOKEN = /\/m\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
-const JOURNAL_URL = new URL(
-  '../../../../packages/db/src/migrations/meta/_journal.json',
-  import.meta.url,
-);
+const SOURCE_JOURNAL = ['packages', 'db', 'src', 'migrations', 'meta', '_journal.json'];
+
+function moduleDir(moduleUrl: string): string {
+  return dirname(moduleUrl.startsWith('file:') ? fileURLToPath(moduleUrl) : moduleUrl);
+}
+
+export function migrationJournalCandidates(moduleUrl: string): string[] {
+  const here = moduleDir(moduleUrl);
+  const candidates = [
+    join(here, 'migrations', 'meta', '_journal.json'),
+    join(here, '..', '..', '..', '..', ...SOURCE_JOURNAL),
+  ];
+  let dir = here;
+  for (let depth = 0; depth < 8; depth += 1) {
+    candidates.push(join(dir, ...SOURCE_JOURNAL));
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return [...new Set(candidates)];
+}
 
 export class StudyExportTooLarge extends Error {
   readonly maxBytes: number;
@@ -129,8 +148,10 @@ function mediaTokens(notesRows: { fieldValues: unknown }[]): string[] {
   return [...found];
 }
 
-export function readMigrationHead(): string {
-  const journal = JSON.parse(readFileSync(JOURNAL_URL, 'utf8')) as {
+export function readMigrationHead(moduleUrl: string = import.meta.url): string {
+  const found = migrationJournalCandidates(moduleUrl).find((path) => existsSync(path));
+  if (!found) throw new Error('migration journal is missing');
+  const journal = JSON.parse(readFileSync(found, 'utf8')) as {
     entries?: { tag?: string }[];
   };
   const tag = journal.entries?.at(-1)?.tag;

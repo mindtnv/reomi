@@ -8,7 +8,7 @@ The file contains the account id, email, and name, the profile, the study-day po
 
 Loss window. Commits that land after this snapshot are not in the file. A grade is included with its card state or not at all.
 
-Delivery sets `content-disposition` to an attachment named `reomi-study-export.json`, `cache-control` to `no-store`, and `x-content-type-options` to `nosniff`. A snapshot larger than 32 MiB returns 413 `export_too_large` and no file body.
+Delivery sets `content-disposition` to an attachment named `reomi-study-export.json`, `cache-control` to `no-store`, and `x-content-type-options` to `nosniff`. A snapshot larger than 32 MiB returns 413 with JSON `{ error: export_too_large, maxBytes }`. That response is the error body. It is not the export file.
 
 ## Media
 
@@ -22,9 +22,9 @@ Image bytes stay in object storage. The snapshot lists each owned file and rebui
 
 The operator script is `apps/api/scripts/restore-rehearsal.ts`. Without `--apply` it prints the dry-run report for a file. With `--apply` it calls `applyStudySnapshot`.
 
-The process database name must contain `test` or `rehearsal`. The production name `neuronexus` is refused. The refusal text is the database name only.
+The process database name must be `test` or `rehearsal`, or end with `_test` or `_rehearsal`. `neuronexus_test` is accepted. `latest`, `contest`, `neuronexus_latest`, and the production name `neuronexus` are refused. The refusal text is the database name only.
 
-Apply locks the auth user, then inserts only when that account has no presets, decks, filtered decks, notes, cards, reviews, media, or owned note types. Profile, reminder, and study-day rows that already exist stay as they are. Missing rows are inserted from the file. Original ids are kept. The auth user must already exist. A second apply returns `target_not_empty`. An incoherent file returns `incoherent_snapshot` and writes nothing.
+Apply inserts snapshot rows. It does not execute migration SQL. It locks the auth user, then inserts only when that account has no presets, decks, filtered decks, notes, cards, reviews, media, or owned note types. Profile, reminder, and study-day rows that already exist stay as they are. Missing rows are inserted from the file. Original ids are kept, except a global builtin whose name already exists. That note is stored on the live builtin id so `note_types_builtin_uq` does not abort the rehearsal. The auth user must already exist. A second apply returns `target_not_empty`. An incoherent file returns `incoherent_snapshot` and writes nothing.
 
 Run from the repo root.
 

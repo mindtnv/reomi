@@ -1,4 +1,4 @@
-import { count, eq, sql } from 'drizzle-orm';
+import { and, count, eq, isNull, sql } from 'drizzle-orm';
 import {
   cards,
   db,
@@ -60,7 +60,7 @@ export function assertRehearsalDatabase(databaseUrl: string): string {
   }
   const slash = name.indexOf('/');
   if (slash >= 0) name = name.slice(0, slash);
-  if (!/(?:test|rehearsal)/i.test(name)) {
+  if (!/^(?:.+_)?(?:test|rehearsal)$/i.test(name)) {
     throw new Error(`refusing restore rehearsal against database "${name}"`);
   }
   return name;
@@ -143,6 +143,7 @@ async function insertSnapshot(
     });
   }
 
+  const noteTypeIds = new Map<string, string>();
   for (const row of snapshot.noteTypes) {
     const values = {
       id: String(row.id),
@@ -156,18 +157,32 @@ async function insertSnapshot(
       createdAt: asDate(row.createdAt) ?? new Date(),
       updatedAt: asDate(row.updatedAt) ?? new Date(),
     };
-    if (values.userId == null) {
+    if (values.userId == null && values.isBuiltin) {
+      const [existing] = await tx
+        .select({ id: noteTypes.id })
+        .from(noteTypes)
+        .where(and(isNull(noteTypes.userId), eq(noteTypes.isBuiltin, true), eq(noteTypes.name, values.name)));
+      if (existing) {
+        noteTypeIds.set(values.id, existing.id);
+        continue;
+      }
+      await tx.insert(noteTypes).values(values);
+      noteTypeIds.set(values.id, values.id);
+    } else if (values.userId == null) {
       await tx.insert(noteTypes).values(values).onConflictDoNothing({ target: noteTypes.id });
+      noteTypeIds.set(values.id, values.id);
     } else {
       await tx.insert(noteTypes).values(values);
+      noteTypeIds.set(values.id, values.id);
     }
   }
 
   for (const row of snapshot.notes) {
+    const requestedTypeId = String(row.noteTypeId);
     await tx.insert(notes).values({
       id: String(row.id),
       userId: String(row.userId),
-      noteTypeId: String(row.noteTypeId),
+      noteTypeId: noteTypeIds.get(requestedTypeId) ?? requestedTypeId,
       fieldValues: row.fieldValues as typeof notes.$inferInsert.fieldValues,
       acceptedAnswers: asStringArray(row.acceptedAnswers),
       tags: asStringArray(row.tags),

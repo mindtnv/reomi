@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import {
+  cards,
   db,
   deckOptionsPreset,
   decks,
@@ -10,6 +11,7 @@ import {
   noteTypes,
   notes,
   notificationSettings,
+  reviews,
   studyDayPolicy,
 } from '@reomi/db';
 import { newUuidV7 } from '@reomi/shared';
@@ -193,20 +195,39 @@ describe('study export snapshot', () => {
       'deck',
     );
     const card = await seedBasicCard(app, cookie, { deckId: deck.id, front: 'Pinned front', back: 'back' });
-    __setStudyExportPauseForTests(async () => {
-      const graded = await callApp(app, 'POST', '/reviews', {
+    const first = await ok<{ review: { id: string }; card: { reps: number } }>(
+      await callApp(app, 'POST', '/reviews', {
         cookie,
         body: { cardId: card.id, rating: 3, durationMs: 500 },
-      });
-      if (graded.status !== 200) throw new Error(await graded.text());
+      }),
+      'first grade',
+    );
+    expect(first.card.reps).toBe(1);
+    let secondReviewId = '';
+    __setStudyExportPauseForTests(async () => {
+      const graded = await ok<{ review: { id: string }; card: { reps: number } }>(
+        await callApp(app, 'POST', '/reviews', {
+          cookie,
+          body: { cardId: card.id, rating: 3, durationMs: 500 },
+        }),
+        'second grade',
+      );
+      secondReviewId = graded.review.id;
+      expect(graded.card.reps).toBe(2);
     });
     try {
       const body = await ok<StudySnapshot>(await callApp(app, 'GET', '/profile/export', { cookie }), 'export');
-      expect(body.cards.map((row) => [row.id, row.reps])).toEqual([[card.id, 0]]);
-      expect(body.reviews).toEqual([]);
+      expect(secondReviewId).not.toBe('');
+      expect(body.cards.map((row) => [row.id, row.reps])).toEqual([[card.id, 1]]);
+      expect(body.reviews.map((row) => row.id)).toEqual([first.review.id]);
+      expect(body.reviews.map((row) => row.id)).not.toContain(secondReviewId);
     } finally {
       __setStudyExportPauseForTests(null);
     }
+    const [live] = await db.select({ reps: cards.reps }).from(cards).where(eq(cards.id, card.id));
+    expect(live?.reps).toBe(2);
+    const liveReviews = await db.select({ id: reviews.id }).from(reviews).where(eq(reviews.cardId, card.id));
+    expect(liveReviews.map((row) => row.id).sort()).toEqual([first.review.id, secondReviewId].sort());
   });
 
   test('rehearsal restores an empty account and a later grade sees the saved review', async () => {
@@ -376,6 +397,49 @@ describe('study export snapshot', () => {
     }
     expect(refusal).toBe('refusing restore rehearsal against database "neuronexus"');
     expect(assertRehearsalDatabase('postgres://u:p@localhost:5432/neuronexus_test')).toBe('neuronexus_test');
+  });
+
+  test('a long-lived builtin id is remapped onto the live builtin name', async () => {
+    const owner = await signUpAndCookie(app, uniqueEmail('builtin'));
+    await ok(await callApp(app, 'GET', '/profile', { cookie: owner.cookie }), 'profile');
+    const deck = await ok<{ id: string }>(
+      await callApp(app, 'POST', '/decks', { cookie: owner.cookie, body: { name: 'Builtin deck' } }),
+      'deck',
+    );
+    const card = await seedBasicCard(app, owner.cookie, { deckId: deck.id, front: 'front', back: 'back' });
+    const liveId = newUuidV7();
+    await db.insert(noteTypes).values({
+      id: liveId,
+      userId: null,
+      name: 'Rehearsal Builtin',
+      fields: [{ name: 'Front' }],
+      templates: [],
+      kind: 'basic',
+      isBuiltin: true,
+    });
+    const snapshot = JSON.parse(
+      await (await callApp(app, 'GET', '/profile/export', { cookie: owner.cookie })).text(),
+    ) as StudySnapshot;
+    const exportBuiltinId = newUuidV7();
+    const builtin = snapshot.noteTypes.find((row) => row.name === 'Rehearsal Builtin');
+    expect(builtin?.id).toBe(liveId);
+    if (!builtin) return;
+    builtin.id = exportBuiltinId;
+    for (const note of snapshot.notes) note.noteTypeId = exportBuiltinId;
+
+    await db.delete(notes).where(eq(notes.userId, owner.userId));
+    await db.delete(decks).where(eq(decks.userId, owner.userId));
+    await db.delete(noteTypes).where(eq(noteTypes.userId, owner.userId));
+
+    const restored = await applyStudySnapshot(snapshot);
+    expect(restored.ok).toBe(true);
+    const [note] = await db.select({ noteTypeId: notes.noteTypeId }).from(notes).where(eq(notes.id, card.noteId));
+    expect(note?.noteTypeId).toBe(liveId);
+    const builtins = await db
+      .select({ id: noteTypes.id })
+      .from(noteTypes)
+      .where(and(isNull(noteTypes.userId), eq(noteTypes.isBuiltin, true), eq(noteTypes.name, 'Rehearsal Builtin')));
+    expect(builtins.map((row) => row.id)).toEqual([liveId]);
   });
 
   test('an export over the size cap returns 413 and no snapshot', async () => {
