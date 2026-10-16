@@ -224,6 +224,61 @@ describe('topic plan draft', () => {
     expect(await accountCounts()).toEqual(before);
   });
 
+  test('a draft that is not asked for a teaching page keeps only documentation roots', async () => {
+    // Prod symptom: every module's library source was the docs origin
+    // (https://docs.example.com/) instead of a page that teaches that module.
+    // This model returns that origin unless the completion is told to pick one
+    // specific page per module. A deep URL that redirects to the origin stays
+    // the deep URL: the probe may follow the hop, and it does not store it.
+    const teachingPages = [
+      'https://docs.example.com/learn/ownership',
+      'https://docs.example.com/learn/borrowing',
+      'https://docs.example.com/learn/lifetimes',
+      'https://docs.example.com/learn/traits',
+    ];
+    let prompt = '';
+    __setAiClientForTests({
+      async complete(messages) {
+        prompt = messages
+          .map((message) => (typeof message.content === 'string' ? message.content : ''))
+          .join('\n');
+        const asksForTeachingPage =
+          prompt.includes('specific http(s) page that teaches that module') &&
+          prompt.includes('path beyond the site root') &&
+          prompt.includes('Do not suggest the site root, homepage, or documentation index');
+        return JSON.stringify({
+          modules: [0, 1, 2, 3].map((index) =>
+            moduleAt(index, [asksForTeachingPage ? teachingPages[index]! : 'https://docs.example.com/']),
+          ),
+        });
+      },
+      async *chatStreamAgentic() {
+        yield { type: 'finish', reason: 'stop' };
+      },
+    });
+    __setPageFetchForTests(async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname === '/') return new Response(null, { status: 200 });
+      return new Response(null, {
+        status: 302,
+        headers: { location: 'https://docs.example.com/' },
+      });
+    });
+    const before = await accountCounts();
+    const { cookie } = await signUpAndCookie(app, uniqueEmail());
+    const res = await callApp(app, 'POST', '/notebooks/plan-drafts', {
+      cookie,
+      body: { goal: 'Learn Rust' },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json<DraftBody>();
+    expect(body.modules.map((module) => module.urls)).toEqual(teachingPages.map((url) => [url]));
+    const paths = body.modules.map((module) => new URL(module.urls[0]!).pathname);
+    expect(new Set(paths).size).toBe(paths.length);
+    expect(paths.every((path) => path !== '/')).toBe(true);
+    expect(await accountCounts()).toEqual(before);
+  });
+
   test('test mode does not cooldown a second draft', async () => {
     const state = installComplete(JSON.stringify(fourModules()));
     const { cookie } = await signUpAndCookie(app, uniqueEmail());

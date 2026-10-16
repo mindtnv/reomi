@@ -39,6 +39,9 @@ function draftPrompt(goal: string, level: string | null, locale: 'en' | 'ru'): s
     'Write every title and outcome in that locale.',
     'Return JSON only: {"modules":[{"title":"","outcome":"","prerequisiteIndexes":[],"urls":[]}]}',
     'Use 4 to 8 modules. prerequisiteIndexes are earlier positions in this list. Each module has 0 to 4 http(s) URLs.',
+    'Each URL is one specific http(s) page that teaches that module, with a path beyond the site root.',
+    'Do not suggest the site root, homepage, or documentation index.',
+    'One URL is one page. Do not crawl the site.',
   ].join('\n');
 }
 
@@ -130,7 +133,11 @@ export async function completePlanDraft(input: {
   let raw: string;
   try {
     raw = await complete([
-      { role: 'system', content: 'You propose study modules. Reply with JSON only.' },
+      {
+        role: 'system',
+        content:
+          'You propose study modules. Reply with JSON only. Each url is one specific http(s) page that teaches that module, with a path beyond the site root. Do not suggest the site root, homepage, or documentation index.',
+      },
       { role: 'user', content: draftPrompt(input.goal, input.level, input.locale) },
     ]);
   } catch {

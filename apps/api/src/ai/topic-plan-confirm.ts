@@ -120,7 +120,12 @@ export const createTopicPlan: Tool = {
             title: { type: 'string' },
             outcome: { type: 'string' },
             prerequisiteIndexes: { type: 'array', items: { type: 'integer' } },
-            urls: { type: 'array', items: { type: 'string' } },
+            urls: {
+              type: 'array',
+              description:
+                'The same specific pages the user agreed to. Keep each path. Do not replace a teaching page with the site root, homepage, or documentation index.',
+              items: { type: 'string' },
+            },
           },
           required: ['title', 'outcome'],
         },

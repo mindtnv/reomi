@@ -129,6 +129,7 @@ describe('propose_topic_plan', () => {
       expect(prompt.indexOf('create_topic_plan')).toBeGreaterThan(prompt.indexOf('propose_topic_plan'));
       expect(prompt.split('create_topic_plan')).toHaveLength(2);
       expect(prompt).toContain('same modules and URLs');
+      expect(prompt).toContain('Do not replace a teaching page with the site root.');
       expect(prompt).toContain('Do not create the notebook any other way.');
     }
     const proposal = buildToolRegistry().find((entry) => entry.name === 'propose_topic_plan');
