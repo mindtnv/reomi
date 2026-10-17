@@ -303,7 +303,7 @@ describe('topic plan draft', () => {
     expect(res.status).toBe(200);
     const body = await res.json<DraftBody>();
     expect(body.modules[0]?.urls).toEqual(['https://docs.example.com/learn/ownership']);
-    expect(body.modules[0]?.needsPages).toBeUndefined();
+    expect(body.modules[0]?.needsPages).toBe(false);
   });
 
   test('test mode does not cooldown a second draft', async () => {
