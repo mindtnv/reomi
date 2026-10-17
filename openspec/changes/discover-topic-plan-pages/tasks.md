@@ -8,10 +8,10 @@
 
 ## 2. Cheap index
 
-- [ ] 2.1 Add a failing test that `/llms.txt` sets titles and descriptions, a body over 256 KiB ignores a later link, and a readable sitemap is still merged in as the tree. Drive it through the existing page-fetch seams. Implement the merge and verify the test passes.
-- [ ] 2.2 Add a failing test that a missing sitemap uses llms links, and that both misses use one seed page's links and do not fetch those links onward. Verify the fallback passes.
-- [ ] 2.3 Add a failing test that off-host locs, a versioned sibling host, a private redirect, and a seventeenth sitemap child or another locale's child are dropped. Implement the 8 MiB and 20,000-entry caps and verify the test passes.
-- [ ] 2.4 Add a failing test that a fifth distinct seed contributes no entries. Implement the four-seed cap and verify the test passes.
+- [x] 2.1 Add a failing test that `/llms.txt` sets titles and descriptions, a body over 256 KiB ignores a later link, and a readable sitemap is still merged in as the tree. Drive it through the existing page-fetch seams. Implement the merge and verify the test passes.
+- [x] 2.2 Add a failing test that a missing sitemap uses llms links, and that both misses use one seed page's links and do not fetch those links onward. Verify the fallback passes.
+- [x] 2.3 Add a failing test that off-host locs, a versioned sibling host, a private redirect, and a seventeenth sitemap child or another locale's child are dropped. Implement the 8 MiB and 20,000-entry caps and verify the test passes.
+- [x] 2.4 Add a failing test that a fifth distinct seed contributes no entries. Implement the four-seed cap and verify the test passes.
 
 ## 3. Subtrees, tokens, and the kubernetes fixture
 

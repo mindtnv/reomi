@@ -227,6 +227,85 @@ function pageLocale(url: string): string {
   return 'en';
 }
 
+export type PlanPage = {
+  url: string;
+  title: string;
+  estimatedTokens: number;
+};
+
+export type PlanSectionKind = 'content' | 'reference';
+
+export type PlanSectionSummary = {
+  prefix: string;
+  kind: PlanSectionKind;
+  selected: boolean;
+  pageCount: number;
+  estimatedTokens: number;
+};
+
+export type PlanSection = {
+  prefix: string;
+  kind: PlanSectionKind;
+  selected: boolean;
+  pages: PlanPage[];
+};
+
+export type ReferenceCatalog = {
+  v: 1;
+  remainingTokens: number;
+  entries: { url: string; tokens: number }[];
+  pending: { sourceId: string; urls: string[] }[];
+};
+
+export type PlanOfferModule = {
+  sections: PlanSection[];
+  ignoredUrls: string[];
+  docVersion: string | null;
+  catalog: ReferenceCatalog;
+  needsPages: boolean;
+};
+
+export type PlanOffer = {
+  modules: PlanOfferModule[];
+};
+
+export type PlanSelection = {
+  moduleIndex: number;
+  prefix: string;
+  include: boolean;
+  pages?: { url: string; include: boolean }[];
+};
+
+export type SummarizedModule = {
+  title: string;
+  outcome: string;
+  prerequisiteIndexes: number[];
+  urls: string[];
+  sections: PlanSectionSummary[];
+  needsPages: boolean;
+};
+
+export type PlanSummary = {
+  modules: SummarizedModule[];
+};
+
+export type ExecPlanModule = {
+  title: string;
+  outcome: string;
+  prerequisiteIndexes: number[];
+  urls: string[];
+  pages: PlanPage[];
+  ignoredUrls: string[];
+  docVersion: string | null;
+  catalog: ReferenceCatalog | null;
+};
+
+export type ExecPlan = {
+  goal: string;
+  level: string | null;
+  modules: ExecPlanModule[];
+};
+
 /** `en` keeps unprefixed English. `ru` keeps `/ru/` when any exist, otherwise English. */
 export function keepLocalePages(urls: readonly string[], locale: 'en' | 'ru'): string[] {
   if (locale === 'ru' && urls.some((url) => pageLocale(url) === 'ru')) {

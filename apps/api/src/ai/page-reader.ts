@@ -336,6 +336,85 @@ export async function probePageUrl(raw: string): Promise<boolean> {
   return probePageMethod(current, 'GET');
 }
 
+export type IndexFetchResult = {
+  url: string;
+  body: string;
+  contentType: string;
+};
+
+const INDEX_CONTENT_MARKERS = ['xml', 'text/plain', 'text/markdown', 'text/html', 'markdown'];
+
+function indexContentAllowed(contentType: string): boolean {
+  if (contentType.length === 0) return true;
+  return INDEX_CONTENT_MARKERS.some((marker) => contentType.includes(marker));
+}
+
+/**
+ * Raw index body. XML is allowed and the fetch_page 2MB cap is not this cap.
+ * A private, off-host, or failed hop returns null. This does not call DirectPageReader.read.
+ */
+export async function fetchIndexBody(url: string, maxBytes: number): Promise<IndexFetchResult | null> {
+  let current: URL;
+  try {
+    current = validatePageUrl(url);
+    await assertPublicHost(current);
+  } catch {
+    return null;
+  }
+  const startHost = current.hostname;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), env.ai.FETCH_PAGE_TIMEOUT_MS);
+  try {
+    const maxRedirects = 3;
+    for (let hop = 0; hop <= maxRedirects; hop += 1) {
+      const res = await directFetchImpl(current.href, {
+        method: 'GET',
+        redirect: 'manual',
+        headers: {
+          'user-agent': 'ReomiAgent/1.0 (study assistant; +https://github.com)',
+          accept: 'application/xml,text/xml,text/plain,text/markdown,text/html;q=0.9,*/*;q=0.5',
+        },
+        signal: controller.signal,
+      });
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get('location');
+        await releaseResponse(res);
+        if (!loc || hop === maxRedirects) return null;
+        let next: URL;
+        try {
+          next = validatePageUrl(new URL(loc, current).href);
+        } catch {
+          return null;
+        }
+        if (next.hostname !== startHost) return null;
+        try {
+          await assertPublicHost(next);
+        } catch {
+          return null;
+        }
+        current = next;
+        continue;
+      }
+      if (!res.ok) {
+        await releaseResponse(res);
+        return null;
+      }
+      const contentType = (res.headers.get('content-type') ?? '').toLowerCase();
+      if (!indexContentAllowed(contentType)) {
+        await releaseResponse(res);
+        return null;
+      }
+      const body = await readBodyCapped(res, Math.max(0, maxBytes));
+      return { url: current.href, body, contentType };
+    }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function probePageMethod(start: URL, method: 'HEAD' | 'GET'): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), env.ai.FETCH_PAGE_TIMEOUT_MS);
