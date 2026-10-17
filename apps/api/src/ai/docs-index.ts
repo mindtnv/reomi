@@ -60,10 +60,37 @@ type TrieNode = {
   pages: FrozenPage[];
 };
 
-const indexCache = new Map<string, readonly FrozenPage[]>();
+const INDEX_CACHE_MAX = 32;
+const INDEX_CACHE_TTL_MS = 15 * 60 * 1000;
+
+type IndexCacheEntry = { at: number; pages: readonly FrozenPage[] };
+
+const indexCache = new Map<string, IndexCacheEntry>();
 
 export function __resetDocsIndexCacheForTests(): void {
   indexCache.clear();
+}
+
+function cachedIndex(key: string): readonly FrozenPage[] | undefined {
+  const hit = indexCache.get(key);
+  if (!hit) return undefined;
+  if (Date.now() - hit.at > INDEX_CACHE_TTL_MS) {
+    indexCache.delete(key);
+    return undefined;
+  }
+  indexCache.delete(key);
+  indexCache.set(key, hit);
+  return hit.pages;
+}
+
+function storeIndex(key: string, pages: readonly FrozenPage[]): void {
+  indexCache.delete(key);
+  indexCache.set(key, { at: Date.now(), pages });
+  while (indexCache.size > INDEX_CACHE_MAX) {
+    const oldest = indexCache.keys().next().value;
+    if (oldest === undefined) break;
+    indexCache.delete(oldest);
+  }
 }
 
 export async function discoverPlanPages(input: {
@@ -599,7 +626,7 @@ async function loadSeedIndex(seedUrl: string, locale: PlanLocale): Promise<reado
   const identity = seedIdentity(seedUrl);
   if (!identity) return [];
   const key = `${identity.origin}\0${locale}\0${identity.path}`;
-  const cached = indexCache.get(key);
+  const cached = cachedIndex(key);
   if (cached) return cached;
   let pages: FrozenPage[] = [];
   try {
@@ -608,18 +635,28 @@ async function loadSeedIndex(seedUrl: string, locale: PlanLocale): Promise<reado
     pages = [];
   }
   const frozen = Object.freeze(pages.map((page) => Object.freeze(page)));
-  indexCache.set(key, frozen);
+  storeIndex(key, frozen);
   return frozen;
 }
 
 async function buildSeedIndex(identity: SeedIdentity, locale: PlanLocale): Promise<FrozenPage[]> {
   const llms = await readLlms(identity.origin);
   const sitemap = await readSitemap(identity.origin, locale);
-  const raw = sitemap.length > 0 ? decorate(sitemap, llms.titles) : decorate(llms.links, llms.titles);
-  const scoped = localize(raw.filter((page) => inSeed(page.url, identity)), locale);
-  if (scoped.length > 0) return scoped;
+  const fromSitemap = inScopePages(sitemap, llms.titles, identity, locale);
+  if (fromSitemap.length > 0) return fromSitemap;
+  const fromLlms = inScopePages(llms.links, llms.titles, identity, locale);
+  if (fromLlms.length > 0) return fromLlms;
   const fromPage = (await readSeedPage(identity)).filter((page) => inSeed(page.url, identity));
   return localize(fromPage, locale);
+}
+
+function inScopePages(
+  locs: readonly string[],
+  titles: ReadonlyMap<string, { title: string; description: string }>,
+  identity: SeedIdentity,
+  locale: PlanLocale,
+): FrozenPage[] {
+  return localize(decorate(locs, titles).filter((page) => inSeed(page.url, identity)), locale);
 }
 
 function localize(pages: FrozenPage[], locale: PlanLocale): FrozenPage[] {
@@ -681,8 +718,24 @@ async function readSitemap(origin: string, locale: PlanLocale): Promise<string[]
   const fetched = await fetchIndexBody(`${origin}/sitemap.xml`, SITEMAP_MAX_BYTES);
   if (!fetched) return [];
   if (new URL(fetched.url).hostname !== new URL(origin).hostname) return [];
-  const budget = { bytes: fetched.body.length, locs: 0 };
+  const budget: SitemapBudget = {
+    bytes: utf8Bytes(fetched.body),
+    locs: 0,
+    children: 0,
+    visited: new Set([matchKey(fetched.url)]),
+  };
   return readSitemapDocument(fetched.body, fetched.url, origin, locale, budget);
+}
+
+type SitemapBudget = {
+  bytes: number;
+  locs: number;
+  children: number;
+  visited: Set<string>;
+};
+
+function utf8Bytes(body: string): number {
+  return Buffer.byteLength(body, 'utf8');
 }
 
 async function readSitemapDocument(
@@ -690,14 +743,15 @@ async function readSitemapDocument(
   baseUrl: string,
   origin: string,
   locale: PlanLocale,
-  budget: { bytes: number; locs: number },
+  budget: SitemapBudget,
 ): Promise<string[]> {
   if (/<sitemapindex\b/i.test(xml)) return readSitemapIndex(xml, baseUrl, origin, locale, budget);
   const remaining = SITEMAP_LOC_MAX - budget.locs;
   if (remaining <= 0) return [];
   const entries = parseUrlset(xml, baseUrl, remaining);
   budget.locs += entries.length;
-  return collapseCanonical(entries);
+  const allowed = new Set(keepLocalePages(entries.map((entry) => entry.url), locale));
+  return collapseCanonical(entries.filter((entry) => allowed.has(entry.url)));
 }
 
 async function readSitemapIndex(
@@ -705,11 +759,10 @@ async function readSitemapIndex(
   baseUrl: string,
   origin: string,
   locale: PlanLocale,
-  budget: { bytes: number; locs: number },
+  budget: SitemapBudget,
 ): Promise<string[]> {
   const originHost = new URL(origin).hostname;
   const urls: string[] = [];
-  let accepted = 0;
   for (const child of parseIndexChildren(xml, baseUrl)) {
     if (budget.locs >= SITEMAP_LOC_MAX || budget.bytes >= SITEMAP_MAX_BYTES) break;
     let parsed: URL;
@@ -720,14 +773,20 @@ async function readSitemapIndex(
     }
     if (parsed.hostname !== originHost) continue;
     if (namesOtherLocale(child, locale)) continue;
-    if (accepted >= SITEMAP_CHILD_MAX) break;
-    accepted += 1;
+    const key = matchKey(child);
+    if (budget.visited.has(key)) continue;
+    if (budget.children >= SITEMAP_CHILD_MAX) break;
+    budget.visited.add(key);
+    budget.children += 1;
     const remainingBytes = SITEMAP_MAX_BYTES - budget.bytes;
     if (remainingBytes <= 0) break;
     const fetched = await fetchIndexBody(child, remainingBytes);
     if (!fetched) continue;
     if (new URL(fetched.url).hostname !== originHost) continue;
-    budget.bytes += fetched.body.length;
+    const fetchedKey = matchKey(fetched.url);
+    if (fetchedKey !== key && budget.visited.has(fetchedKey)) continue;
+    budget.visited.add(fetchedKey);
+    budget.bytes += utf8Bytes(fetched.body);
     const nested = await readSitemapDocument(fetched.body, fetched.url, origin, locale, budget);
     urls.push(...nested);
   }

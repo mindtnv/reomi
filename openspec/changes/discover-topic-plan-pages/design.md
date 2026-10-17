@@ -80,7 +80,7 @@ A checked-in sitemap stands in for kubernetes.io. It includes English workloads 
 
 ## Migration Plan
 
-1. Add an additive migration after `0044_study_day.sql` for nullable `sources.doc_version`. Allow `planned` in the application status set. Do not add a check constraint that would reject older statuses. Edit `packages/db/src/schema/app.ts` in the same change. Apply with `db:migrate:apply`. Do not use schema push as a substitute.
+1. Add an additive migration, `0047_talented_daimon_hellstrom.sql`, for nullable `sources.doc_version` and `topic_modules.reference_catalog`. Allow `planned` in the application status set. Do not add a check constraint that would reject older statuses. Edit `packages/db/src/schema/app.ts` in the same change. Apply with `db:migrate:apply`. Do not use schema push as a substitute.
 2. Ship the API before the web. An old web build still confirms a hand-entered URL list. It ignores `doc_version` and `planned`.
 3. Rollback the web first, then the API. Leave the column and any `planned` rows in place. Do not drop the column to roll back. A `planned` row is an ordinary library source that a later compatible API can enqueue.
 

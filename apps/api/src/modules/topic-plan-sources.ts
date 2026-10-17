@@ -287,6 +287,18 @@ async function linkedAlready(tx: PlanTx, userId: string, notebookId: string, sou
   return Boolean(row);
 }
 
+async function moduleIsReleased(tx: PlanTx, userId: string, moduleId: string, position: number): Promise<boolean> {
+  if (position <= 1) return true;
+  const rows = await tx
+    .select({ status: sources.status })
+    .from(topicModuleSources)
+    .innerJoin(sources, eq(sources.id, topicModuleSources.sourceId))
+    .where(
+      and(eq(topicModuleSources.userId, userId), eq(topicModuleSources.moduleId, moduleId), eq(sources.userId, userId)),
+    );
+  return rows.some((row) => row.status !== 'planned');
+}
+
 async function linkModuleTx(tx: PlanTx, userId: string, moduleId: string, sourceId: string): Promise<void> {
   await tx
     .insert(topicModuleSources)
@@ -443,11 +455,22 @@ export async function attachLinkedReferences(sourceId: string, hrefs: readonly s
       return url ? [url] : [];
     });
     if (normalized.length === 0) return;
-    const links = await db
-      .select({ moduleId: topicModules.id, catalog: topicModules.referenceCatalog })
+    const anchors = await db
+      .select({
+        planId: topicModules.planId,
+        sourceUserId: sources.userId,
+      })
       .from(topicModuleSources)
       .innerJoin(topicModules, eq(topicModules.id, topicModuleSources.moduleId))
-      .where(eq(topicModuleSources.sourceId, sourceId));
+      .innerJoin(sources, eq(sources.id, topicModuleSources.sourceId))
+      .where(and(eq(topicModuleSources.sourceId, sourceId), eq(topicModules.userId, sources.userId)));
+    const ownerId = anchors[0]?.sourceUserId;
+    if (!ownerId) return;
+    const planIds = [...new Set(anchors.map((row) => row.planId))];
+    const links = await db
+      .select({ moduleId: topicModules.id, catalog: topicModules.referenceCatalog })
+      .from(topicModules)
+      .where(and(eq(topicModules.userId, ownerId), inArray(topicModules.planId, planIds)));
     for (const link of links) {
       if (!link.catalog) continue;
       const urls = referenceLinksToAdd(normalized, link.catalog);
@@ -503,6 +526,7 @@ async function finishReferenceReceipt(moduleId: string, sourceId: string): Promi
         catalog: topicModules.referenceCatalog,
         userId: topicModules.userId,
         planId: topicModules.planId,
+        position: topicModules.position,
       })
       .from(topicModules)
       .where(eq(topicModules.id, moduleId))
@@ -522,7 +546,8 @@ async function finishReferenceReceipt(moduleId: string, sourceId: string): Promi
       .from(topicPlans)
       .where(eq(topicPlans.id, locked.planId))
       .limit(1);
-    if (!parent || !plan) return [];
+    if (!parent || parent.userId !== locked.userId || !plan) return [];
+    const released = await moduleIsReleased(tx, locked.userId, moduleId, locked.position);
     const counts = await countInTx(tx, parent.userId, plan.notebookId);
     let library = counts.library;
     let notebook = counts.notebook;
@@ -557,7 +582,7 @@ async function finishReferenceReceipt(moduleId: string, sourceId: string): Promi
           notebook += 1;
         }
         await linkModuleTx(tx, locked.userId, moduleId, existing.id);
-        if (existing.status === 'planned' && existing.verified) {
+        if (released && existing.status === 'planned' && existing.verified) {
           const [promoted] = await tx
             .update(sources)
             .set({ status: 'pending', ...newOperationRun(), updatedAt: new Date() })
@@ -581,10 +606,10 @@ async function finishReferenceReceipt(moduleId: string, sourceId: string): Promi
           kind: 'url',
           title: titleForUrl(url).slice(0, 300),
           url,
-          status: 'pending',
+          status: released ? 'pending' : 'planned',
           verified: true,
           docVersion: parent.docVersion,
-          ...newOperationRun(),
+          ...(released ? newOperationRun() : {}),
         })
         .returning({ id: sources.id });
       if (!row) continue;
@@ -596,7 +621,7 @@ async function finishReferenceReceipt(moduleId: string, sourceId: string): Promi
       await linkModuleTx(tx, locked.userId, moduleId, row.id);
       library += 1;
       notebook += 1;
-      ids.push(row.id);
+      if (released) ids.push(row.id);
       if (entryIndex >= 0) entries.splice(entryIndex, 1);
       remaining = Math.max(0, remaining - tokens);
       consumed.add(raw);
