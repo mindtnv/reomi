@@ -315,6 +315,11 @@ const m = {
     modules: 'Модули: {count}',
     confirm: 'Сохранить этот план',
     pages: 'Страницы: {count}',
+    sectionSummary: '{pages} стр. · {tokens} токенов',
+    pageTokens: '{tokens} токенов',
+    leaveOut: 'Убрать',
+    includeAgain: 'Вернуть',
+    notIncluded: 'Не входит',
     pagesMissing: 'страницы не найдены',
   },
   // Errors surfaced in the stream

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
 import { I18nProvider } from '../lib/i18n';
-import { readBrowserValue } from '../lib/storage-migration';
+import { readBrowserValue, writeBrowserValue } from '../lib/storage-migration';
 
 ensureTestDom();
 const { createRoot } = await import('react-dom/client');
@@ -15,7 +15,7 @@ let container: HTMLDivElement;
 afterEach(() => { root?.unmount(); container?.remove(); localStorage.clear(); });
 
 async function render(props: React.ComponentProps<typeof InstallHint>) {
-  localStorage.setItem('nn:locale', 'en');
+  writeBrowserValue(localStorage, 'nn:locale', 'en');
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);

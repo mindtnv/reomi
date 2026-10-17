@@ -31,8 +31,10 @@ export interface PageContent {
   title?: string;
   /** Readable plain text of the page (already whitespace-collapsed). */
   text: string;
-  /** Absolute http(s) links found on the page (deduped, capped). */
+  /** Absolute http(s) links found on the page (deduped, capped for the chat tool). */
   links: string[];
+  /** Same links, capped higher so a fetched plan page can attach catalog references. */
+  hrefs?: string[];
   /**
    * Cover image candidate (og:image) — absolute http(s) URL, when the page
    * declares one (L3 covers, §8.2 URL path). The ingest worker downloads it
@@ -51,6 +53,7 @@ export interface PageReader {
 }
 
 const PAGE_LINKS_MAX = 20;
+const PAGE_HREF_MAX = 2000;
 /** Exa /contents `text.maxCharacters` hard cap is 10000. */
 const EXA_TEXT_MAX_CHARS = 10000;
 
@@ -208,7 +211,7 @@ export function htmlToPage(html: string, baseUrl: string): PageContent {
   const imageUrl = extractOgImage(html, baseUrl);
 
   // Collect absolute http(s) links BEFORE stripping tags.
-  const links: string[] = [];
+  const hrefs: string[] = [];
   const seen = new Set<string>();
   for (const m of html.matchAll(/<a\b[^>]*\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
     const raw = (m[1] ?? m[2] ?? '').trim();
@@ -222,13 +225,14 @@ export function htmlToPage(html: string, baseUrl: string): PageContent {
       const href = abs.href;
       if (!seen.has(href)) {
         seen.add(href);
-        links.push(href);
-        if (links.length >= PAGE_LINKS_MAX) break;
+        hrefs.push(href);
+        if (hrefs.length >= PAGE_HREF_MAX) break;
       }
     } catch {
       // unresolvable href — skip
     }
   }
+  const links = hrefs.slice(0, PAGE_LINKS_MAX);
 
   let s = html
     // Drop non-content subtrees wholesale.
@@ -243,7 +247,7 @@ export function htmlToPage(html: string, baseUrl: string): PageContent {
     .replace(/<[^>]+>/g, ' ');
   s = collapseText(decodeEntities(s));
 
-  return { url: baseUrl, title, text: s, links, imageUrl };
+  return { url: baseUrl, title, text: s, links, hrefs, imageUrl };
 }
 
 /**
@@ -334,6 +338,85 @@ export async function probePageUrl(raw: string): Promise<boolean> {
   }
   if (await probePageMethod(current, 'HEAD')) return true;
   return probePageMethod(current, 'GET');
+}
+
+export type IndexFetchResult = {
+  url: string;
+  body: string;
+  contentType: string;
+};
+
+const INDEX_CONTENT_MARKERS = ['xml', 'text/plain', 'text/markdown', 'text/html', 'markdown'];
+
+function indexContentAllowed(contentType: string): boolean {
+  if (contentType.length === 0) return true;
+  return INDEX_CONTENT_MARKERS.some((marker) => contentType.includes(marker));
+}
+
+/**
+ * Raw index body. XML is allowed and the fetch_page 2MB cap is not this cap.
+ * A private, off-host, or failed hop returns null. This does not call DirectPageReader.read.
+ */
+export async function fetchIndexBody(url: string, maxBytes: number): Promise<IndexFetchResult | null> {
+  let current: URL;
+  try {
+    current = validatePageUrl(url);
+    await assertPublicHost(current);
+  } catch {
+    return null;
+  }
+  const startHost = current.hostname;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), env.ai.FETCH_PAGE_TIMEOUT_MS);
+  try {
+    const maxRedirects = 3;
+    for (let hop = 0; hop <= maxRedirects; hop += 1) {
+      const res = await directFetchImpl(current.href, {
+        method: 'GET',
+        redirect: 'manual',
+        headers: {
+          'user-agent': 'ReomiAgent/1.0 (study assistant; +https://github.com)',
+          accept: 'application/xml,text/xml,text/plain,text/markdown,text/html;q=0.9,*/*;q=0.5',
+        },
+        signal: controller.signal,
+      });
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get('location');
+        await releaseResponse(res);
+        if (!loc || hop === maxRedirects) return null;
+        let next: URL;
+        try {
+          next = validatePageUrl(new URL(loc, current).href);
+        } catch {
+          return null;
+        }
+        if (next.hostname !== startHost) return null;
+        try {
+          await assertPublicHost(next);
+        } catch {
+          return null;
+        }
+        current = next;
+        continue;
+      }
+      if (!res.ok) {
+        await releaseResponse(res);
+        return null;
+      }
+      const contentType = (res.headers.get('content-type') ?? '').toLowerCase();
+      if (!indexContentAllowed(contentType)) {
+        await releaseResponse(res);
+        return null;
+      }
+      const body = await readBodyCapped(res, Math.max(0, maxBytes));
+      return { url: current.href, body, contentType };
+    }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function probePageMethod(start: URL, method: 'HEAD' | 'GET'): Promise<boolean> {
@@ -461,7 +544,7 @@ export class ExaPageReader implements PageReader {
         body: JSON.stringify({
           urls: [u.href],
           text: { maxCharacters: EXA_TEXT_MAX_CHARS },
-          extras: { links: PAGE_LINKS_MAX },
+          extras: { links: PAGE_HREF_MAX },
           livecrawlTimeout: env.ai.FETCH_PAGE_TIMEOUT_MS,
         }),
         signal: controller.signal,
@@ -477,7 +560,7 @@ export class ExaPageReader implements PageReader {
       if (!r || typeof r.text !== 'string' || r.text.length === 0) {
         throw new Error('exa returned no readable text for this page');
       }
-      const links = (r.extras?.links ?? [])
+      const hrefs = (r.extras?.links ?? [])
         .map((l) =>
           typeof l === 'string'
             ? l
@@ -486,7 +569,8 @@ export class ExaPageReader implements PageReader {
               : '',
         )
         .filter((l) => /^https?:\/\//i.test(l))
-        .slice(0, PAGE_LINKS_MAX);
+        .slice(0, PAGE_HREF_MAX);
+      const links = hrefs.slice(0, PAGE_LINKS_MAX);
       const imageUrl =
         typeof r.image === 'string' && /^https?:\/\//i.test(r.image) ? r.image : undefined;
       return {
@@ -494,6 +578,7 @@ export class ExaPageReader implements PageReader {
         title: r.title ?? undefined,
         text: collapseText(r.text),
         links,
+        hrefs,
         imageUrl,
       };
     } finally {

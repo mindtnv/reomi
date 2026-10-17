@@ -330,6 +330,13 @@
       "when": 1792138198866,
       "tag": "0046_blushing_professor_monster",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1792243832714,
+      "tag": "0047_talented_daimon_hellstrom",
+      "breakpoints": true
     }
   ]
 }

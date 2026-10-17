@@ -308,6 +308,8 @@ interface State {
   getNotebook: (id: string) => Promise<Notebook>;
   /** GET /notebooks/:id/plan. A missing plan is null. Any other failure throws. */
   getNotebookPlan: (id: string) => Promise<unknown | null>;
+  /** POST /notebooks/:id/plan/modules/:moduleId/open. Same payload as GET. */
+  openNotebookPlanModule: (id: string, moduleId: string) => Promise<unknown | null>;
   /** Patch notebook metadata (PATCH /notebooks/:id) — title/emoji/color/
    *  description/pinned/archived (Р13). Empty patch is a no-op (returns the row). */
   patchNotebook: (id: string, patch: NotebookPatch) => Promise<Notebook>;
@@ -1333,6 +1335,12 @@ export const useNN = create<State>()((set, get) => ({
 
   async getNotebookPlan(id) {
     const res = await (api as any).notebooks({ id }).plan.get();
+    if (res.error?.status === 404) return null;
+    return ok(res);
+  },
+
+  async openNotebookPlanModule(id, moduleId) {
+    const res = await (api as any).notebooks({ id }).plan.modules({ moduleId }).open.post();
     if (res.error?.status === 404) return null;
     return ok(res);
   },

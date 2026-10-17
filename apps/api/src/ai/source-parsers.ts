@@ -57,6 +57,8 @@ export interface ParseSourceResult {
   fetchedTitle?: string;
   /** YouTube: language of the chosen caption track. */
   language?: string;
+  /** URL: absolute links from the same parse, for plan reference attachment. */
+  hrefs?: string[];
 }
 
 // ── Test seams ────────────────────────────────────────────────────────────────
@@ -266,11 +268,15 @@ async function parseYoutube(url: string): Promise<ParseSourceResult> {
   }
 }
 
-async function parseUrl(url: string): Promise<{ units: SourceUnit[]; imageUrl?: string }> {
+async function parseUrl(url: string): Promise<ParseSourceResult> {
   if (!url) throw new SourceParseError('fetch_failed', 'no url');
   try {
     const page = await readPageCached(url);
-    return { units: [{ text: page.text, heading: page.title }], imageUrl: page.imageUrl };
+    return {
+      units: [{ text: page.text, heading: page.title }],
+      imageUrl: page.imageUrl,
+      hrefs: page.hrefs ?? page.links,
+    };
   } catch (err) {
     throw new SourceParseError('fetch_failed', `url fetch failed: ${String(err)}`);
   }

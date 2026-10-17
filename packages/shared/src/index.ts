@@ -50,5 +50,6 @@ export * from './card-evidence';
 
 export * from './source-readability';
 export * from './plan-study';
+export * from './plan-offer';
 export * from './operations';
 export * from './ui-actions';

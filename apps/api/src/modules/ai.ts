@@ -56,6 +56,7 @@ import {
   type MessageMention,
   type MessageUsage,
   type AssistantContextSnapshot,
+  applyPlanSelections,
 } from '@reomi/shared';
 import {
   buildUserContent,
@@ -2056,7 +2057,12 @@ const createChatModule = <const Prefix extends string>(prefix: Prefix) => new El
               // Per-card selections override the executed args (the PERSISTED
               // assistant row keeps the model's original proposal — the result
               // text tells the model what the user actually applied/changed).
-              const execArgs = selection.kind === 'apply' ? selection.args : parsedArgs;
+              const execArgs =
+                pending.name === 'create_topic_plan'
+                  ? applyPlanSelections(parsedArgs, pending.impact?.planOffer, body.planSelections)
+                  : selection.kind === 'apply'
+                    ? selection.args
+                    : parsedArgs;
               // ONE transaction: the mutation + the role:tool insert. A duplicate
               // (conversation_id, tool_call_id) for role='tool' violates
               // messages_tool_result_uq → the whole tx (incl. the mutation) rolls
@@ -2261,6 +2267,25 @@ const createChatModule = <const Prefix extends string>(prefix: Prefix) => new El
               index: t.Integer({ minimum: 0, maximum: 99 }),
               include: t.Boolean(),
               fieldValues: t.Optional(t.Record(t.String(), t.String({ maxLength: 8000 }))),
+            }),
+            { maxItems: 40 },
+          ),
+        ),
+        planSelections: t.Optional(
+          t.Array(
+            t.Object({
+              moduleIndex: t.Integer({ minimum: 0, maximum: 11 }),
+              prefix: t.String({ maxLength: 500 }),
+              include: t.Boolean(),
+              pages: t.Optional(
+                t.Array(
+                  t.Object({
+                    url: t.String({ maxLength: 2000 }),
+                    include: t.Boolean(),
+                  }),
+                  { maxItems: 200 },
+                ),
+              ),
             }),
             { maxItems: 40 },
           ),

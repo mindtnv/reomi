@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://kubernetes.io/docs/concepts/workloads/pods/</loc></url>
+  <url><loc>https://kubernetes.io/docs/concepts/workloads/deployments/</loc></url>
+  <url><loc>https://kubernetes.io/docs/concepts/services-networking/service/</loc></url>
+  <url><loc>https://kubernetes.io/docs/concepts/services-networking/ingress/</loc></url>
+  <url><loc>https://kubernetes.io/docs/tasks/run-application/run-a-pod/</loc></url>
+  <url><loc>https://kubernetes.io/docs/tasks/run-application/deploy-an-app/</loc></url>
+  <url><loc>https://kubernetes.io/docs/setup/production-environment/overview/</loc></url>
+  <url><loc>https://kubernetes.io/docs/configuration/overview/</loc></url>
+  <url><loc>https://kubernetes.io/docs/storage/volumes/</loc></url>
+  <url><loc>https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/</loc></url>
+  <url><loc>https://kubernetes.io/docs/reference/kubernetes-api/service-resources/ingress-v1/</loc></url>
+  <url><loc>https://kubernetes.io/docs/reference/glossary/pod/</loc></url>
+  <url><loc>https://kubernetes.io/blog/2020/a-post/</loc></url>
+  <url><loc>https://kubernetes.io/docs/tags/workloads/</loc></url>
+  <url><loc>https://kubernetes.io/docs/concepts/workloads/index.html</loc></url>
+  <url><loc>https://kubernetes.io/zh-cn/docs/concepts/workloads/pods/</loc></url>
+  <url><loc>https://kubernetes.io/ru/docs/concepts/workloads/pods/</loc></url>
+  <url><loc>https://v1-33.docs.kubernetes.io/docs/concepts/workloads/pods/</loc></url>
+</urlset>

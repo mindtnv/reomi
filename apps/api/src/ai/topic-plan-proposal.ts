@@ -9,6 +9,7 @@ import {
   LEVEL_MAX,
   REVISION_MAX,
   REVISION_MIN,
+  attachPlanSections,
   completePlanDraft,
   probePlanModules,
   readPlanModules,
@@ -95,9 +96,13 @@ export const proposeTopicPlan: Tool = {
         const modules = readPlanModules(request.modules, { min: REVISION_MIN, max: REVISION_MAX });
         if (!modules) return invalid;
         const probed = await probePlanModules(modules);
+        const summarized = await attachPlanSections(
+          { goal: request.goal, level: request.level, locale: request.locale },
+          probed,
+        );
         return {
           ok: true,
-          text: JSON.stringify({ goal: request.goal, level: request.level, modules: probed }),
+          text: JSON.stringify({ goal: request.goal, level: request.level, modules: summarized }),
         };
       }
 

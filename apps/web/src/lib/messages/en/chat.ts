@@ -316,6 +316,11 @@ const m = {
     modules: '{count} modules',
     confirm: 'Save this plan',
     pages: '{count} pages',
+    sectionSummary: '{pages} pages · {tokens} tokens',
+    pageTokens: '{tokens} tokens',
+    leaveOut: 'Leave out',
+    includeAgain: 'Include',
+    notIncluded: 'Not included',
     pagesMissing: 'pages were not found',
   },
   // Errors surfaced in the stream

@@ -1,14 +1,16 @@
-// Confirmed plan. The user already agreed, so this write stores one notebook
-// and ingests the accepted URLs. It does not call the model or probe pages.
+// dryRun reads the cheap docs index. Apply reads that stored offer and does
+// not fetch the index again.
 //
 // writePlan commits before addModuleSources runs. The source insert has to see
 // the notebook row, and the page fetch starts only after that source row
 // exists. A resume transaction cannot wrap both steps. A second apply creates
 // another notebook.
 
-import type { Tool, ToolResult } from './tools.ts';
+import { handUrls, readKeptPages, type ExecPlan } from '@reomi/shared';
+import type { Tool, ToolContext, ToolResult } from './tools.ts';
+import { discoverPlanPages, toPlanOffer, type PlanLocale } from './docs-index.ts';
 import { normalizePlanUrl } from '../modules/plan-url.ts';
-import { addModuleSources } from '../modules/topic-plan-sources.ts';
+import { addModuleSources, savePlanPages } from '../modules/topic-plan-sources.ts';
 import { createPlanNotebook, parsePlanBody, PlanWriteError } from '../modules/topic-plan.ts';
 
 const invalid: ToolResult = { ok: false, error: 'invalid_plan' };
@@ -72,6 +74,11 @@ function refusal(error: string): ToolResult {
   return { ok: false, error };
 }
 
+function readLocale(raw: unknown): PlanLocale {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return 'en';
+  return (raw as { locale?: unknown }).locale === 'ru' ? 'ru' : 'en';
+}
+
 /** A needsPages module with no URL still has nowhere to read. Name those modules. */
 function pagesNeededError(modules: ConfirmModule[]): string | null {
   const titles = modules
@@ -82,10 +89,8 @@ function pagesNeededError(modules: ConfirmModule[]): string | null {
   return `These modules still need a teaching page: ${titles.join('; ')}. Add a page URL for each, or remove the module.`;
 }
 
-async function storePlan(userId: string, body: ConfirmBody): Promise<{ ok: true; text: string } | ToolResult> {
-  const needed = pagesNeededError(body.modules);
-  if (needed) return refusal(needed);
-  const parsed = parsePlanBody(body);
+async function storePlan(userId: string, kept: ExecPlan): Promise<{ ok: true; text: string } | ToolResult> {
+  const parsed = parsePlanBody(kept);
   if (!parsed.ok) return refusal(parsed.error);
   let saved;
   try {
@@ -98,18 +103,33 @@ async function storePlan(userId: string, body: ConfirmBody): Promise<{ ok: true;
   const lines = [`notebook ${saved.notebook.id}`];
   let stopped: 'library_full' | 'too_many_sources' | null = null;
   for (let index = 0; index < saved.plan.modules.length; index++) {
-    const urls = body.modules[index]?.urls ?? [];
-    if (urls.length === 0) continue;
-    if (stopped) {
-      for (const url of urls) lines.push(`${normalizePlanUrl(url) ?? url.trim()} ${stopped}`);
-      continue;
+    const module = kept.modules[index];
+    const hand = handUrls(module);
+    if (hand.length > 0) {
+      if (stopped) {
+        for (const url of hand) lines.push(`${normalizePlanUrl(url) ?? url.trim()} ${stopped}`);
+      } else {
+        const added = await addModuleSources(userId, saved.notebook.id, saved.plan.modules[index]!.id, hand);
+        if (!added.ok) return refusal(added.error);
+        for (const item of added.items) {
+          lines.push(`${item.url} ${item.result}`);
+          if (item.result === 'library_full' || item.result === 'too_many_sources') stopped = item.result;
+        }
+      }
     }
-    const added = await addModuleSources(userId, saved.notebook.id, saved.plan.modules[index]!.id, urls);
-    if (!added.ok) return refusal(added.error);
-    for (const item of added.items) {
-      lines.push(`${item.url} ${item.result}`);
-      if (item.result === 'library_full' || item.result === 'too_many_sources') stopped = item.result;
-    }
+    if (stopped) continue;
+    const pages = module?.pages ?? [];
+    if (pages.length === 0) continue;
+    const pageStop = await savePlanPages({
+      userId,
+      notebookId: saved.notebook.id,
+      moduleId: saved.plan.modules[index]!.id,
+      wave: index < 2 ? { kind: 'fetch' } : { kind: 'hold' },
+      docVersion: module?.docVersion ?? null,
+      catalog: module?.catalog ?? null,
+      pages,
+    });
+    if (pageStop) stopped = pageStop;
   }
   return { ok: true, text: lines.join('\n') };
 }
@@ -162,14 +182,31 @@ export const createTopicPlan: Tool = {
     if (needed) return refusal(needed);
     return { ok: true };
   },
-  async dryRun() {
-    return {};
+  async dryRun(_ctx: ToolContext, raw) {
+    const body = readBody(raw);
+    if (!body) return {};
+    const discovered = await discoverPlanPages({
+      goal: body.goal,
+      level: body.level ?? null,
+      locale: readLocale(raw),
+      modules: body.modules.map((module) => ({
+        title: module.title,
+        outcome: module.outcome,
+        prerequisiteIndexes: module.prerequisiteIndexes ?? [],
+        urls: module.urls ?? [],
+      })),
+    });
+    return { planOffer: toPlanOffer(discovered) };
   },
   async execute(ctx, raw): Promise<ToolResult> {
     const body = readBody(raw);
     if (!body) return invalid;
+    const needed = pagesNeededError(body.modules);
+    if (needed) return refusal(needed);
+    const kept = readKeptPages(raw);
+    if (!kept) return invalid;
     try {
-      return await storePlan(ctx.userId, body);
+      return await storePlan(ctx.userId, kept);
     } catch {
       ctx.log.warn('ai.tool.create_topic_plan_failed');
       return invalid;

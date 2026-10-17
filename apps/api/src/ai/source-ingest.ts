@@ -182,12 +182,13 @@ async function claimForParse(sourceId: string): Promise<Source | null> {
 async function parsePhase(source: Source, log: Logger): Promise<void> {
   try {
     const bytes = await loadBytes(source);
-    const { units, cover, imageUrl, fetchedTitle, language } = await parseSource({
+    const parsed = await parseSource({
       kind: source.kind as 'pdf' | 'epub' | 'url' | 'text' | 'youtube',
       bytes,
       url: source.url ?? undefined,
       text: source.kind === 'text' ? await inlineTextFor(source.id) : undefined,
     });
+    const { units, cover, imageUrl, fetchedTitle, language, hrefs } = parsed;
 
     const chunks = chunkSource({
       sourceType: 'document',
@@ -257,6 +258,7 @@ async function parsePhase(source: Source, log: Logger): Promise<void> {
     // CAS parsing → indexing (a concurrent delete loses this race → 0 rows → skip).
     const moved = await casStatus(source.id, source.operationRunId!, ['parsing'], 'indexing');
     if (!moved) throw new TerminalSkip();
+    if (hrefs && hrefs.length > 0) await attachPlanReferences(source.id, hrefs, log);
   } finally {
     // Always evict — SoT recovery from source_chunks makes correctness
     // independent of the stash (stash is only a fast-path for same-process runs).
@@ -526,17 +528,33 @@ export async function resumeSourceIngestOnStartup(): Promise<void> {
       .set({ operationRunId: sql`COALESCE(${sources.operationRunId}, uuidv7())` })
       .where(and(inArray(sources.status, ['pending', 'parsing', 'indexing']), eq(sources.verified, true)))
       .returning({ id: sources.id });
-    if (rows.length === 0) return;
-    // Reset parsing/indexing → pending so the full pipeline re-runs idempotently.
-    await db
-      .update(sources)
-      .set({ status: 'pending', updatedAt: new Date() })
-      .where(and(eq(sources.status, 'parsing'), eq(sources.verified, true)));
-    rootLogger.info({ count: rows.length }, 'ai.source_ingest.resume');
-    for (const { id } of rows) enqueueSource(id);
+    if (rows.length > 0) {
+      // Reset parsing/indexing → pending so the full pipeline re-runs idempotently.
+      await db
+        .update(sources)
+        .set({ status: 'pending', updatedAt: new Date() })
+        .where(and(eq(sources.status, 'parsing'), eq(sources.verified, true)));
+      rootLogger.info({ count: rows.length }, 'ai.source_ingest.resume');
+      for (const { id } of rows) enqueueSource(id);
+    }
   } catch (err) {
     sourceIngestWorkerState.recordFailure('startup_resume_failed');
     rootLogger.error({ err }, 'ai.source_ingest.resume_failed — degrading');
+  }
+  try {
+    const { resumePlanReferenceReceipts } = await import('../modules/topic-plan-sources.ts');
+    await resumePlanReferenceReceipts();
+  } catch (err) {
+    rootLogger.error({ err: safeError(err) }, 'topic_plan.reference_receipt_resume_failed');
+  }
+}
+
+async function attachPlanReferences(sourceId: string, hrefs: readonly string[], log: Logger): Promise<void> {
+  try {
+    const { attachLinkedReferences } = await import('../modules/topic-plan-sources.ts');
+    await attachLinkedReferences(sourceId, hrefs);
+  } catch (err) {
+    log.warn({ err: safeError(err), sourceId }, 'topic_plan.reference_link_failed');
   }
 }
 
