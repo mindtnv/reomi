@@ -124,9 +124,11 @@ const notebooks = {
     tab: 'Plan',
     empty: 'No pages yet',
     ingesting: 'Still loading',
+    planned: 'Planned',
     readable: 'Ready to read',
     unavailable: 'Unavailable',
     open: 'Open',
+    start: 'Load pages',
   },
 
   // «Notebooks 2.0» (N2) — the Overview tab (right dock, default).

@@ -1016,7 +1016,7 @@ export const NotebookWorkspace = ({ notebookId }: { notebookId: string }) => {
     <NNSkeleton height={28} style={{ flex: 1 }} />
   );
   const dockContent = shown === 'plan' && planRead.load === 'present' ? (
-    <PlanPanel plan={planRead.plan} onOpenSource={(sourceId) => openViewer({ sourceId })} />
+    <PlanPanel plan={planRead.plan} onOpenSource={(sourceId) => openViewer({ sourceId })} onLoadModule={(moduleId) => { void planRead.loadModule(moduleId); }} />
   ) : shown === 'overview' ? (
     overviewPanel
   ) : shown === 'notes' ? (

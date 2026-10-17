@@ -1,3 +1,38 @@
+import type { PlanOffer, PlanSelection } from '@reomi/shared';
+
+export type PlanDrop =
+  | { kind: 'section'; moduleIndex: number; prefix: string }
+  | { kind: 'page'; moduleIndex: number; prefix: string; url: string };
+
+export function planDropMatches(item: PlanDrop, drop: PlanDrop): boolean {
+  if (item.kind !== drop.kind || item.moduleIndex !== drop.moduleIndex || item.prefix !== drop.prefix) return false;
+  if (item.kind === 'page' && drop.kind === 'page') return item.url === drop.url;
+  return true;
+}
+
+/** A selection is a drop. Unmentioned content stays selected, and a reference include is never sent. */
+export function planSelectionsFromDrops(offer: PlanOffer, drops: readonly PlanDrop[]): PlanSelection[] {
+  const selections: PlanSelection[] = [];
+  offer.modules.forEach((module, moduleIndex) => {
+    for (const section of module.sections) {
+      const sectionDrop: PlanDrop = { kind: 'section', moduleIndex, prefix: section.prefix };
+      if (drops.some((drop) => planDropMatches(drop, sectionDrop))) {
+        if (!section.selected) continue;
+        selections.push({ moduleIndex, prefix: section.prefix, include: false });
+        continue;
+      }
+      if (!section.selected || section.kind === 'reference') continue;
+      const pages = section.pages.flatMap((page) => {
+        const pageDrop: PlanDrop = { kind: 'page', moduleIndex, prefix: section.prefix, url: page.url };
+        return drops.some((drop) => planDropMatches(drop, pageDrop)) ? [{ url: page.url, include: false as const }] : [];
+      });
+      if (pages.length === 0) continue;
+      selections.push({ moduleIndex, prefix: section.prefix, include: true, pages });
+    }
+  });
+  return selections;
+}
+
 export interface TopicPlanCardRow {
   title: string;
   outcome: string;

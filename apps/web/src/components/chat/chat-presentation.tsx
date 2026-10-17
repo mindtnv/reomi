@@ -35,7 +35,8 @@ import {
 } from '@/components/ui';
 import { RichCard } from '@/components/rich-card';
 import { compactToolText } from '@/lib/panel-width';
-import { topicPlanCardRows } from '@/lib/topic-plan-card';
+import { planDropMatches, planSelectionsFromDrops, topicPlanCardRows, type PlanDrop } from '@/lib/topic-plan-card';
+import { PlanOfferSections } from '@/components/chat/plan-offer-sections';
 import { renderCardHtml, SafeHtml } from '@/lib/render-card';
 import { api, ok } from '@/lib/api';
 import { resolveMediaSrc } from '@/lib/media-url';
@@ -1815,7 +1816,7 @@ const ToolActivityGroup = ({
 // chosen the controls collapse to a single status chip ("Applied"/"Rejected").
 
 /** Per-card decisions + a note to the model, attached to a confirm answer. */
-export type ConfirmPayload = Pick<ChatResumeRequest, 'cardSelections' | 'feedback'>;
+export type ConfirmPayload = Pick<ChatResumeRequest, 'cardSelections' | 'feedback' | 'planSelections'>;
 
 export const ConfirmationAvailability = React.createContext(true);
 
@@ -1825,7 +1826,7 @@ interface ConfirmControlsProps {
   t: (key: string, params?: Record<string, string | number>) => string;
 }
 
-const ConfirmControls = ({ toolCall, onConfirm, t }: ConfirmControlsProps) => {
+export const ConfirmControls = ({ toolCall, onConfirm, t }: ConfirmControlsProps) => {
   const available = React.useContext(ConfirmationAvailability);
   const decided = toolCall.decision != null;
   const impact = toolCall.impact;
@@ -1861,6 +1862,15 @@ const ConfirmControls = ({ toolCall, onConfirm, t }: ConfirmControlsProps) => {
   const diffRows = draft ? [] : confirmDiffRows(toolCall.name, impact);
   const willCreate = draft ? includedCount : (impact?.willCreateCards ?? 0);
   const planRows = toolCall.name === 'create_topic_plan' ? topicPlanCardRows(toolCall.args) : null;
+  const offer = toolCall.name === 'create_topic_plan' ? toolCall.impact?.planOffer : undefined;
+  const [drops, setDrops] = useState<PlanDrop[]>([]);
+  const toggleDrop = (drop: PlanDrop) => {
+    setDrops((current) => (
+      current.some((item) => planDropMatches(item, drop))
+        ? current.filter((item) => !planDropMatches(item, drop))
+        : [...current, drop]
+    ));
+  };
 
   const setField = (cardIdx: number, field: string, value: string) =>
     setCards((prev) =>
@@ -1893,11 +1903,12 @@ const ConfirmControls = ({ toolCall, onConfirm, t }: ConfirmControlsProps) => {
       ? cards.map((c, i) => ({ include: decisions[i] === 'accepted', fieldValues: c.fieldValues }))
       : cards;
     const selections = decision === 'apply' && draft ? buildCardSelections(draft, state) : [];
-    const payload: ConfirmPayload = {
-      cardSelections: selections.length > 0 ? selections : undefined,
-      feedback: fb.length > 0 ? fb : undefined,
-    };
-    onConfirm(decision, payload.cardSelections || payload.feedback ? payload : undefined);
+    const planSelections = decision === 'apply' && offer ? planSelectionsFromDrops(offer, drops) : [];
+    const payload: ConfirmPayload = {};
+    if (selections.length > 0) payload.cardSelections = selections;
+    if (fb.length > 0) payload.feedback = fb;
+    if (planSelections.length > 0) payload.planSelections = planSelections;
+    onConfirm(decision, payload.cardSelections || payload.feedback || payload.planSelections ? payload : undefined);
   };
 
   /** One-line excerpt for the review rows (first non-empty field). */
@@ -1929,7 +1940,8 @@ const ConfirmControls = ({ toolCall, onConfirm, t }: ConfirmControlsProps) => {
         {t('chat.confirm.pendingTitle')}
       </span>
 
-      {planRows && <PlanModuleList rows={planRows} t={t} confirm />}
+      {planRows && !offer && <PlanModuleList rows={planRows} t={t} confirm />}
+      {offer && <PlanOfferSections rows={planRows} offer={offer} drops={drops} onToggle={toggleDrop} t={t} />}
 
       {/* What exactly changes / will be written — degrades silently when the
           payload is absent (old persisted rows, reload mid-pause). */}

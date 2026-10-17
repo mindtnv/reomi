@@ -12,10 +12,14 @@ type ReadState =
   | { load: 'pending' | 'absent' | 'error'; plan: null }
   | { load: 'present'; plan: NotebookPlan };
 
-export type PlanRead = ReadState & { retry: () => void };
+export type PlanRead = ReadState & {
+  retry: () => void;
+  loadModule: (moduleId: string) => Promise<void>;
+};
 
 export function useNotebookPlan(notebookId: string): PlanRead {
   const getNotebookPlan = useNN((s) => s.getNotebookPlan);
+  const openNotebookPlanModule = useNN((s) => s.openNotebookPlanModule);
   const operations = useOperations();
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<ReadState>({ load: 'pending', plan: null });
@@ -61,15 +65,25 @@ export function useNotebookPlan(notebookId: string): PlanRead {
     };
   }, [ingesting, notebookId, getNotebookPlan, operations]);
 
-  return { ...state, retry };
+  const loadModule = useCallback(async (moduleId: string) => {
+    try {
+      const body = await openNotebookPlanModule(notebookId, moduleId);
+      if (body == null) return;
+      setState({ load: 'present', plan: parseNotebookPlan(body) });
+    } catch {}
+  }, [notebookId, openNotebookPlanModule]);
+
+  return { ...state, retry, loadModule };
 }
 
 export function PlanPanel({
   plan,
   onOpenSource,
+  onLoadModule,
 }: {
   plan: NotebookPlan;
   onOpenSource: (sourceId: string) => void;
+  onLoadModule: (moduleId: string) => void;
 }) {
   const t = useT();
   return (
@@ -81,6 +95,11 @@ export function PlanPanel({
           <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{module.title}</h3>
           <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 12.5 }}>{module.outcome}</p>
           <p style={{ margin: 0, color: 'var(--text-dim)', fontSize: 12 }}>{t(`notebooks.plan.${module.status}`)}</p>
+          {module.status === 'planned' ? (
+            <Button type="button" size="sm" variant="soft" onClick={() => onLoadModule(module.id)}>
+              {t('notebooks.plan.start')}
+            </Button>
+          ) : null}
           {module.sources.map((source) => (
             <div key={source.sourceId} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ color: 'var(--text)', fontSize: 13 }}>{source.title}</span>

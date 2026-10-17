@@ -30,7 +30,7 @@
 
 ## 5. Section confirm
 
-- [ ] 5.1 Show each content section with its page count and estimated tokens, show reference sections as unselected, and allow dropping a section or a page, in both locales. Verify a focused web test covers the workloads count, a dropped tasks section, and a planned third module.
+- [x] 5.1 Show each content section with its page count and estimated tokens, show reference sections as unselected, and allow dropping a section or a page, in both locales. Verify a focused web test covers the workloads count, a dropped tasks section, and a planned third module.
 
 ## 6. Fresh verification
 
