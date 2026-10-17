@@ -20,6 +20,7 @@ import {
   vector,
 } from 'drizzle-orm/pg-core';
 import type {
+  ReferenceCatalog,
   SourceTextSelection,
   AssistantContextPolicy,
   AssistantContextSnapshot,
@@ -960,6 +961,7 @@ export const sources = pgTable(
     pageCount: integer('page_count'),
     coverMediaId: uuid('cover_media_id').references(() => media.id, { onDelete: 'set null' }),
     tags: text('tags').array().notNull().default([]),
+    docVersion: text('doc_version'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1483,6 +1485,7 @@ export const topicModules = pgTable(
     position: integer('position').notNull(),
     title: text('title').notNull(),
     outcome: text('outcome').notNull(),
+    referenceCatalog: jsonb('reference_catalog').$type<ReferenceCatalog | null>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

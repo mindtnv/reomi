@@ -306,6 +306,221 @@ export type ExecPlan = {
   modules: ExecPlanModule[];
 };
 
+function canonicalPlanUrl(raw: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(raw.trim());
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+  if (url.username || url.password || url.hostname.length === 0) return null;
+  url.hash = '';
+  if (
+    (url.protocol === 'http:' && url.port === '80') ||
+    (url.protocol === 'https:' && url.port === '443')
+  ) {
+    url.port = '';
+  }
+  return url.href;
+}
+
+function record(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function readSelections(value: readonly PlanSelection[] | undefined): PlanSelection[] {
+  if (!value) return [];
+  const selections: PlanSelection[] = [];
+  for (const entry of value) {
+    if (!record(entry) || typeof entry.moduleIndex !== 'number' || typeof entry.prefix !== 'string') continue;
+    if (typeof entry.include !== 'boolean') continue;
+    const pages = Array.isArray(entry.pages)
+      ? entry.pages.flatMap((page) => {
+          if (!record(page) || typeof page.url !== 'string' || typeof page.include !== 'boolean') return [];
+          return [{ url: page.url, include: page.include }];
+        })
+      : undefined;
+    selections.push({
+      moduleIndex: entry.moduleIndex,
+      prefix: entry.prefix,
+      include: entry.include,
+      ...(pages ? { pages } : {}),
+    });
+  }
+  return selections;
+}
+
+function sectionIncluded(section: PlanSection, moduleIndex: number, selections: readonly PlanSelection[]): boolean {
+  const relevant = selections.filter((selection) => selection.moduleIndex === moduleIndex && selection.prefix === section.prefix);
+  const dropped = relevant.some((selection) => selection.include === false);
+  if (section.kind === 'reference') return section.selected && !dropped;
+  if (dropped) return false;
+  if (relevant.some((selection) => selection.include)) return true;
+  return section.selected;
+}
+
+function pageIncluded(url: string, moduleIndex: number, prefix: string, selections: readonly PlanSelection[]): boolean {
+  const canon = canonicalPlanUrl(url);
+  if (!canon) return false;
+  for (const selection of selections) {
+    if (selection.moduleIndex !== moduleIndex || selection.prefix !== prefix) continue;
+    for (const page of selection.pages ?? []) {
+      if (page.include === false && canonicalPlanUrl(page.url) === canon) return false;
+    }
+  }
+  return true;
+}
+
+function readCatalog(value: unknown): ReferenceCatalog | null {
+  if (!record(value) || value.v !== 1 || typeof value.remainingTokens !== 'number') return null;
+  if (!Array.isArray(value.entries) || !Array.isArray(value.pending)) return null;
+  const entries: ReferenceCatalog['entries'] = [];
+  for (const entry of value.entries) {
+    if (!record(entry) || typeof entry.url !== 'string' || typeof entry.tokens !== 'number') continue;
+    const url = canonicalPlanUrl(entry.url);
+    if (url) entries.push({ url, tokens: entry.tokens });
+  }
+  const pending: ReferenceCatalog['pending'] = [];
+  for (const item of value.pending) {
+    if (!record(item) || typeof item.sourceId !== 'string' || !Array.isArray(item.urls)) continue;
+    const urls = item.urls.filter((url): url is string => typeof url === 'string');
+    pending.push({ sourceId: item.sourceId, urls });
+  }
+  return { v: 1, remainingTokens: value.remainingTokens, entries, pending };
+}
+
+function modelModules(raw: unknown): { goal: string; level: string | null; modules: ExecPlanModule[] } | null {
+  if (!record(raw) || typeof raw.goal !== 'string' || !Array.isArray(raw.modules) || raw.modules.length === 0) return null;
+  let level: string | null = null;
+  if (typeof raw.level === 'string') level = raw.level;
+  else if (raw.level !== undefined && raw.level !== null) return null;
+  const modules: ExecPlanModule[] = [];
+  for (const entry of raw.modules) {
+    if (!record(entry) || typeof entry.title !== 'string' || typeof entry.outcome !== 'string') return null;
+    const prerequisiteIndexes = Array.isArray(entry.prerequisiteIndexes)
+      ? entry.prerequisiteIndexes.filter((index): index is number => typeof index === 'number')
+      : [];
+    if (Array.isArray(entry.prerequisiteIndexes) && prerequisiteIndexes.length !== entry.prerequisiteIndexes.length) return null;
+    const urls = Array.isArray(entry.urls) ? entry.urls.filter((url): url is string => typeof url === 'string') : [];
+    if (Array.isArray(entry.urls) && urls.length !== entry.urls.length) return null;
+    modules.push({
+      title: entry.title,
+      outcome: entry.outcome,
+      prerequisiteIndexes,
+      urls,
+      pages: [],
+      ignoredUrls: [],
+      docVersion: null,
+      catalog: null,
+    });
+  }
+  return { goal: raw.goal, level, modules };
+}
+
+/**
+ * Content sections stay selected unless a selection says include false.
+ * include true on a reference section is ignored.
+ * Page URLs come from the offer. Model-supplied page lists are ignored.
+ * A missing offer yields empty pages and empty ignoredUrls.
+ */
+export function applyPlanSelections(
+  modelArgs: unknown,
+  offer: PlanOffer | undefined,
+  selections: readonly PlanSelection[] | undefined,
+): ExecPlan | null {
+  const model = modelModules(modelArgs);
+  if (!model) return null;
+  const chosen = readSelections(selections);
+  const modules = model.modules.map((module, index) => {
+    const offered = offer?.modules[index];
+    const pages: PlanPage[] = [];
+    for (const section of offered?.sections ?? []) {
+      if (!sectionIncluded(section, index, chosen)) continue;
+      for (const page of section.pages) {
+        if (!pageIncluded(page.url, index, section.prefix, chosen)) continue;
+        const url = canonicalPlanUrl(page.url);
+        if (!url) continue;
+        pages.push({ url, title: page.title, estimatedTokens: page.estimatedTokens });
+      }
+    }
+    const ignoredUrls = (offered?.ignoredUrls ?? []).flatMap((url) => {
+      const canon = canonicalPlanUrl(url);
+      return canon ? [canon] : [];
+    });
+    return {
+      ...module,
+      pages,
+      ignoredUrls,
+      docVersion: offered?.docVersion ?? null,
+      catalog: offered ? readCatalog(offered.catalog) : null,
+    };
+  });
+  return { goal: model.goal, level: model.level, modules };
+}
+
+/** Boundary parse for execute. Drops a page URL that is not http(s). */
+export function readKeptPages(raw: unknown): ExecPlan | null {
+  const model = modelModules(raw);
+  if (!model || !record(raw) || !Array.isArray(raw.modules)) return null;
+  const modules = model.modules.map((module, index) => {
+    const source = raw.modules[index];
+    if (!record(source)) return module;
+    const pages: PlanPage[] = [];
+    if (Array.isArray(source.pages)) {
+      for (const entry of source.pages) {
+        if (!record(entry) || typeof entry.url !== 'string') continue;
+        const url = canonicalPlanUrl(entry.url);
+        if (!url) continue;
+        pages.push({
+          url,
+          title: typeof entry.title === 'string' ? entry.title : '',
+          estimatedTokens: typeof entry.estimatedTokens === 'number' && Number.isFinite(entry.estimatedTokens) ? entry.estimatedTokens : 0,
+        });
+      }
+    }
+    const ignoredUrls = Array.isArray(source.ignoredUrls)
+      ? source.ignoredUrls.flatMap((url) => {
+          if (typeof url !== 'string') return [];
+          const canon = canonicalPlanUrl(url);
+          return canon ? [canon] : [];
+        })
+      : [];
+    const docVersion = typeof source.docVersion === 'string' || source.docVersion === null ? source.docVersion : null;
+    return {
+      ...module,
+      pages,
+      ignoredUrls,
+      docVersion,
+      catalog: readCatalog(source.catalog),
+    };
+  });
+  return { goal: model.goal, level: model.level, modules };
+}
+
+/**
+ * Probed urls minus ignoredUrls, minus discovery seeds.
+ * Prefix limiters arrive in ignoredUrls. A leaf stays.
+ */
+export function handUrls(module: ExecPlanModule | undefined): string[] {
+  if (!module) return [];
+  const ignored = new Set(
+    module.ignoredUrls.flatMap((url) => {
+      const canon = canonicalPlanUrl(url);
+      return canon ? [canon] : [];
+    }),
+  );
+  const kept: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of module.urls) {
+    const url = canonicalPlanUrl(raw);
+    if (!url || seen.has(url) || ignored.has(url) || isDiscoverySeed(url)) continue;
+    seen.add(url);
+    kept.push(url);
+  }
+  return kept;
+}
+
 /** A catalog URL is returned only when a fetched page links to it and the remaining tokens cover it. */
 export function referenceLinksToAdd(
   hrefs: readonly string[],

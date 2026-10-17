@@ -1,5 +1,14 @@
 import { expect, test } from 'bun:test';
-import { isDiscoverySeed, keepLocalePages, namedDocVersion, preferDocVersions, storedDocVersion } from './plan-offer';
+import {
+  applyPlanSelections,
+  handUrls,
+  isDiscoverySeed,
+  keepLocalePages,
+  namedDocVersion,
+  preferDocVersions,
+  readKeptPages,
+  storedDocVersion,
+} from './plan-offer';
 
 test('a docs root is a discovery seed and a leaf page is not', () => {
   expect(isDiscoverySeed('/')).toBe(true);
@@ -74,4 +83,86 @@ test('english drops translated prefixes and russian keeps ru when those pages ex
       'ru',
     ),
   ).toEqual(['https://kubernetes.io/docs/concepts/workloads/']);
+});
+
+test('a dropped section and a dropped page stay out, and a reference include adds nothing', () => {
+  const offer = {
+    modules: [{
+      sections: [
+        {
+          prefix: '/docs/alpha/',
+          kind: 'content' as const,
+          selected: true,
+          pages: [
+            { url: 'https://docs.example/docs/alpha/one/', title: 'one', estimatedTokens: 100 },
+            { url: 'https://docs.example/docs/alpha/two/', title: 'two', estimatedTokens: 100 },
+          ],
+        },
+        {
+          prefix: '/docs/tasks/',
+          kind: 'content' as const,
+          selected: true,
+          pages: [{ url: 'https://docs.example/docs/tasks/run/', title: 'run', estimatedTokens: 100 }],
+        },
+        {
+          prefix: '/docs/reference/kubernetes-api/',
+          kind: 'reference' as const,
+          selected: false,
+          pages: [{ url: 'https://docs.example/docs/reference/kubernetes-api/pod/', title: 'Pod', estimatedTokens: 100 }],
+        },
+      ],
+      ignoredUrls: ['https://docs.example/docs/'],
+      docVersion: null,
+      catalog: { v: 1 as const, remainingTokens: 1000, entries: [], pending: [] },
+      needsPages: false,
+    }],
+  };
+  const kept = applyPlanSelections(
+    {
+      goal: 'Learn',
+      modules: [{
+        title: 'Alpha',
+        outcome: 'Read alpha',
+        urls: ['https://docs.example/docs/', 'https://leaf.example/notes'],
+        pages: [{ url: 'https://evil.example/injected/', title: 'Injected', estimatedTokens: 1 }],
+      }],
+    },
+    offer,
+    [
+      { moduleIndex: 0, prefix: '/docs/tasks/', include: false },
+      {
+        moduleIndex: 0,
+        prefix: '/docs/alpha/',
+        include: true,
+        pages: [{ url: 'https://docs.example/docs/alpha/two/', include: false }],
+      },
+      { moduleIndex: 0, prefix: '/docs/reference/kubernetes-api/', include: true },
+    ],
+  );
+  expect(kept?.modules[0]?.pages.map((page) => page.url)).toEqual(['https://docs.example/docs/alpha/one/']);
+  expect(handUrls(kept?.modules[0])).toEqual(['https://leaf.example/notes']);
+  const reread = readKeptPages({
+    ...kept,
+    modules: [{
+      ...kept!.modules[0],
+      pages: [...(kept?.modules[0]?.pages ?? []), { url: 'not a url', title: 'x', estimatedTokens: 1 }],
+    }],
+  });
+  expect(reread?.modules[0]?.pages.map((page) => page.url)).toEqual(['https://docs.example/docs/alpha/one/']);
+});
+
+test('a missing offer keeps a hand-entered page and drops a docs root', () => {
+  const kept = applyPlanSelections({
+    goal: 'Learn',
+    level: 'beginner',
+    modules: [{
+      title: 'Notes',
+      outcome: 'Read the notes',
+      urls: ['https://leaf.example/a', 'https://docs.example/docs/'],
+    }],
+  }, undefined, undefined);
+  expect(kept?.modules[0]?.pages).toEqual([]);
+  expect(kept?.modules[0]?.ignoredUrls).toEqual([]);
+  expect(kept?.level).toBe('beginner');
+  expect(handUrls(kept?.modules[0])).toEqual(['https://leaf.example/a']);
 });

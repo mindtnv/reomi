@@ -396,6 +396,8 @@ export interface ConfirmImpact {
    * as its own branch.
    */
   proposedNote?: { title: string; contentExcerpt: string };
+  /** Confirmed documentation cut. Apply reads this offer and does not rebuild the index. */
+  planOffer?: import('./plan-offer').PlanOffer;
 }
 
 /**
@@ -421,6 +423,11 @@ export interface ChatResumeRequest {
    * apply degrades to a reject. Ignored for other tools.
    */
   cardSelections?: { index: number; include: boolean; fieldValues?: Record<string, string> }[];
+  /**
+   * Sparse drops for a pending `create_topic_plan`. Unmentioned content sections
+   * stay selected. `include: true` on a reference section adds nothing.
+   */
+  planSelections?: import('./plan-offer').PlanSelection[];
   /**
    * Optional user note passed through to the MODEL in the tool result (both
    * apply and reject) — "propose edits" without applying anything.

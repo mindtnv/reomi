@@ -23,10 +23,10 @@
 
 ## 4. Version column and lazy ingest
 
-- [ ] 4.1 Add nullable `sources.doc_version` after `0044_study_day.sql`, with no index and no backfill, and the matching Drizzle column. Apply it with `db:migrate:apply:test` and verify a fresh test database accepts the column.
-- [ ] 4.2 Add a failing confirm test that three confirmed modules enqueue only the first two, the third stays `planned`, reject writes nothing, and the worker claim does not select `planned`. Implement the status and verify the test passes.
-- [ ] 4.3 Add a failing test that opening the third module enqueues it and the fourth, leaves a fifth planned, stores `v1.34` only for a versioned host, and a failed page does not stop its sibling. Verify `studyModule` reports `planned` rather than `unavailable`.
-- [ ] 4.4 Add a failing test that a hand-entered list of four URLs still ingests on confirm and creates no flashcards. Verify that path passes.
+- [x] 4.1 Add nullable `sources.doc_version` after `0044_study_day.sql`, with no index and no backfill, and the matching Drizzle column. Apply it with `db:migrate:apply:test` and verify a fresh test database accepts the column.
+- [x] 4.2 Add a failing confirm test that three confirmed modules enqueue only the first two, the third stays `planned`, reject writes nothing, and the worker claim does not select `planned`. Implement the status and verify the test passes.
+- [x] 4.3 Add a failing test that opening the third module enqueues it and the fourth, leaves a fifth planned, stores `v1.34` only for a versioned host, and a failed page does not stop its sibling. Verify `studyModule` reports `planned` rather than `unavailable`.
+- [x] 4.4 Add a failing test that a hand-entered list of four URLs still ingests on confirm and creates no flashcards. Verify that path passes.
 
 ## 5. Section confirm
 

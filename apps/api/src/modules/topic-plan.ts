@@ -17,7 +17,7 @@ import { authPlugin } from '../auth-plugin.ts';
 import { studyModule, type NotebookPlan, type NotebookPlanModule, type PlanLinkFact } from '@reomi/shared';
 import { env } from '../env.ts';
 import { isUniqueViolation } from './sources-shared.ts';
-import { addModuleSources } from './topic-plan-sources.ts';
+import { addModuleSources, releasePlanWave } from './topic-plan-sources.ts';
 import { normalizePlanUrl } from './plan-url.ts';
 
 export { normalizePlanUrl };
@@ -434,6 +434,24 @@ export const topicPlanRoutes = new Elysia({ prefix: '/notebooks' })
       return plan;
     },
     { auth: true, params: t.Object({ id: t.String() }) },
+  )
+  .post(
+    '/:id/plan/modules/:moduleId/open',
+    async ({ user, params, status }) => {
+      if (!UUID_RE.test(params.id) || !UUID_RE.test(params.moduleId)) {
+        return status(404, { error: 'not_found' });
+      }
+      const released = await releasePlanWave({
+        userId: user.id,
+        notebookId: params.id,
+        moduleId: params.moduleId,
+      });
+      if (!released) return status(404, { error: 'not_found' });
+      const plan = await loadPlan(user.id, params.id);
+      if (!plan) return status(404, { error: 'not_found' });
+      return plan;
+    },
+    { auth: true, params: t.Object({ id: t.String(), moduleId: t.String() }) },
   )
   .post(
     '/:id/plan/modules/:moduleId/sources',

@@ -15,7 +15,7 @@ export type StudiedLink = {
 
 export type ModuleStudy =
   | { status: 'empty'; sources: readonly [] }
-  | { status: 'ingesting' | 'readable' | 'unavailable'; sources: readonly [StudiedLink, ...StudiedLink[]] };
+  | { status: 'ingesting' | 'planned' | 'readable' | 'unavailable'; sources: readonly [StudiedLink, ...StudiedLink[]] };
 
 export type NotebookPlanModule = {
   id: string;
@@ -36,7 +36,7 @@ export type NotebookPlan = {
   };
 };
 
-const MODULE_STATUSES = ['empty', 'ingesting', 'readable', 'unavailable'] as const;
+const MODULE_STATUSES = ['empty', 'ingesting', 'planned', 'readable', 'unavailable'] as const;
 type ModuleStatus = (typeof MODULE_STATUSES)[number];
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -114,6 +114,7 @@ export function studyModule(facts: readonly PlanLinkFact[]): ModuleStudy {
   if (facts.some((fact) => fact.status === 'pending' || fact.status === 'parsing')) {
     return { status: 'ingesting', sources };
   }
+  if (facts.every((fact) => fact.status === 'planned')) return { status: 'planned', sources };
   if (sources.some((link) => link.openable)) return { status: 'readable', sources };
   return { status: 'unavailable', sources };
 }

@@ -29,6 +29,46 @@ interface AddResult {
   items: Array<{ url: string; result: string; sourceId?: string }>;
 }
 
+describe('documentation version column', () => {
+  beforeEach(async () => {
+    await resetTestDb();
+  });
+
+  test('a library source stores a documentation version and leaves it empty on an apex host', async () => {
+    const { userId } = await signUpAndCookie(app, uniqueEmail());
+    const [versioned] = await db
+      .insert(sourcesTable)
+      .values({
+        userId,
+        kind: 'url',
+        title: 'Pods',
+        url: 'https://v1-34.docs.example/docs/concepts/pods/',
+        status: 'planned',
+        verified: true,
+        docVersion: 'v1.34',
+      })
+      .returning({ id: sourcesTable.id });
+    const [stored] = await db
+      .select({ docVersion: sourcesTable.docVersion })
+      .from(sourcesTable)
+      .where(eq(sourcesTable.id, versioned!.id));
+    expect(stored?.docVersion).toBe('v1.34');
+
+    const [apex] = await db
+      .insert(sourcesTable)
+      .values({
+        userId,
+        kind: 'url',
+        title: 'Pods',
+        url: 'https://docs.example/docs/concepts/pods/',
+        status: 'planned',
+        verified: true,
+      })
+      .returning({ docVersion: sourcesTable.docVersion });
+    expect(apex?.docVersion).toBeNull();
+  });
+});
+
 describe('normalizePlanUrl', () => {
   test('trims, keeps http(s), drops userinfo, fragment, and default ports', () => {
     expect(normalizePlanUrl('  HTTPS://Example.com:443/Rust?q=1#frag  ')).toBe(
