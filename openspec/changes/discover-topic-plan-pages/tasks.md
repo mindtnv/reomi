@@ -34,4 +34,4 @@
 
 ## 6. Fresh verification
 
-- [ ] 6.1 Run `bun run spec:validate`, the fixture tests, `topic-plan-draft`, `topic-plan-proposal`, `topic-plan-confirm`, and `topic-plan-sources`. Update `CLAUDE.md` first, then mirror the body into `AGENTS.md` while preserving each header. Verify the guide names the cheap index, related subtrees, the token budget, lazy ingest, and `doc_version`.
+- [x] 6.1 Run `bun run spec:validate`, the fixture tests, `topic-plan-draft`, `topic-plan-proposal`, `topic-plan-confirm`, and `topic-plan-sources`. Update `CLAUDE.md` first, then mirror the body into `AGENTS.md` while preserving each header. Verify the guide names the cheap index, related subtrees, the token budget, lazy ingest, and `doc_version`.
