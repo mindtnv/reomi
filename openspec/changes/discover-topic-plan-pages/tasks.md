@@ -2,9 +2,9 @@
 
 ## 1. Seed, language, and version
 
-- [ ] 1.1 Add a failing unit test that `/`, `/docs/`, and `https://kubernetes.io/docs/` are discovery seeds, and that a leaf page is not. Implement the classifier and verify the test passes.
-- [ ] 1.2 Add a failing unit test for path labels and for host `v1-34.docs.example`, including preference order and a named version. Verify `v1-34` records `v1.34` and an apex docs host records null.
-- [ ] 1.3 Add a failing unit test that locale `en` drops `/zh-cn/` and `/ru/`, and that locale `ru` keeps `/ru/` when those pages exist. Implement the filter and verify the test passes.
+- [x] 1.1 Add a failing unit test that `/`, `/docs/`, and `https://kubernetes.io/docs/` are discovery seeds, and that a leaf page is not. Implement the classifier and verify the test passes.
+- [x] 1.2 Add a failing unit test for path labels and for host `v1-34.docs.example`, including preference order and a named version. Verify `v1-34` records `v1.34` and an apex docs host records null.
+- [x] 1.3 Add a failing unit test that locale `en` drops `/zh-cn/` and `/ru/`, and that locale `ru` keeps `/ru/` when those pages exist. Implement the filter and verify the test passes.
 
 ## 2. Cheap index
 
