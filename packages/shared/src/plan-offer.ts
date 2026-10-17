@@ -462,9 +462,10 @@ export function applyPlanSelections(
 /** Boundary parse for execute. Drops a page URL that is not http(s). */
 export function readKeptPages(raw: unknown): ExecPlan | null {
   const model = modelModules(raw);
-  if (!model || !record(raw) || !Array.isArray(raw.modules)) return null;
+  const modulesRaw = record(raw) ? raw.modules : undefined;
+  if (!model || !Array.isArray(modulesRaw)) return null;
   const modules = model.modules.map((module, index) => {
-    const source = raw.modules[index];
+    const source = modulesRaw[index];
     if (!record(source)) return module;
     const pages: PlanPage[] = [];
     if (Array.isArray(source.pages)) {
