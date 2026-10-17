@@ -288,6 +288,168 @@ test('a sitemap stops at 8 MiB and at 20000 loc entries', async () => {
   expect(manyUrls.has(`${manyOrigin}/docs/other/page-1/`)).toBe(false);
 });
 
+test('a sitemap index that lists itself is fetched once and still contributes its child page', async () => {
+  const origin = 'https://self.example';
+  const seed = `${origin}/docs/`;
+  const page = `${origin}/docs/concepts/pods/`;
+  let rootFetches = 0;
+  const calls = installHandler((url) => {
+    const path = pathname(url);
+    if (path === '/llms.txt' || path === '/llms-full.txt') return new Response('no', { status: 404 });
+    if (path === '/sitemap.xml') {
+      rootFetches += 1;
+      if (rootFetches > 3) return new Response('loop', { status: 404 });
+      return text(
+        `<sitemapindex><sitemap><loc>${origin}/sitemap.xml</loc></sitemap><sitemap><loc>${origin}/sitemaps/one.xml</loc></sitemap></sitemapindex>`,
+        'application/xml',
+      );
+    }
+    if (path === '/sitemaps/one.xml') return text(`<urlset><url><loc>${page}</loc></url></urlset>`, 'application/xml');
+    return new Response('missing', { status: 404 });
+  });
+
+  const discovered = await discoverPlanPages({
+    goal: 'Pods',
+    level: null,
+    locale: 'en',
+    modules: [{ title: 'Pods', outcome: 'Read the pods page', prerequisiteIndexes: [], urls: [seed] }],
+  });
+  const pages = toPlanOffer(discovered).modules[0]?.sections.flatMap((section) => section.pages) ?? [];
+  expect(pages.some((item) => item.url === page)).toBe(true);
+  expect(calls.filter((url) => pathname(url) === '/sitemap.xml')).toHaveLength(1);
+  expect(calls.filter((url) => pathname(url) === '/sitemaps/one.xml')).toHaveLength(1);
+});
+
+test('a chain of nested sitemap indexes stops at 16 child documents for the seed', async () => {
+  const origin = 'https://chain.example';
+  const seed = `${origin}/docs/`;
+  const page = (n: number) => `${origin}/docs/concepts/part-${n}/`;
+  let childFetches = 0;
+  const calls = installHandler((url) => {
+    const path = pathname(url);
+    if (path === '/llms.txt' || path === '/llms-full.txt') return new Response('no', { status: 404 });
+    if (path === '/sitemap.xml') {
+      return text(
+        `<sitemapindex><sitemap><loc>${origin}/sitemaps/node-1.xml</loc></sitemap></sitemapindex>`,
+        'application/xml',
+      );
+    }
+    const node = /^\/sitemaps\/node-(\d+)\.xml$/.exec(path);
+    if (node) {
+      childFetches += 1;
+      if (childFetches > 40) return new Response('cap', { status: 404 });
+      const n = Number(node[1]);
+      return text(
+        `<sitemapindex><sitemap><loc>${origin}/sitemaps/page-${n}.xml</loc></sitemap><sitemap><loc>${origin}/sitemaps/node-${n + 1}.xml</loc></sitemap></sitemapindex>`,
+        'application/xml',
+      );
+    }
+    const leaf = /^\/sitemaps\/page-(\d+)\.xml$/.exec(path);
+    if (leaf) {
+      childFetches += 1;
+      if (childFetches > 40) return new Response('cap', { status: 404 });
+      return text(`<urlset><url><loc>${page(Number(leaf[1]))}</loc></url></urlset>`, 'application/xml');
+    }
+    return new Response('missing', { status: 404 });
+  });
+
+  const discovered = await discoverPlanPages({
+    goal: 'Parts',
+    level: null,
+    locale: 'en',
+    modules: [{ title: 'Parts', outcome: 'Read the part pages', prerequisiteIndexes: [], urls: [seed] }],
+  });
+  expect(discovered.modules).toHaveLength(1);
+  const childCalls = calls.filter((url) => pathname(url).startsWith('/sitemaps/'));
+  expect(childCalls.length).toBeLessThanOrEqual(16);
+  expect(childCalls.some((url) => pathname(url) === '/sitemaps/node-9.xml')).toBe(false);
+  expect(childCalls.some((url) => pathname(url) === '/sitemaps/page-1.xml')).toBe(true);
+});
+
+test('a sitemap with no in-scope url yields to llms links', async () => {
+  const origin = 'https://fallback.example';
+  const seed = `${origin}/docs/`;
+  const kept = `${origin}/docs/concepts/pods/`;
+  const htmlOnly = `${origin}/docs/concepts/from-html/`;
+  const calls = install({
+    '/llms.txt': text(`- [Pods](${kept}): Run a pod.\n`, 'text/plain'),
+    '/llms-full.txt': new Response('no', { status: 404 }),
+    '/sitemap.xml': text(
+      `<urlset><url><loc>https://other.example/docs/concepts/pods/</loc></url><url><loc>${origin}/blog/off/</loc></url><url><loc>${origin}/ru/docs/concepts/pods/</loc></url></urlset>`,
+      'application/xml',
+    ),
+    '/docs/': text(`<a href="${htmlOnly}">HTML</a>`, 'text/html'),
+  });
+
+  const discovered = await discoverPlanPages({
+    goal: 'Pods',
+    level: null,
+    locale: 'en',
+    modules: [{ title: 'Pods', outcome: 'Read the pods page', prerequisiteIndexes: [], urls: [seed] }],
+  });
+  const pages = toPlanOffer(discovered).modules[0]?.sections.flatMap((section) => section.pages) ?? [];
+  expect(pages.map((item) => item.url)).toEqual([kept]);
+  expect(calls.map(pathname)).toEqual(['/llms.txt', '/llms-full.txt', '/sitemap.xml']);
+});
+
+test('a russian alternate survives when its canonical is the english page', async () => {
+  const origin = 'https://locale.example';
+  const seed = `${origin}/`;
+  const russian = `${origin}/ru/docs/concepts/pods/`;
+  const english = `${origin}/docs/concepts/pods/`;
+  install({
+    '/llms.txt': new Response('no', { status: 404 }),
+    '/llms-full.txt': new Response('no', { status: 404 }),
+    '/sitemap.xml': text(
+      `<urlset xmlns:xhtml="http://www.w3.org/1999/xhtml"><url><loc>${russian}</loc><xhtml:link rel="canonical" href="${english}"/></url><url><loc>${english}</loc><xhtml:link rel="canonical" href="${english}"/></url></urlset>`,
+      'application/xml',
+    ),
+  });
+
+  const discovered = await discoverPlanPages({
+    goal: 'Pods',
+    level: null,
+    locale: 'ru',
+    modules: [{ title: 'Pods', outcome: 'Read the pods page', prerequisiteIndexes: [], urls: [seed] }],
+  });
+  const pages = toPlanOffer(discovered).modules[0]?.sections.flatMap((section) => section.pages) ?? [];
+  expect(pages.map((item) => item.url)).toContain(russian);
+  expect(pages.map((item) => item.url)).not.toContain(english);
+});
+
+test('sitemap child documents count bytes and stop at 8 MiB', async () => {
+  const origin = 'https://bytes.example';
+  const seed = `${origin}/docs/`;
+  const early = `${origin}/docs/concepts/early/`;
+  const late = `${origin}/docs/concepts/late/`;
+  const calls = installHandler((url) => {
+    const path = pathname(url);
+    if (path === '/llms.txt' || path === '/llms-full.txt') return new Response('no', { status: 404 });
+    if (path === '/sitemap.xml') {
+      return text(
+        `<sitemapindex><sitemap><loc>${origin}/sitemaps/early.xml</loc></sitemap><sitemap><loc>${origin}/sitemaps/late.xml</loc></sitemap></sitemapindex>`,
+        'application/xml',
+      );
+    }
+    if (path === '/sitemaps/early.xml') {
+      return text(`<urlset><url><loc>${early}</loc></url>${'€'.repeat(3 * 1024 * 1024)}</urlset>`, 'application/xml');
+    }
+    if (path === '/sitemaps/late.xml') return text(`<urlset><url><loc>${late}</loc></url></urlset>`, 'application/xml');
+    return new Response('missing', { status: 404 });
+  });
+
+  const discovered = await discoverPlanPages({
+    goal: 'Early',
+    level: null,
+    locale: 'en',
+    modules: [{ title: 'Early', outcome: 'Read the early page', prerequisiteIndexes: [], urls: [seed] }],
+  });
+  const pages = toPlanOffer(discovered).modules[0]?.sections.flatMap((section) => section.pages) ?? [];
+  expect(pages.some((item) => item.url === early)).toBe(true);
+  expect(pages.some((item) => item.url === late)).toBe(false);
+  expect(calls.some((url) => pathname(url) === '/sitemaps/late.xml')).toBe(false);
+});
+
 test('a fifth documentation root adds no pages and a leaf does not take a seed slot', async () => {
   const page = (host: string) => `https://${host}/docs/roots/overview/`;
   const seed = (host: string) => `https://${host}/docs/`;

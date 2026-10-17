@@ -330,14 +330,85 @@ describe('topic plan page waves', () => {
     }).where(eq(topicModules.id, saved.plan.modules[0]!.id));
 
     await resumeSourceIngestOnStartup();
+    await drainSourceIngest({ timeoutMs: 4000 });
     const [row] = await db.select({ url: sourcesTable.url, status: sourcesTable.status }).from(sourcesTable).where(eq(sourcesTable.url, linked));
     expect(row?.url).toBe(linked);
-    expect(row?.status).toBe('pending');
+    expect(row?.status).not.toBe('planned');
+    expect(reads).toContain(linked);
     expect(reads).not.toContain('https://wave.example/docs/alpha/one/');
     const [module] = await db.select({ catalog: topicModules.referenceCatalog }).from(topicModules);
     const catalog = module?.catalog as { pending?: unknown[]; entries?: unknown[] } | null;
     expect(catalog?.pending).toEqual([]);
     expect(catalog?.entries).toEqual([]);
+  });
+
+  test('a page fetched for the first module keeps a third-module reference planned', async () => {
+    const { cookie, userId } = await signUpAndCookie(app, uniqueEmail());
+    const created = await callApp(app, 'POST', '/notebooks/plans', {
+      cookie,
+      body: {
+        goal: 'Learn the platform',
+        modules: ['Alpha', 'Beta', 'Gamma', 'Delta'].map((title) => ({
+          title,
+          outcome: `Read the ${title.toLowerCase()} page`,
+          prerequisiteIndexes: [],
+        })),
+      },
+    });
+    expect(created.status).toBe(200);
+    const saved = await created.json<{ plan: { modules: Array<{ id: string }> } }>();
+    const modules = await db.select().from(topicModules).orderBy(asc(topicModules.position));
+    expect(modules.map((module) => module.id)).toEqual(saved.plan.modules.map((module) => module.id));
+    const parentUrl = 'https://wave.example/docs/alpha/one/';
+    const linked = 'https://wave.example/docs/reference/kubernetes-api/pod/';
+    const held = 'https://wave.example/docs/delta/one/';
+    const [parent] = await db.insert(sourcesTable).values({
+      userId,
+      kind: 'url',
+      title: 'Alpha',
+      url: parentUrl,
+      status: 'pending',
+      verified: true,
+    }).returning({ id: sourcesTable.id });
+    const [heldRow] = await db.insert(sourcesTable).values({
+      userId,
+      kind: 'url',
+      title: 'Delta',
+      url: held,
+      status: 'planned',
+      verified: true,
+    }).returning({ id: sourcesTable.id });
+    await db.insert(topicModuleSources).values([
+      { userId, moduleId: modules[0]!.id, sourceId: parent!.id },
+      { userId, moduleId: modules[3]!.id, sourceId: heldRow!.id },
+    ]);
+    await db.update(topicModules).set({
+      referenceCatalog: {
+        v: 1,
+        remainingTokens: 5000,
+        entries: [{ url: linked, tokens: 100 }],
+        pending: [],
+      },
+    }).where(eq(topicModules.id, modules[3]!.id));
+    hrefsByUrl.set(parentUrl, [linked]);
+
+    enqueueSource(parent!.id);
+    await drainSourceIngest({ timeoutMs: 4000 });
+
+    const [row] = await db
+      .select({ url: sourcesTable.url, status: sourcesTable.status })
+      .from(sourcesTable)
+      .where(eq(sourcesTable.url, linked));
+    expect(row?.url).toBe(linked);
+    expect(row?.status).toBe('planned');
+    expect(reads).toContain(parentUrl);
+    expect(reads).not.toContain(linked);
+    expect(reads).not.toContain(held);
+    const links = await db
+      .select({ moduleId: topicModuleSources.moduleId })
+      .from(topicModuleSources)
+      .where(eq(topicModuleSources.sourceId, (await db.select({ id: sourcesTable.id }).from(sourcesTable).where(eq(sourcesTable.url, linked)))[0]!.id));
+    expect(links.map((link) => link.moduleId)).toEqual([modules[3]!.id]);
   });
 
   test('four hand-entered pages on a later module still load and create no flashcards', async () => {
