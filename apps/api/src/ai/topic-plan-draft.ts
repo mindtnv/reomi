@@ -1,6 +1,3 @@
-// Unsaved module draft. The completion sees the goal as delimited data.
-// Surviving URLs are probed; a failed probe drops that URL and writes nothing.
-
 import type { SummarizedModule } from '@reomi/shared';
 import { Elysia, t } from 'elysia';
 import { discoverPlanPages, planSummary } from './docs-index.ts';
@@ -44,7 +41,6 @@ function draftPrompt(goal: string, level: string | null, locale: 'en' | 'ru'): s
   ].join('\n');
 }
 
-// A completion stays at 4 to 8 modules. A revision may shrink to 1 to 12.
 export function readPlanModules(
   incoming: unknown[],
   bounds: { min: number; max: number },

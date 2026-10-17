@@ -499,7 +499,6 @@ export function readKeptPages(raw: unknown): ExecPlan | null {
 }
 
 /**
- * Probed urls minus ignoredUrls, minus discovery seeds.
  * Prefix limiters arrive in ignoredUrls. A leaf stays.
  */
 export function handUrls(module: ExecPlanModule | undefined): string[] {

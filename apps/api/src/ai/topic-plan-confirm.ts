@@ -1,5 +1,3 @@
-// Confirmed plan. The user already agreed, so this write stores one notebook
-// and ingests the accepted URLs. It does not call the model.
 // dryRun reads the cheap docs index. Apply reads that stored offer and does
 // not fetch the index again.
 //

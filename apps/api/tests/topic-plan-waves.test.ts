@@ -1,7 +1,3 @@
-// Confirming a docs root fetches the current module and the next one.
-// Later modules stay planned. Reject stores nothing. A hand-entered page
-// still loads, including on a later module. No flashcards are created.
-
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { asc, count, eq } from 'drizzle-orm';
 import {
