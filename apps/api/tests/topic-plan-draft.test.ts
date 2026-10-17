@@ -1,11 +1,13 @@
 // Unsaved topic-plan drafts. The model proposes modules; nothing is written
 // until the user saves. Suggested URLs are probed and dead ones are dropped.
 
+import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { count } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { cards, db, notebooks, sources as sourcesTable } from '@reomi/db';
 import { buildApp } from '../src/app.ts';
+import { __resetDocsIndexCacheForTests } from '../src/ai/docs-index.ts';
 import { __resetAiClientForTests, __setAiClientForTests } from '../src/ai/openai-client.ts';
 import { __setDnsLookupForTests, __setPageFetchForTests } from '../src/ai/page-reader.ts';
 import { callApp, resetTestDb, signUpAndCookie, uniqueEmail } from './helpers.ts';
@@ -77,6 +79,7 @@ describe('topic plan draft', () => {
     __resetAiClientForTests();
     __setPageFetchForTests(null);
     __setDnsLookupForTests(null);
+    __resetDocsIndexCacheForTests();
   });
 
   test('a chat-enabled draft returns 4 to 8 modules and writes nothing', async () => {
@@ -238,5 +241,85 @@ describe('topic plan draft', () => {
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
     expect(state.calls).toBe(2);
+  });
+
+  test('a Workloads draft offers the concept and task sections and writes nothing', async () => {
+    const sitemap = readFileSync(new URL('./fixtures/kubernetes-docs-sitemap.xml', import.meta.url), 'utf8');
+    const llms = readFileSync(new URL('./fixtures/kubernetes-docs-llms.txt', import.meta.url), 'utf8');
+    const seed = 'https://kubernetes.io/docs/';
+    const leaf = 'https://live.example/pods';
+    const calls: string[] = [];
+    __setPageFetchForTests(async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? 'GET';
+      calls.push(`${method} ${url}`);
+      const parsed = new URL(url);
+      if (method === 'HEAD') {
+        if (parsed.hostname === 'kubernetes.io' || parsed.hostname === 'live.example') {
+          return new Response(null, { status: 200 });
+        }
+        return new Response(null, { status: 404 });
+      }
+      if (parsed.hostname !== 'kubernetes.io') return new Response('no', { status: 404 });
+      if (parsed.pathname === '/llms.txt') return new Response(llms, { status: 200, headers: { 'content-type': 'text/plain' } });
+      if (parsed.pathname === '/sitemap.xml') {
+        return new Response(sitemap, { status: 200, headers: { 'content-type': 'application/xml' } });
+      }
+      return new Response('no', { status: 404 });
+    });
+    const state = installComplete(
+      JSON.stringify({
+        modules: [
+          {
+            title: 'Workloads',
+            outcome: 'Schedule a Pod and a Deployment',
+            prerequisiteIndexes: [],
+            urls: [seed],
+          },
+          {
+            title: 'Pods',
+            outcome: 'Run a container on a node.',
+            prerequisiteIndexes: [0],
+            urls: [leaf],
+          },
+          moduleAt(2),
+          moduleAt(3),
+        ],
+      }),
+    );
+    const { cookie } = await signUpAndCookie(app, uniqueEmail());
+    const before = await accountCounts();
+    const res = await callApp(app, 'POST', '/notebooks/plan-drafts', {
+      cookie,
+      body: { goal: 'Learn Kubernetes workloads' },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json<{
+      modules: {
+        title: string;
+        urls: string[];
+        needsPages: boolean;
+        sections: { prefix: string; kind: string; selected: boolean; pageCount: number }[];
+      }[];
+    }>();
+    const workloads = body.modules[0];
+    const selected = workloads?.sections.filter((section) => section.selected) ?? [];
+    expect(selected.map((section) => section.prefix)).toEqual([
+      '/docs/concepts/workloads/',
+      '/docs/tasks/run-application/',
+    ]);
+    expect(workloads?.urls).toEqual([seed]);
+    expect(workloads?.needsPages).toBe(false);
+    expect(workloads?.sections.filter((section) => section.kind === 'reference').every((section) => !section.selected)).toBe(
+      true,
+    );
+    expect(JSON.stringify(body)).not.toContain('https://kubernetes.io/docs/concepts/services-networking/service/');
+    expect(body.modules[1]?.urls).toEqual([leaf]);
+    expect(body.modules[1]?.sections).toEqual([]);
+    expect(body.modules[1]?.needsPages).toBe(false);
+    expect(calls.filter((line) => line.includes('live.example')).map((line) => line.slice(0, 4))).toEqual(['HEAD']);
+    expect(calls.some((line) => line.includes('v1-33.docs.kubernetes.io'))).toBe(false);
+    expect(state.calls).toBe(1);
+    expect(await accountCounts()).toEqual(before);
   });
 });

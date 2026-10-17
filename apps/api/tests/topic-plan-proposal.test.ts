@@ -2,11 +2,13 @@
 // A goal drafts modules. An explicit module list replaces that card.
 // Nothing is written.
 
+import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { count, sql } from 'drizzle-orm';
 import { buildAgentSystemPrompt } from '@reomi/shared';
 import { cards, db, notebooks, sources as sourcesTable } from '@reomi/db';
 import { buildApp } from '../src/app.ts';
+import { __resetDocsIndexCacheForTests } from '../src/ai/docs-index.ts';
 import { __resetAiClientForTests, __setAiClientForTests } from '../src/ai/openai-client.ts';
 import { __setDnsLookupForTests, __setPageFetchForTests } from '../src/ai/page-reader.ts';
 import {
@@ -28,6 +30,8 @@ interface ProposedModule {
   outcome: string;
   prerequisiteIndexes: number[];
   urls: string[];
+  needsPages?: boolean;
+  sections?: { prefix: string; kind: string; selected: boolean; pageCount: number; estimatedTokens: number }[];
 }
 
 interface ProposedPlan {
@@ -105,6 +109,7 @@ describe('propose_topic_plan', () => {
     __resetAiClientForTests();
     __setPageFetchForTests(null);
     __setDnsLookupForTests(null);
+    __resetDocsIndexCacheForTests();
   });
 
   test('global and notebook registries offer the read tool', () => {
@@ -223,16 +228,83 @@ describe('propose_topic_plan', () => {
         outcome: 'Run a container on a node.',
         prerequisiteIndexes: [],
         urls: ['https://live.example/pods'],
+        needsPages: false,
+        sections: [],
       },
       {
         title: 'Services',
         outcome: 'Expose a set of pods.',
         prerequisiteIndexes: [0],
         urls: [],
+        needsPages: true,
+        sections: [],
       },
     ]);
     expect(seen.some((line) => line.startsWith('HEAD https://live.example/pods'))).toBe(true);
     expect(seen.some((line) => line.includes('javascript:'))).toBe(false);
+    expect(await accountCounts()).toEqual(before);
+  });
+
+  test('an explicit docs root expands without a model call and a leaf stays', async () => {
+    const sitemap = readFileSync(new URL('./fixtures/kubernetes-docs-sitemap.xml', import.meta.url), 'utf8');
+    const llms = readFileSync(new URL('./fixtures/kubernetes-docs-llms.txt', import.meta.url), 'utf8');
+    const seed = 'https://kubernetes.io/docs/';
+    const leaf = 'https://live.example/pods';
+    const seen: string[] = [];
+    __setPageFetchForTests(async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? 'GET';
+      seen.push(`${method} ${url}`);
+      const parsed = new URL(url);
+      if (method === 'HEAD') {
+        if (parsed.hostname === 'kubernetes.io' || parsed.hostname === 'live.example') {
+          return new Response(null, { status: 200 });
+        }
+        return new Response(null, { status: 404 });
+      }
+      if (parsed.hostname !== 'kubernetes.io') return new Response('no', { status: 404 });
+      if (parsed.pathname === '/llms.txt') return new Response(llms, { status: 200, headers: { 'content-type': 'text/plain' } });
+      if (parsed.pathname === '/sitemap.xml') {
+        return new Response(sitemap, { status: 200, headers: { 'content-type': 'application/xml' } });
+      }
+      return new Response('no', { status: 404 });
+    });
+    const state = installComplete('should not run');
+    const { userId } = await signUpAndCookie(app, uniqueEmail());
+    const before = await accountCounts();
+    const plan = planFrom(
+      await propose(userId, {
+        goal: 'Learn Kubernetes workloads',
+        modules: [
+          {
+            title: 'Workloads',
+            outcome: 'Schedule a Pod and a Deployment',
+            prerequisiteIndexes: [],
+            urls: [seed],
+          },
+          {
+            title: 'Pods',
+            outcome: 'Run a container on a node.',
+            prerequisiteIndexes: [0],
+            urls: [leaf],
+          },
+        ],
+      }),
+    );
+    const selected = plan.modules[0]?.sections?.filter((section) => section.selected) ?? [];
+    expect(selected.map((section) => section.prefix)).toEqual([
+      '/docs/concepts/workloads/',
+      '/docs/tasks/run-application/',
+    ]);
+    expect(plan.modules[0]?.urls).toEqual([seed]);
+    expect(plan.modules[0]?.needsPages).toBe(false);
+    expect(plan.modules[1]?.urls).toEqual([leaf]);
+    expect(plan.modules[1]?.sections).toEqual([]);
+    expect(plan.modules[1]?.needsPages).toBe(false);
+    expect(JSON.stringify(plan)).not.toContain('https://kubernetes.io/docs/concepts/services-networking/service/');
+    expect(seen.filter((line) => line.includes('live.example')).every((line) => line.startsWith('HEAD '))).toBe(true);
+    expect(seen.some((line) => line.includes('v1-33.docs.kubernetes.io'))).toBe(false);
+    expect(state.calls).toBe(0);
     expect(await accountCounts()).toEqual(before);
   });
 

@@ -1,7 +1,9 @@
 // Unsaved module draft. The completion sees the goal as delimited data.
 // Surviving URLs are probed; a failed probe drops that URL and writes nothing.
 
+import type { SummarizedModule } from '@reomi/shared';
 import { Elysia, t } from 'elysia';
+import { discoverPlanPages, planSummary } from './docs-index.ts';
 import { complete, isChatEnabled } from './openai-client.ts';
 import { probePageUrl } from './page-reader.ts';
 import { authPlugin } from '../auth-plugin.ts';
@@ -121,11 +123,24 @@ export async function probePlanModules(modules: DraftModule[]): Promise<DraftMod
   return probed;
 }
 
+export async function attachPlanSections(
+  input: { goal: string; level: string | null; locale: 'en' | 'ru' },
+  modules: DraftModule[],
+): Promise<SummarizedModule[]> {
+  const discovered = await discoverPlanPages({
+    goal: input.goal,
+    level: input.level,
+    locale: input.locale,
+    modules,
+  });
+  return planSummary(discovered).modules;
+}
+
 export async function completePlanDraft(input: {
   goal: string;
   level: string | null;
   locale: 'en' | 'ru';
-}): Promise<{ ok: true; modules: DraftModule[] } | { ok: false; error: 'ai_disabled' | 'generation_failed' }> {
+}): Promise<{ ok: true; modules: SummarizedModule[] } | { ok: false; error: 'ai_disabled' | 'generation_failed' }> {
   if (!isChatEnabled()) return { ok: false, error: 'ai_disabled' };
   let raw: string;
   try {
@@ -138,7 +153,8 @@ export async function completePlanDraft(input: {
   }
   const parsed = parseDraftModules(raw);
   if (!parsed) return { ok: false, error: 'generation_failed' };
-  return { ok: true, modules: await probePlanModules(parsed) };
+  const probed = await probePlanModules(parsed);
+  return { ok: true, modules: await attachPlanSections(input, probed) };
 }
 
 export const topicPlanDraftRoutes = new Elysia({ prefix: '/notebooks' })

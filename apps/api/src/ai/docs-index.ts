@@ -10,6 +10,7 @@ import {
   type PlanSection,
   type PlanSummary,
 } from '@reomi/shared';
+import { env } from '../env.ts';
 import { normalizePlanUrl } from '../modules/plan-url.ts';
 import { fetchIndexBody } from './page-reader.ts';
 
@@ -32,11 +33,12 @@ const SITEMAP_MAX_BYTES = 8 * 1024 * 1024;
 const SITEMAP_LOC_MAX = 20_000;
 const SITEMAP_CHILD_MAX = 16;
 const DESCRIPTION_MAX = 300;
-const PAGE_TOKEN_ESTIMATE = 1200;
 const PAGE_TOKEN_MIN = 100;
 const PAGE_TOKEN_MAX = 8000;
-const MODULE_TOKEN_BUDGET = 32_000;
 const SEED_MAX = 4;
+const REFERENCE_SEGMENTS = new Set(['reference', 'kubernetes-api', 'api-reference', 'glossary']);
+const EXCLUDED_SEGMENTS = new Set(['blog', 'tags', 'tag']);
+const VERSION_TOKENS = new Set(['stable', 'latest', 'current', 'next']);
 
 type SeedIdentity = {
   origin: string;
@@ -136,14 +138,17 @@ function offerModule(
   indexes: ReadonlyMap<string, readonly FrozenPage[]>,
   named: string | null,
 ): PlanOfferModule {
+  const budget = env.ai.TOPIC_PLAN_MODULE_TOKEN_BUDGET;
   const ignoredUrls: string[] = [];
   const seenIgnored = new Set<string>();
-  for (const url of module.urls) {
-    if (!isDiscoverySeed(url)) continue;
+  const rememberIgnored = (url: string): void => {
     const normalized = normalizePlanUrl(url);
-    if (!normalized || seenIgnored.has(normalized)) continue;
+    if (!normalized || seenIgnored.has(normalized)) return;
     seenIgnored.add(normalized);
     ignoredUrls.push(normalized);
+  };
+  for (const url of module.urls) {
+    if (isDiscoverySeed(url)) rememberIgnored(url);
   }
 
   const collected: FrozenPage[] = [];
@@ -165,22 +170,56 @@ function offerModule(
     for (const page of indexes.get(key) ?? []) {
       if (seenPages.has(page.url)) continue;
       seenPages.add(page.url);
-      collected.push(page);
+      collected.push({ ...page });
     }
   }
 
-  const copied = collected.map((page) => ({ ...page }));
-  const preferred = new Set(preferDocVersions(copied.map((page) => page.url), named));
-  const chosen = copied.filter((page) => preferred.has(page.url));
-  const sections = sectionsFromTrie(buildTrie(chosen));
-  const selectedPages = sections.reduce((sum, section) => sum + section.pages.length, 0);
-  const spent = sections.reduce(
-    (sum, section) => sum + section.pages.reduce((inner, page) => inner + page.estimatedTokens, 0),
-    0,
-  );
+  const preferred = new Set(preferDocVersions(collected.map((page) => page.url), named));
+  const chosen = collected.filter((page) => preferred.has(page.url));
+  const names = namedClasses(`${module.title} ${module.outcome}`);
+  const content: FrozenPage[] = [];
+  const reference: FrozenPage[] = [];
+  for (const page of chosen) {
+    const kind = pageClass(page.url, names);
+    if (kind === 'content') content.push(page);
+    else if (kind === 'reference') reference.push(page);
+  }
+
+  const limiters = limiterPaths(module.urls, [...content, ...reference]);
+  for (const limiter of limiters) rememberIgnored(limiter);
+  const inScope = (page: FrozenPage): boolean =>
+    limiters.length === 0 || limiters.some((limiter) => pageUnder(limiter, page.url));
+  const contentPages = content.filter(inScope);
+  const referencePages = reference.filter(inScope);
+
+  const sections: PlanSection[] = [];
+  let spent = 0;
+  const trie = buildTrie(contentPages);
+  const startPath = limiters.length === 1 ? pathnameOf(limiters[0]!) : firstSeedPath(module.urls);
+  const start = startPath ? findNode(trie, startPath) : null;
+  if (start) {
+    const tokens = moduleTokens(module.title, module.outcome);
+    const primary = deepestImproving(start, tokens);
+    if (ownScore(primary, tokens) > 0) {
+      const picked: FrozenPage[] = [];
+      spent += takeScored(primary, tokens, budget, sections, picked);
+      spent += addRelated(start, primary, picked, tokens, budget - spent, sections);
+    }
+  }
+
+  for (const group of groupReference(referencePages, names)) {
+    const cost = group.pages.reduce((sum, page) => sum + page.estimatedTokens, 0);
+    const selected = group.named && cost > 0 && cost <= budget - spent;
+    if (selected) spent += cost;
+    sections.push({ prefix: group.prefix, kind: 'reference', selected, pages: group.pages });
+  }
+
+  const selectedContent = sections
+    .filter((section) => section.kind === 'content' && section.selected)
+    .reduce((sum, section) => sum + section.pages.length, 0);
   const hand = module.urls.filter((url) => {
     const normalized = normalizePlanUrl(url);
-    return normalized !== null && !isDiscoverySeed(url) && !seenIgnored.has(normalized);
+    return normalized !== null && !seenIgnored.has(normalized);
   });
 
   return {
@@ -189,32 +228,12 @@ function offerModule(
     docVersion,
     catalog: {
       v: 1,
-      remainingTokens: Math.max(0, MODULE_TOKEN_BUDGET - spent),
-      entries: [],
+      remainingTokens: Math.max(0, budget - spent),
+      entries: unselectedReferenceEntries(sections),
       pending: [],
     },
-    needsPages: selectedPages === 0 && hand.length === 0,
+    needsPages: selectedContent === 0 && hand.length === 0,
   };
-}
-
-function sectionsFromTrie(root: TrieNode): PlanSection[] {
-  const sections: PlanSection[] = [];
-  const walk = (node: TrieNode): void => {
-    if (node.pages.length > 0) {
-      const pages: PlanPage[] = node.pages.map((page) => ({
-        url: page.url,
-        title: page.title,
-        estimatedTokens: estimateTokens(page.title, page.description),
-      }));
-      sections.push({ prefix: node.path, kind: 'content', selected: true, pages });
-    }
-    for (const segment of node.children.keys()) {
-      const child = childAt(node, segment);
-      if (child) walk(child);
-    }
-  };
-  walk(root);
-  return sections;
 }
 
 function childAt(node: TrieNode, segment: string): TrieNode | undefined {
@@ -248,12 +267,332 @@ function emptyNode(segment: string, path: string): TrieNode {
 }
 
 function estimateTokens(title: string, description: string): number {
-  if (description.trim().length === 0) return clamp(PAGE_TOKEN_ESTIMATE, PAGE_TOKEN_MIN, PAGE_TOKEN_MAX);
+  if (description.trim().length === 0) return clamp(env.ai.TOPIC_PLAN_PAGE_TOKEN_ESTIMATE, PAGE_TOKEN_MIN, PAGE_TOKEN_MAX);
   return clamp(Math.ceil((title.length + description.length) / 4), PAGE_TOKEN_MIN, PAGE_TOKEN_MAX);
 }
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+type NamedClasses = {
+  reference: boolean;
+  glossary: boolean;
+  blog: boolean;
+  tags: boolean;
+  index: boolean;
+};
+
+function mentions(text: string, phrase: string): boolean {
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:^|[^\\p{L}])${escaped}(?=$|[^\\p{L}])`, 'iu').test(text);
+}
+
+function namedClasses(text: string): NamedClasses {
+  return {
+    reference: mentions(text, 'api reference') || mentions(text, 'api-reference') || mentions(text, 'справочник'),
+    glossary: mentions(text, 'glossary') || mentions(text, 'глоссарий'),
+    blog: mentions(text, 'blog') || mentions(text, 'блог'),
+    tags: mentions(text, 'tags') || mentions(text, 'tag') || mentions(text, 'теги'),
+    index: mentions(text, 'index'),
+  };
+}
+
+function tokenize(text: string): string[] {
+  return text.toLowerCase().split(/[^\p{L}]+/u).filter((token) => token.length > 0);
+}
+
+function moduleTokens(title: string, outcome: string): Set<string> {
+  const tokens = new Set<string>();
+  for (const token of tokenize(`${title} ${outcome}`)) {
+    if (token.length < 3 || VERSION_TOKENS.has(token)) continue;
+    tokens.add(token);
+  }
+  return tokens;
+}
+
+function textOverlap(tokens: Set<string>, text: string): number {
+  if (tokens.size === 0 || text.length === 0) return 0;
+  const haystack = new Set(tokenize(text));
+  let count = 0;
+  for (const token of tokens) if (haystack.has(token)) count += 1;
+  return count;
+}
+
+function setOverlap(left: Set<string>, right: Set<string>): number {
+  let count = 0;
+  for (const token of left) if (right.has(token)) count += 1;
+  return count;
+}
+
+function ownScore(node: TrieNode, tokens: Set<string>): number {
+  const pages = node.pages.map((page) => `${page.title} ${page.description}`).join(' ');
+  return 10 * textOverlap(tokens, node.segment) + 3 * textOverlap(tokens, pages);
+}
+
+function segmentsOfPath(path: string): string[] {
+  return path.split('/').filter((segment) => segment.length > 0);
+}
+
+function pathnameOf(url: string): string | null {
+  try {
+    const path = new URL(url).pathname;
+    return path.endsWith('/') ? path : `${path}/`;
+  } catch {
+    return null;
+  }
+}
+
+function pageClass(url: string, names: NamedClasses): 'content' | 'reference' | 'excluded' {
+  const path = pathnameOf(url);
+  if (!path) return 'excluded';
+  const segments = segmentsOfPath(path);
+  const last = segments[segments.length - 1]?.toLowerCase() ?? '';
+  const excluded =
+    last === 'index' ||
+    last === 'index.html' ||
+    segments.some((segment) => EXCLUDED_SEGMENTS.has(segment.toLowerCase()));
+  if (excluded) {
+    const named =
+      (names.index && (last === 'index' || last === 'index.html')) ||
+      (names.blog && segments.some((segment) => segment.toLowerCase() === 'blog')) ||
+      (names.tags &&
+        segments.some((segment) => {
+          const value = segment.toLowerCase();
+          return value === 'tags' || value === 'tag';
+        }));
+    return named ? 'content' : 'excluded';
+  }
+  if (segments.some((segment) => REFERENCE_SEGMENTS.has(segment.toLowerCase()))) return 'reference';
+  return 'content';
+}
+
+function pageUnder(prefixUrl: string, pageUrl: string): boolean {
+  try {
+    const prefix = new URL(prefixUrl);
+    const page = new URL(pageUrl);
+    if (prefix.hostname !== page.hostname) return false;
+    const base = prefix.pathname.endsWith('/') ? prefix.pathname : `${prefix.pathname}/`;
+    const path = page.pathname.endsWith('/') ? page.pathname : `${page.pathname}/`;
+    return path.startsWith(base);
+  } catch {
+    return false;
+  }
+}
+
+function limiterPaths(urls: readonly string[], pages: readonly FrozenPage[]): string[] {
+  const limiters: string[] = [];
+  const seen = new Set<string>();
+  for (const url of urls) {
+    if (isDiscoverySeed(url)) continue;
+    const normalized = normalizePlanUrl(url);
+    if (!normalized || seen.has(normalized)) continue;
+    const limits = pages.some((page) => {
+      if (!pageUnder(normalized, page.url)) return false;
+      const prefix = pathnameOf(normalized);
+      const path = pathnameOf(page.url);
+      return prefix !== null && path !== null && path !== prefix;
+    });
+    if (!limits) continue;
+    seen.add(normalized);
+    limiters.push(normalized);
+  }
+  return limiters;
+}
+
+function firstSeedPath(urls: readonly string[]): string | null {
+  for (const url of urls) {
+    if (!isDiscoverySeed(url)) continue;
+    const identity = seedIdentity(url);
+    if (identity) return identity.path;
+  }
+  return null;
+}
+
+function findNode(root: TrieNode, prefix: string): TrieNode | null {
+  let node = root;
+  for (const segment of segmentsOfPath(prefix)) {
+    const child = childAt(node, segment.toLowerCase());
+    if (!child) return null;
+    node = child;
+  }
+  return node;
+}
+
+function subtreePages(node: TrieNode): FrozenPage[] {
+  const pages = [...node.pages];
+  for (const child of node.children.values()) pages.push(...subtreePages(child));
+  return pages;
+}
+
+function toPlanPage(page: FrozenPage): PlanPage {
+  return { url: page.url, title: page.title, estimatedTokens: estimateTokens(page.title, page.description) };
+}
+
+function deepestImproving(node: TrieNode, tokens: Set<string>): TrieNode {
+  let best = node;
+  let bestScore = ownScore(node, tokens);
+  const visit = (current: TrieNode): void => {
+    const score = ownScore(current, tokens);
+    if (score > bestScore) {
+      best = current;
+      bestScore = score;
+    }
+    for (const child of current.children.values()) visit(child);
+  };
+  visit(node);
+  return best;
+}
+
+function takeScored(
+  node: TrieNode,
+  tokens: Set<string>,
+  budget: number,
+  sections: PlanSection[],
+  picked: FrozenPage[],
+): number {
+  const covered = subtreePages(node);
+  const cost = covered.reduce((sum, page) => sum + estimateTokens(page.title, page.description), 0);
+  if (covered.length > 0 && cost > 0 && cost <= budget) {
+    sections.push({ prefix: node.path, kind: 'content', selected: true, pages: covered.map(toPlanPage) });
+    picked.push(...covered);
+    return cost;
+  }
+  const children = [...node.children.values()].sort((left, right) => {
+    const score = ownScore(right, tokens) - ownScore(left, tokens);
+    if (score !== 0) return score;
+    return left.path < right.path ? -1 : left.path > right.path ? 1 : 0;
+  });
+  let spent = 0;
+  for (const child of children) {
+    if (spent >= budget) break;
+    spent += takeScored(child, tokens, budget - spent, sections, picked);
+  }
+  return spent;
+}
+
+function titleTokens(pages: readonly FrozenPage[]): Set<string> {
+  const tokens = new Set<string>();
+  for (const page of pages) {
+    for (const token of tokenize(page.title)) {
+      if (token.length >= 3) tokens.add(token);
+    }
+  }
+  return tokens;
+}
+
+function collectNodes(node: TrieNode, into: TrieNode[]): void {
+  into.push(node);
+  for (const child of node.children.values()) collectNodes(child, into);
+}
+
+function isUnder(path: string, ancestor: string): boolean {
+  return ancestor !== path && path.startsWith(ancestor);
+}
+
+function addRelated(
+  start: TrieNode,
+  primary: TrieNode,
+  primaryPages: readonly FrozenPage[],
+  tokens: Set<string>,
+  budget: number,
+  sections: PlanSection[],
+): number {
+  const titles = titleTokens(primaryPages);
+  const tops = [...start.children.values()];
+  const counts = new Map<string, number>();
+  for (const top of tops) {
+    for (const token of titleTokens(subtreePages(top))) counts.set(token, (counts.get(token) ?? 0) + 1);
+  }
+  for (const [token, count] of counts) {
+    if (count * 2 > tops.length) titles.delete(token);
+  }
+  if (titles.size === 0 || budget <= 0) return 0;
+  const nodes: TrieNode[] = [];
+  collectNodes(start, nodes);
+  const candidates = nodes
+    .map((node) => ({
+      node,
+      overlap: setOverlap(titles, titleTokens(subtreePages(node))),
+      depth: segmentsOfPath(node.path).length,
+    }))
+    .filter(
+      (candidate) =>
+        candidate.overlap > 0 &&
+        candidate.node !== primary &&
+        !isUnder(candidate.node.path, primary.path) &&
+        !isUnder(primary.path, candidate.node.path),
+    );
+  const kept = candidates.filter((candidate) => {
+    const deeperTie = candidates.some(
+      (other) => isUnder(other.node.path, candidate.node.path) && other.overlap >= candidate.overlap,
+    );
+    const widerAncestor = candidates.some(
+      (other) => isUnder(candidate.node.path, other.node.path) && other.overlap > candidate.overlap,
+    );
+    return !deeperTie && !widerAncestor;
+  });
+  kept.sort(
+    (left, right) =>
+      right.overlap - left.overlap || right.depth - left.depth || left.node.path.localeCompare(right.node.path),
+  );
+  let spent = 0;
+  for (const candidate of kept) {
+    if (spent >= budget) break;
+    spent += takeScored(candidate.node, tokens, budget - spent, sections, []);
+  }
+  return spent;
+}
+
+function referenceGroupNamed(prefix: string, names: NamedClasses): boolean {
+  const segments = segmentsOfPath(prefix).map((segment) => segment.toLowerCase());
+  if (segments.includes('glossary')) return names.glossary;
+  return names.reference && segments.some((segment) => REFERENCE_SEGMENTS.has(segment));
+}
+
+function referencePrefix(url: string): string | null {
+  const path = pathnameOf(url);
+  if (!path) return null;
+  const segments = segmentsOfPath(path);
+  let last = -1;
+  for (let index = 0; index < segments.length; index += 1) {
+    if (REFERENCE_SEGMENTS.has(segments[index]!.toLowerCase())) last = index;
+  }
+  if (last < 0) return null;
+  return `/${segments.slice(0, last + 1).join('/')}/`;
+}
+
+function groupReference(
+  pages: readonly FrozenPage[],
+  names: NamedClasses,
+): { prefix: string; named: boolean; pages: PlanPage[] }[] {
+  const groups = new Map<string, PlanPage[]>();
+  const order: string[] = [];
+  for (const page of pages) {
+    const prefix = referencePrefix(page.url);
+    if (!prefix) continue;
+    const group = groups.get(prefix);
+    const planPage = toPlanPage(page);
+    if (group) group.push(planPage);
+    else {
+      groups.set(prefix, [planPage]);
+      order.push(prefix);
+    }
+  }
+  return order.map((prefix) => ({
+    prefix,
+    named: referenceGroupNamed(prefix, names),
+    pages: groups.get(prefix) ?? [],
+  }));
+}
+
+function unselectedReferenceEntries(sections: readonly PlanSection[]): { url: string; tokens: number }[] {
+  const entries: { url: string; tokens: number }[] = [];
+  for (const section of sections) {
+    if (section.kind !== 'reference' || section.selected) continue;
+    for (const page of section.pages) entries.push({ url: page.url, tokens: page.estimatedTokens });
+  }
+  return entries;
 }
 
 async function loadSeedIndex(seedUrl: string, locale: PlanLocale): Promise<readonly FrozenPage[]> {

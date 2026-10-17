@@ -15,11 +15,11 @@
 
 ## 3. Subtrees, tokens, and the kubernetes fixture
 
-- [ ] 3.1 Add a checked-in sitemap fixture shaped like kubernetes.io/docs, with English workloads, services, and tasks pages, shared Pod and Deployment titles, locale duplicates, API reference, glossary, blog, tags, `index.html`, and one `v1-33.docs.kubernetes.io` URL. Do not fetch the live site.
-- [ ] 3.2 Add a failing draft test that a Workloads module offers `/docs/concepts/workloads/` and `/docs/tasks/run-application/` when both fit the token budget, omits services and the API reference, and writes no notebook or source. Implement matching with `TOPIC_PLAN_MODULE_TOKEN_BUDGET` and `TOPIC_PLAN_PAGE_TOKEN_ESTIMATE` and verify the test passes.
-- [ ] 3.3 Add a failing test that a related subtree over the remaining budget is omitted, and that an ancestor over the budget offers a child subtree that fits. Verify there is no page-count cutoff.
-- [ ] 3.4 Add a failing test that an explicit module list with `https://kubernetes.io/docs/` expands without a model call, and that a leaf page is unchanged. Verify the revision path passes.
-- [ ] 3.5 Add a failing test that a fetched workloads page which links to one API page adds that page only, and that an unlinked API page is not stored. Verify the link step uses the remaining token budget.
+- [x] 3.1 Add a checked-in sitemap fixture shaped like kubernetes.io/docs, with English workloads, services, and tasks pages, shared Pod and Deployment titles, locale duplicates, API reference, glossary, blog, tags, `index.html`, and one `v1-33.docs.kubernetes.io` URL. Do not fetch the live site.
+- [x] 3.2 Add a failing draft test that a Workloads module offers `/docs/concepts/workloads/` and `/docs/tasks/run-application/` when both fit the token budget, omits services and the API reference, and writes no notebook or source. Implement matching with `TOPIC_PLAN_MODULE_TOKEN_BUDGET` and `TOPIC_PLAN_PAGE_TOKEN_ESTIMATE` and verify the test passes.
+- [x] 3.3 Add a failing test that a related subtree over the remaining budget is omitted, and that an ancestor over the budget offers a child subtree that fits. Verify there is no page-count cutoff.
+- [x] 3.4 Add a failing test that an explicit module list with `https://kubernetes.io/docs/` expands without a model call, and that a leaf page is unchanged. Verify the revision path passes.
+- [x] 3.5 Add a failing test that a fetched workloads page which links to one API page adds that page only, and that an unlinked API page is not stored. Verify the link step uses the remaining token budget.
 
 ## 4. Version column and lazy ingest
 

@@ -306,6 +306,29 @@ export type ExecPlan = {
   modules: ExecPlanModule[];
 };
 
+/** A catalog URL is returned only when a fetched page links to it and the remaining tokens cover it. */
+export function referenceLinksToAdd(
+  hrefs: readonly string[],
+  catalog: ReferenceCatalog,
+): string[] {
+  const entries = new Map<string, number>();
+  for (const entry of catalog.entries) {
+    if (!entries.has(entry.url)) entries.set(entry.url, entry.tokens);
+  }
+  const added: string[] = [];
+  const seen = new Set<string>();
+  let remaining = catalog.remainingTokens;
+  for (const href of hrefs) {
+    if (seen.has(href)) continue;
+    const tokens = entries.get(href);
+    if (tokens === undefined || tokens > remaining) continue;
+    seen.add(href);
+    added.push(href);
+    remaining -= tokens;
+  }
+  return added;
+}
+
 /** `en` keeps unprefixed English. `ru` keeps `/ru/` when any exist, otherwise English. */
 export function keepLocalePages(urls: readonly string[], locale: 'en' | 'ru'): string[] {
   if (locale === 'ru' && urls.some((url) => pageLocale(url) === 'ru')) {

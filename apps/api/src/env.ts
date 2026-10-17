@@ -230,6 +230,16 @@ export const env = {
     // ANN k-NN-join (even round-robin sample across sources by first_pos). Bounds
     // the LATERAL probe's worst case (sections × ~5 probe chunks × k*2 neighbours).
     CONCEPT_MAP_MAX_SECTIONS: Number(process.env.CONCEPT_MAP_MAX_SECTIONS ?? 60),
+    get TOPIC_PLAN_PAGE_TOKEN_ESTIMATE() {
+      const parsed = Number(process.env.TOPIC_PLAN_PAGE_TOKEN_ESTIMATE ?? 1200);
+      const value = Number.isFinite(parsed) ? parsed : 1200;
+      return Math.min(8000, Math.max(100, value));
+    },
+    get TOPIC_PLAN_MODULE_TOKEN_BUDGET() {
+      const parsed = Number(process.env.TOPIC_PLAN_MODULE_TOKEN_BUDGET ?? 32_000);
+      const value = Number.isFinite(parsed) ? parsed : 32_000;
+      return Math.min(200_000, Math.max(1000, value));
+    },
   },
 };
 
