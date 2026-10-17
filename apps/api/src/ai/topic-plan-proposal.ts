@@ -74,7 +74,12 @@ export const proposeTopicPlan: Tool = {
             title: { type: 'string' },
             outcome: { type: 'string' },
             prerequisiteIndexes: { type: 'array', items: { type: 'integer' } },
-            urls: { type: 'array', items: { type: 'string' } },
+            urls: {
+              type: 'array',
+              description:
+                'Specific http(s) pages that teach this module. Each URL needs a path beyond the site root. Do not use the site root, homepage, or documentation index.',
+              items: { type: 'string' },
+            },
           },
           required: ['title', 'outcome'],
         },

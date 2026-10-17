@@ -57,3 +57,26 @@ The note and note-type editors SHALL retain lossless local drafts scoped by auth
 #### Scenario: Recovery without the original entity
 - **WHEN** the original note/type is no longer available or the local collection reaches its draft limit
 - **THEN** the owner can inspect and download saved draft text and explicitly discard selected drafts through the local draft list; the current in-memory draft remains downloadable if browser persistence fails
+
+### Requirement: Bounded note text recovery
+The system SHALL keep at most five pre-images of an existing note, each at most 256 KiB of canonical JSON. A pre-image stores field values, tags, accepted answers and note type. Restoring one SHALL return those fields and tags without rolling back the schedule of a surviving card. Account deletion SHALL remove the revisions. A schema version 2 study export SHALL include them, and a version 1 snapshot SHALL still apply.
+
+#### Scenario: Restore earlier text without rolling back FSRS
+- **WHEN** an author restores an earlier revision and the restored document still generates the same card
+- **THEN** the fields and tags return to that revision while the card's due, stability, difficulty, reps, lapses and state stay unchanged
+
+#### Scenario: Five revisions and 256 KiB bound
+- **WHEN** a sixth distinct field document is saved, or the pre-image exceeds 256 KiB
+- **THEN** the note still saves, only the five newest revisions for that note remain, and the oversized pre-image is not stored
+
+#### Scenario: Stale expectedUpdatedAt
+- **WHEN** restore is sent with a stale expectedUpdatedAt
+- **THEN** the response is note_changed, nothing is written, and the current text remains
+
+#### Scenario: Note type mismatch
+- **WHEN** the stored revision belongs to a different note type than the current note
+- **THEN** the response is note_type_changed and nothing is written
+
+#### Scenario: Account deletion and export
+- **WHEN** the account is deleted, or a study snapshot is exported and later applied
+- **THEN** deletion removes the revision rows, a version 2 file contains them, a version 1 file still applies and inserts none, and a file that breaks the five-revision, per-user or byte caps is rejected

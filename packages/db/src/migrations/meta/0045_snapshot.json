@@ -1,5 +1,5 @@
 {
-  "id": "e33a4501-d7d0-453f-ba49-5b8513057da0",
+  "id": "9c651404-ba9f-411a-86d7-b2672e33e8d1",
   "prevId": "94f37767-d8a4-49a4-b4a9-730845ba7920",
   "version": "7",
   "dialect": "postgresql",
@@ -311,6 +311,111 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.card_holds": {
+      "name": "card_holds",
+      "schema": "",
+      "columns": {
+        "card_id": {
+          "name": "card_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "buried_until": {
+          "name": "buried_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "card_holds_user_until_idx": {
+          "name": "card_holds_user_until_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "buried_until",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "card_holds_card_id_cards_id_fk": {
+          "name": "card_holds_card_id_cards_id_fk",
+          "tableFrom": "card_holds",
+          "tableTo": "cards",
+          "columnsFrom": [
+            "card_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "card_holds_user_id_user_id_fk": {
+          "name": "card_holds_user_id_user_id_fk",
+          "tableFrom": "card_holds",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "card_holds_reason_chk": {
+          "name": "card_holds_reason_chk",
+          "value": "\"card_holds\".\"reason\" in ('user', 'sibling')"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.card_sources": {
@@ -5356,12 +5461,6 @@
           "notNull": true,
           "default": "'{}'"
         },
-        "doc_version": {
-          "name": "doc_version",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -5814,12 +5913,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "reference_catalog": {
-          "name": "reference_catalog",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
         },
         "created_at": {
           "name": "created_at",

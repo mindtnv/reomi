@@ -59,6 +59,7 @@ import {
   applyNoteUpdate,
   prepareNoteUpdate,
 } from '../modules/notes.ts';
+import { withUserRevisionLock } from '../modules/note-revisions.ts';
 import { NoteWriteConflict } from '../modules/card-regeneration';
 import {
   descendantIds,
@@ -69,6 +70,7 @@ import {
   cardContent,
 } from '../modules/cards.ts';
 import { cardProgress, dueForecast, studyStats } from '../modules/progress-stats.ts';
+import { readDatabaseNow } from '../modules/study-day.ts';
 import { parseCardQuery, CardQueryError } from '@reomi/shared';
 import { env } from '../env.ts';
 import { safeError, safeLogUrl } from '../logger.ts';
@@ -754,7 +756,7 @@ const listDecks: Tool = {
   },
   async execute(ctx): Promise<ToolResult> {
     try {
-      const now = new Date();
+      const now = await readDatabaseNow();
       const decksWithCounts = await listDecksWithCounts(ctx.userId, now);
       if (decksWithCounts.length === 0) {
         return { ok: true, text: 'The user has no decks yet.' };
@@ -909,7 +911,7 @@ const browseCards: Tool = {
         sortField: sortSpec.field,
         dir: sortSpec.dir,
         limit,
-        now: new Date(),
+        now: await readDatabaseNow(),
         deckScope,
         // Tool always returns the first page (compact) — no cursor exposure.
       });
@@ -2331,11 +2333,14 @@ const editCard: Tool = {
     };
     const resolved = await resolveNoteUpdate(ctx.userId, noteRes.noteId, { fieldValues, tags });
     if (!resolved.ok) return { ...previews, affectsSiblings: true };
-    const prepare = (tx: Tx) => prepareNoteUpdate(tx, {
-      userId: ctx.userId, noteId: noteRes.noteId, nextFieldValues: resolved.nextFieldValues,
-      nextTags: resolved.nextTags, generated: resolved.generated,
-      expectedUpdatedAt: resolved.note.updatedAt, expectedTypeUpdatedAt: resolved.typeUpdatedAt,
-    });
+    const prepare = async (tx: Tx) => {
+      await withUserRevisionLock(tx, ctx.userId);
+      return prepareNoteUpdate(tx, {
+        userId: ctx.userId, noteId: noteRes.noteId, nextFieldValues: resolved.nextFieldValues,
+        nextTags: resolved.nextTags, generated: resolved.generated,
+        expectedUpdatedAt: resolved.note.updatedAt, expectedTypeUpdatedAt: resolved.typeUpdatedAt,
+      });
+    };
     const prepared = ctx.tx ? await prepare(ctx.tx) : await db.transaction(prepare);
     return { ...prepared.preview.impact, confirmationToken: prepared.preview.confirmationToken, ...previews, affectsSiblings: true };
   },
@@ -2362,6 +2367,7 @@ const editCard: Tool = {
       if (!resolved.ok) return { ok: false, error: `edit_card: ${resolved.error}` };
 
       const run = async (tx: Tx) => {
+        await withUserRevisionLock(tx, ctx.userId);
         const input = {
           userId: ctx.userId,
           noteId: noteRes.noteId,

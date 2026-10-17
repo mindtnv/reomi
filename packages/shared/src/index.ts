@@ -5,6 +5,7 @@
 export * from './fsrs.ts';
 export * from './study-metrics.ts';
 export * from './study.ts';
+export * from './card-hold.ts';
 export * from './study-day.ts';
 export * from './gamification.ts';
 export * from './card-query.ts';

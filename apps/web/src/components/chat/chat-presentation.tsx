@@ -2403,7 +2403,7 @@ const WebSearchResultText = ({ text }: { text: string }) => {
   );
 };
 
-function PlanModuleList({
+export function PlanModuleList({
   rows,
   t,
   confirm = false,
@@ -2418,15 +2418,22 @@ function PlanModuleList({
       {confirm && <div className="reomi-tool-result-count">{t('chat.plan.confirm')}</div>}
       <div className="reomi-tool-result-count">{t('chat.plan.modules', { count: rows.length })}</div>
       {confirm && pageCount > 0 && <div className="reomi-tool-result-count">{t('chat.plan.pages', { count: pageCount })}</div>}
-      {rows.map((row, index) => <div className="reomi-tool-result-row" key={`${row.title}-${index}`}>
-        <span>{row.title}</span>
-        <small>{row.outcome}</small>
-        {row.urls.map((url) => {
-          const href = safeWebUrl(url);
-          if (!href) return null;
-          return <a key={href} href={href} target="_blank" rel="noopener noreferrer nofollow">{href}</a>;
-        })}
-      </div>)}
+      {rows.map((row, index) => row.needsPages ? (
+        <div className="reomi-plan-pages-missing" key={`${row.title}-${index}`}>
+          <span>{row.title}</span>
+          <small>{t('chat.plan.pagesMissing')}</small>
+        </div>
+      ) : (
+        <div className="reomi-tool-result-row" key={`${row.title}-${index}`}>
+          <span>{row.title}</span>
+          <small>{row.outcome}</small>
+          {row.urls.map((url) => {
+            const href = safeWebUrl(url);
+            if (!href) return null;
+            return <a key={href} href={href} target="_blank" rel="noopener noreferrer nofollow">{href}</a>;
+          })}
+        </div>
+      ))}
     </div>
   );
 }

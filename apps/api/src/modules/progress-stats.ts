@@ -1,6 +1,7 @@
 import { and, desc, eq, sql, type SQL } from 'drizzle-orm';
 import { cards, db, reviews } from '@reomi/db';
 import { percentOf, studySpans } from '@reomi/shared';
+import { excludeActiveHolds } from './card-holds.ts';
 import { resolveDeckConfig, type DeckConfigSnapshot } from './deck-config.ts';
 import { ledgerForRead, loadStudyClock } from './study-day.ts';
 
@@ -225,13 +226,16 @@ async function studyCalendar(
   executor: StatsExecutor,
 ) {
   const clock = await loadStudyClock(userId, executor);
-  return studySpans({
+  return {
+    ...studySpans({
+      now: clock.now,
+      policy: clock.policy,
+      ledger: ledgerForRead(clock.ledger),
+      pastDays,
+      futureDays,
+    }),
     now: clock.now,
-    policy: clock.policy,
-    ledger: ledgerForRead(clock.ledger),
-    pastDays,
-    futureDays,
-  });
+  };
 }
 
 /**
@@ -258,6 +262,7 @@ export async function dueForecast(args: DueForecastArgs, executor: StatsExecutor
      AND c.state <> 'new'
      AND c.due >= s.start_at
      AND c.due < s.end_at
+     AND ${excludeActiveHolds(sql`c.id`, sql`s.start_at`)}
      AND ${deck}
     GROUP BY s.label, s.start_at
     ORDER BY s.start_at
@@ -269,6 +274,7 @@ export async function dueForecast(args: DueForecastArgs, executor: StatsExecutor
       AND suspended = false
       AND state <> 'new'
       AND due < ${calendar.today.start.toISOString()}::timestamptz
+      AND ${excludeActiveHolds(sql`id`, calendar.now)}
       AND ${deckSql(args.deckIds, sql`deck_id`)}
   `)) as unknown as { cnt: number | string }[];
 

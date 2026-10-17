@@ -25,6 +25,17 @@ import type { Card, ConceptMapResult, Deck, DeckOptionsPreset, FilteredDeck, Fil
 import type { NotebookArtifactType, NotebookColor, NotebookNoteKind, QuizAttemptAnswerInput, SourceKind, SourceMime } from '@reomi/shared';
 import { writeBrowserValue } from './storage-migration';
 
+export type CardHoldCommand =
+  | { action: 'bury' | 'unbury'; cardIds: string[] }
+  | { action: 'bury' | 'unbury'; noteId: string };
+
+export interface CardHoldReceipt {
+  action: 'bury' | 'unbury';
+  until: string | null;
+  cardIds: string[];
+  changed: number;
+}
+
 // Server-first store. Zustand holds a cached mirror of the user's decks, cards,
 // and profile — fetched at bootstrap, mutated optimistically-ish on each API
 // call. Dexie is gone: the server is the source of truth now.
@@ -188,6 +199,9 @@ interface State {
     cardIds: string[],
     payload?: { deckId?: string; tag?: string; setDue?: string },
   ) => Promise<void>;
+
+  /** Bury or bring back a card selection or one note. The server chooses the deadline. */
+  applyCardHold: (command: CardHoldCommand) => Promise<CardHoldReceipt>;
 
   /**
    * Fetch the distinct tag universe from the server (GET /cards/tags). Caches
@@ -1021,6 +1035,23 @@ export const useNN = create<State>()((set, get) => ({
         }
       }
     });
+  },
+
+  async applyCardHold(command) {
+    const generation = bootstrapGeneration;
+    const result = await ok(await (api as any).cards.holds.post(command)) as CardHoldReceipt;
+    if (generation !== bootstrapGeneration) return result;
+    const ids = new Set(result.cardIds ?? []);
+    const hold = command.action === 'bury' ? { until: result.until ?? '', reason: 'user' as const } : null;
+    set((state) => ({
+      cards: state.cards.map((card) => ids.has(card.id) ? { ...card, hold } : card),
+    }));
+    const owner = get().profile?.userId;
+    if (typeof window !== 'undefined' && owner) {
+      try { writeBrowserValue(window.localStorage, `nn:study:changed:${owner}`, command.action); } catch { /* Another tab still refetches on focus. */ }
+      window.dispatchEvent(new Event('nn:study:changed'));
+    }
+    return result;
   },
 
   async getCardTags() {

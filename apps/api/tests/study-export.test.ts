@@ -128,7 +128,7 @@ describe('study export snapshot', () => {
     expect(exported.headers['content-disposition']).toBe('attachment; filename="reomi-study-export.json"');
     expect(exported.headers['cache-control']).toBe('no-store');
     expect(exported.headers['x-content-type-options']).toBe('nosniff');
-    expect(body.schemaVersion).toBe(1);
+    expect(body.schemaVersion).toBe(2);
     expect(body.isolation).toBe('repeatable read');
     expect(body.lossWindow).toBe(LOSS_WINDOW);
     expect(body.mediaNote).toBe(MEDIA_NOTE);

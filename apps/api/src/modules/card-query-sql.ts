@@ -14,6 +14,7 @@
 // `prop:due` are internally consistent and test-controllable, and stay in parity
 // with the client predicate which uses the same pinned `now`.
 
+import { excludeActiveHolds } from './card-holds.ts';
 import {
   and,
   eq,
@@ -254,21 +255,24 @@ function tagMatch(value: string): SQL {
 // ── is: ───────────────────────────────────────────────────────────────────────
 
 function isMatch(value: string, now: Date): SQL {
+  const free = excludeActiveHolds(cards.id, now);
   switch (value) {
     case 'new':
-      return eq(cards.state, 'new');
+      return and(eq(cards.state, 'new'), free)!;
     case 'learn':
       // Anki's "learn" covers both learning and relearning queues.
-      return inArray(cards.state, ['learning', 'relearning']);
+      return and(inArray(cards.state, ['learning', 'relearning']), free)!;
     case 'review':
-      return eq(cards.state, 'review');
+      return and(eq(cards.state, 'review'), free)!;
     case 'due':
       // Due = scheduled at-or-before now AND not suspended (Critic C2 boundary
       // contract: `<=` inclusive). Uses the injected `now`, not SQL now().
       // Use drizzle's typed `lte` so the Date is encoded for the timestamp col.
-      return and(lte(cards.due, now), eq(cards.suspended, false))!;
+      return and(lte(cards.due, now), eq(cards.suspended, false), free)!;
     case 'suspended':
       return eq(cards.suspended, true);
+    case 'buried':
+      return and(sql`not (${free})`, eq(cards.suspended, false))!;
     default:
       return sql`false`;
   }

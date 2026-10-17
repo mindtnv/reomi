@@ -16,6 +16,7 @@ import type {
   SourceMarkColor,
   SourceMarkKind,
   SourceStatus,
+  CardHoldView,
 } from '@reomi/shared';
 
 export type DeckColor = import('@reomi/shared').DeckColor;
@@ -141,6 +142,8 @@ export interface Card {
   /** Note-level tags (Anki-correct), surfaced from the embedded note. */
   tags: string[];
   suspended: boolean;
+  /** Active bury, or null when the card is free. Expired rows are already null. */
+  hold: CardHoldView | null;
   createdAt: number;
   updatedAt: number;
   fsrs: FsrsCard;

@@ -25,6 +25,13 @@ const m = {
     limited: { title: 'Daily limit reached', body: 'New cards and reviews become available at the start of the next study day (00:00 UTC).' },
     waiting: { title: 'Your next review is coming up', body: 'Next learning step: {time}. Your answers have already been saved.' },
     filtered: { title: 'No matching cards', body: 'Adjust the study filter or resume any suspended cards you want to include.' },
+    buried: { title: 'Buried until the next study day', body: 'These cards return at {time}.' },
+  },
+  bury: {
+    card: 'Bury until next study day',
+    note: 'Bury note until next study day',
+    until: 'Buried until {time}',
+    failed: 'Could not bury until the next study day.',
   },
   ratePrompt: 'How easily did you recall the answer?',
   recallPrompt: 'Try to recall the answer first',

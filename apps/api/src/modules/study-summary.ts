@@ -1,6 +1,7 @@
 import { cards, db, decks, deckOptionsPreset, profile } from '@reomi/db';
 import { eq, sql } from 'drizzle-orm';
-import { type StudyCounts, type StudySummary, type StudyOverview } from '@reomi/shared';
+import { STUDY_COUNT_KEYS, type StudyCounts, type StudySummary, type StudyOverview } from '@reomi/shared';
+import { excludeActiveHolds } from './card-holds.ts';
 import {
   allocateDeckBudgets,
   budgetDecksFromSnapshot,
@@ -15,20 +16,24 @@ import { readAccountStudyDay, studyDaySnapshot } from './study-day.ts';
 /** One aggregate per deck; never fetches card contents or embeds vectors. */
 export async function loadStudyCounts(userId: string, now: Date): Promise<Map<string, StudyCounts>> {
   const nowIso = now.toISOString();
-  const active = sql`${cards.suspended} = false`;
+  const free = excludeActiveHolds(cards.id, now);
+  const studying = sql`${cards.suspended} = false and ${free}`;
+  const buried = sql`${cards.suspended} = false and not (${free})`;
   const learning = sql`${cards.state} in ('learning', 'relearning')`;
   const rows = await db.select({
     deckId: cards.deckId,
     total: sql<number>`count(*)`.mapWith(Number),
-    newCount: sql<number>`count(*) filter (where ${active} and ${cards.state} = 'new')`.mapWith(Number),
-    learningCount: sql<number>`count(*) filter (where ${active} and ${learning})`.mapWith(Number),
-    reviewCount: sql<number>`count(*) filter (where ${active} and ${cards.state} = 'review')`.mapWith(Number),
+    newCount: sql<number>`count(*) filter (where ${studying} and ${cards.state} = 'new')`.mapWith(Number),
+    learningCount: sql<number>`count(*) filter (where ${studying} and ${learning})`.mapWith(Number),
+    reviewCount: sql<number>`count(*) filter (where ${studying} and ${cards.state} = 'review')`.mapWith(Number),
     suspendedCount: sql<number>`count(*) filter (where ${cards.suspended})`.mapWith(Number),
-    dueNew: sql<number>`count(*) filter (where ${active} and ${cards.state} = 'new' and ${cards.due} <= ${nowIso})`.mapWith(Number),
-    dueLearning: sql<number>`count(*) filter (where ${active} and ${learning} and ${cards.due} <= ${nowIso})`.mapWith(Number),
-    dueReview: sql<number>`count(*) filter (where ${active} and ${cards.state} = 'review' and ${cards.due} <= ${nowIso})`.mapWith(Number),
-    nextLearningAt: sql<string | null>`min(${cards.due}) filter (where ${active} and ${learning} and ${cards.due} > ${nowIso})`,
-    nextDueAt: sql<string | null>`min(${cards.due}) filter (where ${active} and ${cards.due} > ${nowIso})`,
+    buriedCount: sql<number>`count(*) filter (where ${buried})`.mapWith(Number),
+    dueBuried: sql<number>`count(*) filter (where ${buried} and ${cards.due} <= ${nowIso})`.mapWith(Number),
+    dueNew: sql<number>`count(*) filter (where ${studying} and ${cards.state} = 'new' and ${cards.due} <= ${nowIso})`.mapWith(Number),
+    dueLearning: sql<number>`count(*) filter (where ${studying} and ${learning} and ${cards.due} <= ${nowIso})`.mapWith(Number),
+    dueReview: sql<number>`count(*) filter (where ${studying} and ${cards.state} = 'review' and ${cards.due} <= ${nowIso})`.mapWith(Number),
+    nextLearningAt: sql<string | null>`min(${cards.due}) filter (where ${studying} and ${learning} and ${cards.due} > ${nowIso})`,
+    nextDueAt: sql<string | null>`min(${cards.due}) filter (where ${studying} and ${cards.due} > ${nowIso})`,
   }).from(cards).where(eq(cards.userId, userId)).groupBy(cards.deckId);
   return new Map(rows.map(({ deckId, ...counts }) => [deckId, {
     ...counts,
@@ -38,12 +43,10 @@ export async function loadStudyCounts(userId: string, now: Date): Promise<Map<st
 }
 
 export function sumStudyCounts(rows: Iterable<StudyCounts>): StudyCounts {
-  const total: StudyCounts = {
-    total: 0, newCount: 0, learningCount: 0, reviewCount: 0, suspendedCount: 0,
-    dueNew: 0, dueLearning: 0, dueReview: 0, nextLearningAt: null, nextDueAt: null,
-  };
+  const total = { nextLearningAt: null, nextDueAt: null } as StudyCounts;
+  for (const key of STUDY_COUNT_KEYS) total[key] = 0;
   for (const row of rows) {
-    for (const key of ['total', 'newCount', 'learningCount', 'reviewCount', 'suspendedCount', 'dueNew', 'dueLearning', 'dueReview'] as const) {
+    for (const key of STUDY_COUNT_KEYS) {
       total[key] += row[key];
     }
     for (const key of ['nextLearningAt', 'nextDueAt'] as const) {

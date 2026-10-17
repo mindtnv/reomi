@@ -336,6 +336,23 @@ export const cards = pgTable(
   ],
 );
 
+// One hold per card. card_id is the primary key, so a second uuid is unused.
+export const cardHolds = pgTable(
+  'card_holds',
+  {
+    cardId: uuid('card_id').primaryKey().references(() => cards.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    buriedUntil: timestamp('buried_until', { withTimezone: true }).notNull(),
+    reason: text('reason').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check('card_holds_reason_chk', sql`${t.reason} in ('user', 'sibling')`),
+    index('card_holds_user_until_idx').on(t.userId, t.buriedUntil),
+  ],
+);
+
 // ── reviews ─────────────────────────────────────────────────────────────────
 // Append-only history of every grade. Useful for stats, heatmap, FSRS retuning.
 
@@ -460,6 +477,24 @@ export const noteOperations = pgTable('note_operations', {
 }, (table) => [
   uniqueIndex('note_operations_owner_operation_idx').on(table.userId, table.operationId),
   index('note_operations_note_idx').on(table.noteId),
+]);
+
+// Previous field documents. Additive and trigger-free so an older API can
+// still save notes while the table exists. note_type_id is not a foreign key.
+export const noteRevisions = pgTable('note_revisions', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  noteId: uuid('note_id').notNull().references(() => notes.id, { onDelete: 'cascade' }),
+  noteTypeId: uuid('note_type_id').notNull(),
+  fieldValues: jsonb('field_values').notNull().$type<FieldValues>(),
+  tags: text('tags').array().notNull(),
+  acceptedAnswers: text('accepted_answers').array().notNull(),
+  revisedAt: timestamp('revised_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  unique('note_revisions_note_revised_uq').on(table.noteId, table.revisedAt),
+  index('note_revisions_note_revised_idx').on(table.noteId, table.revisedAt.desc(), table.id.desc()),
+  index('note_revisions_user_created_idx').on(table.userId, table.createdAt, table.id),
 ]);
 
 // ── media ───────────────────────────────────────────────────────────────────

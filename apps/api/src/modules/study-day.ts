@@ -57,6 +57,25 @@ function asDate(value: unknown): Date | null {
   return Number.isFinite(date.getTime()) ? date : null;
 }
 
+let databaseNowForTests: Date | null = null;
+
+export function __setDatabaseNowForTests(now: Date | null): void {
+  if (process.env.NODE_ENV !== 'test') throw new Error('database clock override is test-only');
+  databaseNowForTests = now ? new Date(now.getTime()) : null;
+}
+
+function databaseInstantForTests(): Date | null {
+  if (process.env.NODE_ENV !== 'test' || !databaseNowForTests) return null;
+  return new Date(databaseNowForTests.getTime());
+}
+
+export async function readDatabaseNow(executor: SqlExecutor = db): Promise<Date> {
+  const override = databaseInstantForTests();
+  if (override) return override;
+  const rows = rowsOf<{ studiedAt: unknown }>(await executor.execute(sql`SELECT now() AS "studiedAt"`));
+  return asDate(rows[0]?.studiedAt) ?? new Date();
+}
+
 function asInt(value: unknown, fallback: number): number {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string' && value !== '') {
@@ -222,7 +241,7 @@ export async function loadStudyClock(
     LEFT JOIN study_day_policy pol ON pol.user_id = seed.user_id
   `));
   const row = rows[0];
-  const now = asDate(row?.studiedAt) ?? new Date();
+  const now = databaseInstantForTests() ?? asDate(row?.studiedAt) ?? new Date();
   const policy =
     row?.timeZone == null || row.rolloverMinute == null
       ? ({ kind: 'legacy-utc' } as const)

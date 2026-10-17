@@ -5,6 +5,7 @@ import type { UiActionEnvelope } from '@reomi/shared';
 import { authPlugin } from '../auth-plugin';
 import { requestLogFromContext } from '../logger';
 import { createNoteForRequest, editNote, enqueueCardsForIndex, noteCreateBody, noteEditOptions } from './notes';
+import { withUserRevisionLock } from './note-revisions';
 import { convertKind, createNoteTypeForRequest, editNoteType, kindEditOptions, noteTypeCreateBody, noteTypeEditOptions } from './note-types';
 import { ActionDomainError, performUiAction, type ActionMutation, type ActionTx } from './ui-action-receipts';
 import { StudyError } from './study-notes';
@@ -47,6 +48,7 @@ export const cardRecoveryModule = new Elysia({ prefix: '/ui-actions/v1' }).use(a
   })
   .patch('/card-notes/:id', context => recover(context, 'card-note-save', context.params.id, async (tx, ids) => {
     if (context.body.input.preview) throw new StudyError(400, 'preview_requires_read_route');
+    await withUserRevisionLock(tx, context.user.id);
     return noteMutation(tx, await editNote({ ...context, body: context.body.input }, tx, ids));
   }), { auth: true, params: t.Object({ id }), body: t.Object({ ...envelope,
     input: t.Object({ ...noteEditOptions.body.properties, expectedUpdatedAt: date, expectedTypeUpdatedAt: date }),
