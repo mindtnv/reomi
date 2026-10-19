@@ -15,7 +15,7 @@ test('library folders preserve materials through nested, single and batch organi
   const login = await page.request.post(`${api}/api/auth/${target.mode === 'prod' ? 'sign-in' : 'sign-up'}/email`, { data: credentials, headers: { origin } });
   expect(login.ok()).toBe(true);
   const prefix = target.mode === 'prod' ? `${target.deckName} ` : '';
-  const rootName = `${prefix}Research`, childName = 'Workloads', destinationName = `${prefix}Reading list`;
+  const rootName = `${prefix}Research`, childName = `${prefix}Workloads`, destinationName = `${prefix}Reading list`;
   const folderIds: string[] = [], sourceIds: string[] = [];
   const folderNav = page.getByRole('navigation', { name: 'Library folders', exact: true });
   async function createFolder(name: string) {
