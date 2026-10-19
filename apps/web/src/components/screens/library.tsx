@@ -28,7 +28,8 @@ import { useLibraryPdfCovers } from '@/lib/library-pdf-cover';
 import React, { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { IngestErrorCode, SourceKind, SourceMime, SourceStatus } from '@reomi/shared';
-import { PageSurface, TextInput, SegmentedControl, Button } from '@/components/design-system/primitives';
+import { LibraryFolderNavigation, LibraryFolderBreadcrumbs, useLibraryFolders } from '@/components/library-folders';
+import { PageSurface, TextInput, SegmentedControl, Button, Checkbox } from '@/components/design-system/primitives';
 import { NNSelect } from '@/components/nn-select';
 import { NNBtn, NNCard, NNIcon, NNBadge, NNInlineRefresh, NNLoadError, NNSkeleton, type IconName } from '@/components/ui';
 import {
@@ -146,6 +147,8 @@ export const LibraryScreen = () => {
   const [reading, setReading] = useWorkspaceState<ReadingFilter>('library', 'reading', 'all');
   const [tag, setTag] = useWorkspaceState<string | null>('library', 'tag', null);
   const [unattached, setUnattached] = useWorkspaceState('library', 'unattached', false);
+  const [folderId, setFolderId] = useWorkspaceState<string>('library', 'folderId', '');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sort, setSort] = useWorkspaceState<SortMode>('library', 'sort', 'added');
   const [view, setView] = useState<ViewMode>('grid');
   // Search mode: by title/author (the list) vs by content (semantic search).
@@ -177,13 +180,14 @@ export const LibraryScreen = () => {
 
   const query = useMemo<LibraryQuery>(() => {
     const q: LibraryQuery = { sort };
+    if (folderId) q.folderId = folderId;
     if (debouncedQ) q.q = debouncedQ;
     if (kind !== 'all') q.kind = kind;
     if (reading !== 'all') q.reading = reading;
     if (tag) q.tag = tag;
     if (unattached) q.shelf = 'unattached';
     return q;
-  }, [sort, debouncedQ, kind, reading, tag, unattached]);
+  }, [sort, debouncedQ, kind, reading, tag, unattached, folderId]);
 
   // Persist the search mode (nn:lib:searchmode).
   const SEARCHMODE_KEY = 'nn:lib:searchmode';
@@ -223,6 +227,9 @@ export const LibraryScreen = () => {
   // each key remains session-cached so returning to a previous filter is instant.
   const libraryKey = useMemo(() => `library:list:${JSON.stringify(query)}`, [query]);
   const libraryRequest=useRef(0);
+  const currentLibraryKey = useRef(libraryKey);
+  currentLibraryKey.current = libraryKey;
+  const loadingMore = useRef(false);
   const fetchLibrary = useCallback(() => {
     const generation=++libraryRequest.current,owner=useNN.getState().profile?.userId;
     return refreshLoadedCollection(peekSessionResource<{items:LibraryItem[];nextCursor:string|null}>(libraryKey),async cursor=>{
@@ -234,7 +241,7 @@ export const LibraryScreen = () => {
     key: libraryKey,
     scope: 'library:list',
     fetcher: fetchLibrary,
-    keepPreviousData: true,
+    keepPreviousData: false,
   });
   const items = libraryResource.data?.items ?? [];
   const nextCursor = libraryResource.data?.nextCursor ?? null;
@@ -249,6 +256,13 @@ export const LibraryScreen = () => {
     });
   }, [libraryResource.mutate]);
   const refresh = libraryResource.refresh;
+  const folderControls = useLibraryFolders(folderId, setFolderId, refresh);
+  useEffect(() => setSelectedIds(new Set()), [libraryKey, searchMode]);
+  const toggleSelected = (id: string) => setSelectedIds(previous => {
+    const next = new Set(previous);
+    if (next.has(id)) next.delete(id); else if (next.size < 1000) next.add(id);
+    return next;
+  });
   useKnowledgeRefresh(() => { invalidateSessionResourceScope('library:list'); refresh(); });
 
   const restoreRows = useCallback(async (anchor: import('@/lib/navigation-context').ScrollAnchor, signal: AbortSignal) => {
@@ -270,13 +284,13 @@ export const LibraryScreen = () => {
   // ── Content (semantic) search ──────────────────────────────────────────────────
   const searchLibrary = useNN((s) => s.searchLibrary);
   const contentEnabled = searchMode === 'content' && debouncedQ.length >= 3;
-  const fetchContent = useCallback(() => searchLibrary(debouncedQ), [searchLibrary, debouncedQ]);
+  const fetchContent = useCallback(() => searchLibrary(debouncedQ, undefined, folderId || undefined), [searchLibrary, debouncedQ, folderId]);
   const contentResource = useSessionResource({
-    key: `library:content:${debouncedQ}`,
+    key: `library:content:${folderId}:${debouncedQ}`,
     scope: 'library:content',
     enabled: contentEnabled,
     fetcher: fetchContent,
-    keepPreviousData: true,
+    keepPreviousData: false,
   });
   const contentResult = contentResource.data;
   const contentLoading = contentResource.status === 'loading' || contentResource.status === 'refreshing';
@@ -295,13 +309,13 @@ export const LibraryScreen = () => {
 
   // ── "Continue reading" shelf (separate fetch — reading=reading, lastRead) ──────
   const fetchShelf = useCallback(
-    async () => (await listLibrary({ reading: 'reading', sort: 'lastRead', limit: 6 })).items,
-    [listLibrary],
+    async () => (await listLibrary({ reading: 'reading', sort: 'lastRead', limit: 6, ...(folderId ? { folderId } : {}) })).items,
+    [listLibrary, folderId],
   );
   const shelfResource = useSessionResource({
-    key: 'library:shelf:reading',
+    key: `library:shelf:reading:${folderId}`,
     fetcher: fetchShelf,
-    keepPreviousData: true,
+    keepPreviousData: false,
   });
   const shelf = shelfResource.data ?? [];
   const setShelf = useCallback((update: SetStateAction<LibraryItem[]>) => {
@@ -360,6 +374,7 @@ export const LibraryScreen = () => {
   // ── Upload queue (sequential presign → POST → finalize) ────────────────────────
   const runUploads = useCallback(
     async (files: File[]) => {
+      const owner = useNN.getState().profile?.userId;
       const accepted: { file: File; mime: SourceMime }[] = [];
       for (const file of files) {
         const mime = mimeForFile(file);
@@ -371,11 +386,13 @@ export const LibraryScreen = () => {
       }
       if (accepted.length === 0) return;
       for (let i = 0; i < accepted.length; i++) {
+        if (useNN.getState().profile?.userId !== owner) return;
         const { file, mime } = accepted[i]!;
         setUploadQueue({ total: accepted.length, done: i, name: file.name });
         try {
-          const created = await uploadLibraryItem(file, file.name, mime);
-          setItems((prev) => [created, ...prev.filter((p) => p.id !== created.id)]);
+          const created = await uploadLibraryItem(file, file.name, mime, undefined, folderId && folderId !== 'unfiled' ? folderId : undefined);
+          if (currentLibraryKey.current === libraryKey && useNN.getState().profile?.userId === owner)
+            setItems((prev) => [created, ...prev.filter((p) => p.id !== created.id)]);
         } catch (err) {
           if (err instanceof DuplicateSourceError) {
             // Offer to open the existing item rather than silently skipping.
@@ -390,9 +407,10 @@ export const LibraryScreen = () => {
       }
       setUploadQueue(null);
       void refresh();
+      folderControls.refresh();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [uploadLibraryItem, t, refresh],
+    [uploadLibraryItem, t, refresh, folderId, folderControls.refresh, libraryKey],
   );
 
   const confirmDuplicate = useCallback(
@@ -435,13 +453,16 @@ export const LibraryScreen = () => {
   // ── Inline url/text add ─────────────────────────────────────────────────────────
   const onAddInline = useCallback(
     async (dialogKind: 'url' | 'text', title: string, value: string) => {
+      const owner = useNN.getState().profile?.userId;
       try {
         const created =
           dialogKind === 'url'
-            ? await addLibraryUrl(title, value)
-            : await addLibraryText(title, value);
-        setItems((prev) => [created, ...prev]);
+            ? await addLibraryUrl(title, value, undefined, folderId && folderId !== 'unfiled' ? folderId : undefined)
+            : await addLibraryText(title, value, undefined, folderId && folderId !== 'unfiled' ? folderId : undefined);
+        if (useNN.getState().profile?.userId !== owner) return;
+        if (currentLibraryKey.current === libraryKey) setItems((prev) => [created, ...prev]);
         setAddDialog(null);
+        folderControls.refresh();
       } catch (err) {
         if (err instanceof DuplicateSourceError) {
           await confirmDuplicate(title, err.existingSourceId);
@@ -453,7 +474,7 @@ export const LibraryScreen = () => {
         }
       }
     },
-    [addLibraryUrl, addLibraryText, confirmDuplicate, t],
+    [addLibraryUrl, addLibraryText, confirmDuplicate, t, folderId, folderControls.refresh, libraryKey],
   );
 
   // ── Details panel data ──────────────────────────────────────────────────────────
@@ -465,16 +486,19 @@ export const LibraryScreen = () => {
     setItems((prev) => prev.filter((it) => it.id !== id));
     setShelf((prev) => prev.filter((it) => it.id !== id));
     setDetailId(null);
+    folderControls.refresh();
     raiseToast({ kind: 'info', title: t('library.toast.deleted') });
   }, [t]);
 
-  const hasFilters = debouncedQ !== '' || kind !== 'all' || reading !== 'all';
+  const hasFilters = debouncedQ !== '' || kind !== 'all' || reading !== 'all' || Boolean(tag) || unattached;
   const clearFilters = useCallback(() => {
     setSearch('');
     setDebouncedQ('');
     setKind('all');
     setReading('all');
-  }, [setSearch, setDebouncedQ, setKind, setReading]);
+    setTag(null);
+    setUnattached(false);
+  }, [setSearch, setDebouncedQ, setKind, setReading, setTag, setUnattached]);
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
@@ -548,6 +572,16 @@ export const LibraryScreen = () => {
         t={t}
       />
 
+      <div className="reomi-library-layout">
+      <LibraryFolderNavigation controls={folderControls} scope={folderId} onScopeChange={setFolderId} />
+      <div className="reomi-library-content">
+      <LibraryFolderBreadcrumbs controls={folderControls} scope={folderId} onScopeChange={setFolderId} />
+      {searchMode === 'title' && items.length > 0 && <div className="reomi-library-selection">
+        <Checkbox checked={items.slice(0, 1000).every(item => selectedIds.has(item.id))} onChange={checked => setSelectedIds(checked ? new Set(items.slice(0, 1000).map(item => item.id)) : new Set())}>{t('library.folders.selectVisible')}</Checkbox>
+        {selectedIds.size > 0 && <><span>{t('library.folders.selected', { count: selectedIds.size })}</span>
+        <Button size="sm" variant="soft" disabled={folderControls.busy} onClick={async () => { if (await folderControls.moveItems([...selectedIds])) setSelectedIds(new Set()); }}>{t('library.folders.move')}</Button>
+        <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>{t('library.folders.clear')}</Button></>}
+      </div>}
       <NavigationRestoreNotice failure={listPosition.failure} retry={listPosition.retry}/>
       {/* Upload progress strip */}
       {uploadQueue && (
@@ -624,39 +658,52 @@ export const LibraryScreen = () => {
       ) : view === 'grid' ? (
         <div className="nn-lib-grid">
           {items.map((it) => (
-            <LibraryCard key={it.id} item={it} onOpen={() => openReader(it.id)} onDetails={() => setDetailId(it.id)} t={t} />
+            <div key={it.id} className="reomi-library-selectable">
+              <div className="reomi-library-item-tools"><Checkbox aria-label={t('library.folders.selectMaterial', { title: it.title })} checked={selectedIds.has(it.id)} onChange={() => toggleSelected(it.id)} />
+              <Button size="sm" variant="ghost" disabled={folderControls.busy} aria-label={t('library.folders.moveMaterial', { title: it.title })} onClick={() => void folderControls.moveItems([it.id])}><NNIcon name="folder" size={15}/></Button></div>
+              <LibraryCard item={it} onOpen={() => openReader(it.id)} onDetails={() => setDetailId(it.id)} t={t} />
+            </div>
           ))}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 12 }}>
           {items.map((it) => (
-            <LibraryListRow key={it.id} item={it} onOpen={() => openReader(it.id)} onDetails={() => setDetailId(it.id)} t={t} />
+            <div key={it.id} className="reomi-library-selectable-row"><Checkbox aria-label={t('library.folders.selectMaterial', { title: it.title })} checked={selectedIds.has(it.id)} onChange={() => toggleSelected(it.id)} />
+            <div style={{ minWidth: 0, flex: 1 }}><LibraryListRow item={it} onOpen={() => openReader(it.id)} onDetails={() => setDetailId(it.id)} t={t} /></div>
+            <Button size="sm" variant="ghost" disabled={folderControls.busy} aria-label={t('library.folders.moveMaterial', { title: it.title })} onClick={() => void folderControls.moveItems([it.id])}><NNIcon name="folder" size={15}/></Button></div>
           ))}
         </div>
       )}
 
-      {/* Load more (added-sort keyset only; hidden in content-search mode) */}
+      {/* Load more in the current sort and folder scope. */}
       {searchMode === 'title' && loaded && nextCursor && (
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
           <NNBtn
             variant="soft"
             size="sm"
             onClick={async () => {
+              if (loadingMore.current) return;
+              loadingMore.current = true;
+              const owner = useNN.getState().profile?.userId;
               try {
                 const res = await listLibrary({ ...query, cursor: nextCursor });
+                if (currentLibraryKey.current !== libraryKey || useNN.getState().profile?.userId !== owner) return;
                 libraryResource.mutate((current) => ({
-                  items: [...(current?.items ?? []), ...res.items],
+                  items: [...new Map([...(current?.items ?? []), ...res.items].map(item => [item.id, item])).values()],
                   nextCursor: res.nextCursor,
                 }));
               } catch {
-                /* ignore */
-              }
+                raiseToast({ kind: 'error', title: t('navigation.refreshFailed') });
+              } finally { loadingMore.current = false; }
             }}
           >
             {t('notebooks.reader.loadMore')}
           </NNBtn>
         </div>
       )}
+
+      </div>
+      </div>
 
       {/* Inline add dialog */}
       {addDialog && (
@@ -717,7 +764,6 @@ const LibraryHeader = ({
   onPickFiles,
   onAddUrl,
   onAddText,
-  isMobile,
   t,
 }: {
   refreshing: boolean;
@@ -747,16 +793,15 @@ const LibraryHeader = ({
   isMobile: boolean;
   t: Tr;
 }) => {
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersId = React.useId();
+  const filterCount = Number(kind !== 'all') + Number(reading !== 'all') + Number(Boolean(tag)) + Number(unattached) + Number(sort !== 'added');
   const menuRoot = useRef<HTMLDivElement>(null);
   useTransientLayer({ root: menuRoot, enabled: addMenuOpen, onClose: () => setAddMenuOpen(false) });
   return (
   <div className="reomi-library-toolbar">
-    {/* Search-mode toggle + search + add */}
-    <div style={{ display: 'flex', alignItems: 'center', flexWrap:isMobile?'wrap':'nowrap',gap: 10 }}>
-      <SegmentedControl label={t('library.header.searchPlaceholder')} value={searchMode}
-        onChange={setSearchMode} options={[{ value: 'title', label: t('library.search.byTitle') }, { value: 'content', label: t('library.search.byContent') }]} />
-      <AppLink className="reomi-button" data-variant="ghost" href="/library/study">{t('assistant.savedStudy')}</AppLink>
-      <div style={{ position: 'relative', flex: isMobile?'1 0 100%':1,order:isMobile?1:undefined,minWidth: 0 }}>
+    <div className="reomi-library-search-row">
+      <div className="reomi-library-search">
         {refreshing&&<span style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',pointerEvents:'none'}}><NNInlineRefresh label={t('states.loading')}/></span>}
         <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
           <NNIcon name="search" size={15} color="var(--text-dim)" />
@@ -766,11 +811,10 @@ const LibraryHeader = ({
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t(searchMode === 'content' ? 'library.search.contentPlaceholder' : 'library.header.searchPlaceholder')}
           aria-label={t('library.header.searchPlaceholder')}
-          style={{ paddingLeft: 32,paddingRight:100 }}
+          style={{ paddingLeft: 34, paddingRight: refreshing ? 36 : 12 }}
         />
       </div>
-      <NNBtn variant="ghost" icon="sync" ariaLabel={t('navigation.reset')} title={t('navigation.reset')} onClick={onReset}/>
-      <div ref={menuRoot} style={{ position: 'relative' }}>
+      <div ref={menuRoot} className="reomi-library-add">
         <NNBtn className="reomi-create-icon" variant="soft" icon="plus" ariaLabel={t('library.header.add')} title={t('library.header.add')} aria-expanded={addMenuOpen} onClick={event => { event.currentTarget.focus({ preventScroll: true }); setAddMenuOpen(!addMenuOpen); }} />
         {addMenuOpen && (
           <>
@@ -790,27 +834,43 @@ const LibraryHeader = ({
       </div>
     </div>
 
-    {searchMode === 'title' && (
-      <div className="reomi-library-filters">
-        <label><span>{t('library.header.formatLabel')}</span><NNSelect ariaLabel={t('library.header.formatLabel')} value={kind} onChange={setKind}
-          options={KIND_FILTERS.map(k => ({ value: k, label: t(`library.header.kind${kindFilterKey(k)}`) }))} />
-        </label>
-        <label><span>{t('library.header.readingLabel')}</span><NNSelect ariaLabel={t('library.header.readingLabel')} value={reading} onChange={setReading}
-          options={READING_FILTERS.map(r => ({ value: r, label: t(`library.header.reading${r === 'all' ? 'All' : r === 'unread' ? 'Unread' : r === 'reading' ? 'Reading' : 'Finished'}`) }))} />
-        </label>
-        {allTags.length > 0 && <label><span>{t('library.header.tagLabel')}</span><NNSelect ariaLabel={t('library.header.tagLabel')} value={tag ?? ''} onChange={value => setTag(value || null)}
-          options={[{ value: '', label: t('library.header.tagAll') }, ...allTags.map(value => ({ value, label: value }))]} />
-        </label>}
-        <Button variant="bare" type="button" className="reomi-filter-toggle" aria-pressed={unattached} onClick={() => setUnattached(!unattached)}><NNIcon name="notebook" size={14} />{t('library.header.shelfUnattached')}</Button>
-        <label className="reomi-library-sort"><span>{t('library.header.sortLabel')}</span><NNSelect ariaLabel={t('library.header.sortLabel')} value={sort} onChange={setSort}
-          options={SORTS.map(value => ({ value, label: t(`library.header.sort${value === 'added' ? 'Added' : value === 'title' ? 'Title' : 'LastRead'}`) }))} />
-        </label>
-        <div className="reomi-library-views">
-          <NNBtn variant={view === 'grid' ? 'soft' : 'ghost'} icon="grid" aria-pressed={view === 'grid'} ariaLabel={t('library.header.viewGrid')} title={t('library.header.viewGrid')} onClick={() => setView('grid')} />
-          <NNBtn variant={view === 'list' ? 'soft' : 'ghost'} icon="stack" aria-pressed={view === 'list'} ariaLabel={t('library.header.viewList')} title={t('library.header.viewList')} onClick={() => setView('list')} />
-        </div>
+    <div className="reomi-library-controls">
+      <SegmentedControl label={t('library.header.searchPlaceholder')} value={searchMode}
+        onChange={setSearchMode} options={[{ value: 'title', label: t('library.search.byTitle') }, { value: 'content', label: t('library.search.byContent') }]} />
+      <div className="reomi-library-control-actions">
+        {searchMode === 'title' && <>
+          <Button variant={filtersOpen || filterCount ? 'soft' : 'ghost'} size="sm" className="reomi-library-filter-button"
+            aria-label={t('library.header.filters')} aria-expanded={filtersOpen} aria-controls={filtersId} onClick={() => setFiltersOpen(value => !value)}>
+            <NNIcon name="filter" size={15} /><span className="reomi-library-control-label">{t('library.header.filters')}</span>
+            {filterCount > 0 && <span className="reomi-library-filter-count">{filterCount}</span>}
+          </Button>
+          <NNBtn size="sm" variant="ghost" icon={view === 'grid' ? 'stack' : 'grid'}
+            ariaLabel={t(view === 'grid' ? 'library.header.viewList' : 'library.header.viewGrid')}
+            title={t(view === 'grid' ? 'library.header.viewList' : 'library.header.viewGrid')} onClick={() => setView(view === 'grid' ? 'list' : 'grid')} />
+        </>}
+        <AppLink className="reomi-button reomi-library-study-link" data-variant="ghost" data-size="sm" href="/library/study" aria-label={t('assistant.savedStudy')}>
+          <NNIcon name="notebook" size={15} /><span className="reomi-library-control-label">{t('assistant.savedStudy')}</span>
+        </AppLink>
       </div>
-    )}
+    </div>
+    <div id={filtersId} className="reomi-library-filters" hidden={searchMode !== 'title' || !filtersOpen}>
+      <label><span>{t('library.header.formatLabel')}</span><NNSelect ariaLabel={t('library.header.formatLabel')} value={kind} onChange={setKind}
+        options={KIND_FILTERS.map(k => ({ value: k, label: t(`library.header.kind${kindFilterKey(k)}`) }))} />
+      </label>
+      <label><span>{t('library.header.readingLabel')}</span><NNSelect ariaLabel={t('library.header.readingLabel')} value={reading} onChange={setReading}
+        options={READING_FILTERS.map(r => ({ value: r, label: t(`library.header.reading${r === 'all' ? 'All' : r === 'unread' ? 'Unread' : r === 'reading' ? 'Reading' : 'Finished'}`) }))} />
+      </label>
+      {allTags.length > 0 && <label><span>{t('library.header.tagLabel')}</span><NNSelect ariaLabel={t('library.header.tagLabel')} value={tag ?? ''} onChange={value => setTag(value || null)}
+        options={[{ value: '', label: t('library.header.tagAll') }, ...allTags.map(value => ({ value, label: value }))]} />
+      </label>}
+      <label><span>{t('library.header.sortLabel')}</span><NNSelect ariaLabel={t('library.header.sortLabel')} value={sort} onChange={setSort}
+        options={SORTS.map(value => ({ value, label: t(`library.header.sort${value === 'added' ? 'Added' : value === 'title' ? 'Title' : 'LastRead'}`) }))} />
+      </label>
+      <div className="reomi-library-filter-footer">
+        <Button variant="bare" type="button" className="reomi-filter-toggle" aria-pressed={unattached} onClick={() => setUnattached(!unattached)}><NNIcon name="notebook" size={14} />{t('library.header.shelfUnattached')}</Button>
+        <NNBtn size="sm" variant="ghost" icon="sync" ariaLabel={t('navigation.reset')} onClick={onReset}>{t('navigation.reset')}</NNBtn>
+      </div>
+    </div>
   </div>
 );
 };
@@ -1006,17 +1066,13 @@ const CoverPlaceholder = ({ item, size, aspect }: { item: LibraryItem | { id: st
 
 const LibraryCard = ({ item, onOpen, onDetails, t }: { item: LibraryItem; onOpen: () => void; onDetails: () => void; t: Tr }) => {
   const notReady = item.status !== 'ready' && (item.total === 0 || item.status === 'deleting');
+  const parked = item.status === 'indexing' && item.searchAvailable === false;
   const statusLabel = labelForStatus(item, t);
   return (
     <Button variant="bare" type="button" data-navigation-anchor={item.id} onClick={onOpen} className="nn-lib-card">
       <div style={{ position: 'relative' }}>
         <CoverPlaceholder item={item} aspect />
-        {['pending', 'parsing', 'indexing'].includes(item.status) && <LibraryIngestIndicator item={item} t={t} />}
-        {notReady && !['pending', 'parsing', 'indexing'].includes(item.status) && (
-          <span className="reomi-library-status" title={statusLabel}>
-            <NNBadge tone={statusTone(item.status)} size="xs">{statusLabel}</NNBadge>
-          </span>
-        )}
+        {!parked && ['pending', 'parsing', 'indexing'].includes(item.status) && <LibraryIngestIndicator item={item} t={t} />}
         {/* Details (⋯) — stops propagation so the card click still opens the reader. */}
         <span
           role="button"
@@ -1062,6 +1118,7 @@ const LibraryCard = ({ item, onOpen, onDetails, t }: { item: LibraryItem; onOpen
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {item.title}
         </div>
+        {(parked || (notReady && !['pending', 'parsing', 'indexing'].includes(item.status))) && <p className="reomi-library-item-status" role="status" title={statusLabel}>{statusLabel}</p>}
         {item.author && (
           <div style={{ fontSize: 11.5, color: 'var(--text-dim)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {item.author}
@@ -1180,6 +1237,7 @@ const AddInlineDialog = ({
   onClose: () => void;
   t: Tr;
 }) => {
+  const formId = React.useId();
   const [title, setTitle] = useState('');
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
@@ -1210,23 +1268,23 @@ const AddInlineDialog = ({
     <>
       <div className="nn-dialog-backdrop" onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'var(--scrim)' }} />
       <div style={{ position: 'fixed', inset: 0, zIndex: 81, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, pointerEvents: 'none' }}>
-        <NNCard padding={18} style={{ width: 420, maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: 12, pointerEvents: 'auto', boxShadow: 'var(--shadow-lg)' }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0, fontFamily: 'var(--font-sans)' }}>
+        <NNCard role="dialog" aria-modal="true" aria-labelledby={`${formId}-heading`} padding={18} style={{ width: 420, maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: 12, pointerEvents: 'auto', boxShadow: 'var(--shadow-lg)' }}>
+          <h3 id={`${formId}-heading`} style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0, fontFamily: 'var(--font-sans)' }}>
             {t(kind === 'url' ? 'library.add.urlTitle' : 'library.add.textTitle')}
           </h3>
           <div>
-            <label style={labelStyle}>{t('library.add.titleLabel')}</label>
-            <TextInput style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('library.add.titlePlaceholder')} maxLength={300} />
+            <label htmlFor={`${formId}-name`} style={labelStyle}>{t('library.add.titleLabel')}</label>
+            <TextInput id={`${formId}-name`} style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('library.add.titlePlaceholder')} maxLength={300} />
           </div>
           {kind === 'url' ? (
             <div>
-              <label style={labelStyle}>{t('library.add.urlLabel')}</label>
-              <TextInput style={inputStyle} value={value} onChange={(e) => setValue(e.target.value)} placeholder={t('library.add.urlPlaceholder')} maxLength={2000} />
+              <label htmlFor={`${formId}-value`} style={labelStyle}>{t('library.add.urlLabel')}</label>
+              <TextInput id={`${formId}-value`} style={inputStyle} value={value} onChange={(e) => setValue(e.target.value)} placeholder={t('library.add.urlPlaceholder')} maxLength={2000} />
             </div>
           ) : (
             <div>
-              <label style={labelStyle}>{t('library.add.textLabel')}</label>
-              <textarea style={{ ...inputStyle, minHeight: 140, resize: 'vertical' }} value={value} onChange={(e) => setValue(e.target.value)} placeholder={t('library.add.textPlaceholder')} />
+              <label htmlFor={`${formId}-value`} style={labelStyle}>{t('library.add.textLabel')}</label>
+              <textarea id={`${formId}-value`} style={{ ...inputStyle, minHeight: 140, resize: 'vertical' }} value={value} onChange={(e) => setValue(e.target.value)} placeholder={t('library.add.textPlaceholder')} />
             </div>
           )}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

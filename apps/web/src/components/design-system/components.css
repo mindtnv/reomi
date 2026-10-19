@@ -243,7 +243,7 @@
 .reomi-notebooks .nn-nb-create-plus { border: 0; }
 .reomi-home > div:first-child > div { background: var(--surface-2) !important; border-color: transparent !important; border-radius: 18px !important; }
 .reomi-home .reomi-surface { border-color: var(--panel-edge); box-shadow: none; }
-.reomi-library-toolbar { display: flex; flex-direction: column; gap: 14px; padding-bottom: 18px; margin-bottom: 20px; border-bottom: 1px solid var(--panel-edge); }
+.reomi-library-toolbar { display: flex; flex-direction: column; gap: 10px; padding-bottom: 14px; margin-bottom: 0; border-bottom: 1px solid var(--panel-edge); }
 .reomi-library .nn-lib-chip { border-color: transparent; background: transparent; min-height: 30px; padding: 5px 10px; font-weight: 500; }
 .reomi-library .nn-lib-chip:hover { background: var(--surface-2); }
 .reomi-library .nn-lib-chip.active { background: var(--surface-3); color: var(--text); border-color: transparent; }
@@ -273,8 +273,6 @@
   :root { --page-padding: 16px; }
   .reomi-page-surface { border-radius: 14px; }
   .reomi-page-toolbar { gap: 6px; }
-  .reomi-library-toolbar > div:first-child { flex-wrap: wrap; }
-  .reomi-library-toolbar > div:first-child > div:nth-child(2) { flex-basis: calc(100% - 52px); }
   .reomi-library .nn-lib-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .reomi-library .nn-lib-card { padding: 7px; }
   .reomi-chat-welcome h2 { font-size: 24px; }

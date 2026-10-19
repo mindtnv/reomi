@@ -15,6 +15,7 @@ const { createRoot } = await import('react-dom/client');
 const { NotebookWorkspace } = await import('./notebook-workspace');
 const { AssistantProvider } = await import('../chat/assistant-provider');
 
+const originalStore = useNN.getState();
 const NOTEBOOK = 'nb-plan';
 const READY = 'src-ready';
 const PENDING = 'src-pending';
@@ -160,6 +161,7 @@ afterEach(async () => {
   document.querySelector('.reomi-notebook-source-reader')?.remove();
   globalThis.fetch = oldFetch;
   useNN.getState().reset();
+  useNN.setState(originalStore);
   window.innerWidth = originalWidth;
   delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
 });

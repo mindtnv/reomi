@@ -17,7 +17,7 @@ type FieldRule = 'text' | 'id' | 'bool' | 'number' | 'ids' | readonly string[];
 
 const rules: Record<string, Record<string, FieldRule>> = {
   card: { mode: ['view','edit'] },
-  library: { search: 'text', kind: ['all', 'pdf', 'epub', 'web', 'text', 'url'], reading: ['all', 'unread', 'reading', 'finished'], tag: 'id', unattached: 'bool', sort: ['added', 'title', 'lastRead', 'progress'], searchMode: ['title', 'content'], detailId: 'id' },
+  library: { folderId: 'id', search: 'text', kind: ['all', 'pdf', 'epub', 'web', 'text', 'url'], reading: ['all', 'unread', 'reading', 'finished'], tag: 'id', unattached: 'bool', sort: ['added', 'title', 'lastRead', 'progress'], searchMode: ['title', 'content'], detailId: 'id' },
   cards: { query: 'text', sortField: ['created', 'updated', 'due', 'lapses', 'reps', 'front'], sortDir: ['asc', 'desc'], focusedId: 'id', filtersVisible: 'bool' },
   decks: { deckSearch: 'text', selectedId: 'id', collapsed: 'ids', filterCollapsed: 'ids' },
   notebooks: { search: 'text', archived: 'bool' },
@@ -115,7 +115,7 @@ function viewsFromHref(href: string): Record<string, NavigationView> {
   const scope = url.pathname.slice(1);
   const fields: Record<string, NavigationField> = {};
   const mapping: Record<string, Record<string, string>> = {
-    library: { q:'search', kind:'kind', reading:'reading', tag:'tag', sort:'sort', searchMode:'searchMode', focus:'detailId', unattached:'unattached' },
+    library: { folderId:'folderId', q:'search', kind:'kind', reading:'reading', tag:'tag', sort:'sort', searchMode:'searchMode', focus:'detailId', unattached:'unattached' },
     cards: { q:'query', focus:'focusedId' }, decks: { q:'deckSearch', focus:'selectedId' }, notebooks: { q:'search', archived:'archived' },
   };
   for (const [param, key] of Object.entries(mapping[scope] ?? {})) {

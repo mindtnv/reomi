@@ -18,6 +18,7 @@ import {
   unique,
   uuid,
   vector,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import type {
   ReferenceCatalog,
@@ -966,6 +967,22 @@ export const notebookSources = pgTable(
 // NOT a stored counter. Metadata columns (author/description/language/pageCount/
 // coverMediaId/tags) are all optional library-card fields.
 
+export const libraryFolders = pgTable('library_folders', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  parentId: uuid('parent_id').references((): AnyPgColumn => libraryFolders.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  revision: integer('revision').notNull().default(0),
+  purpose: text('purpose').$type<'browser'>(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  index('library_folders_owner_parent_idx').on(t.userId, t.parentId),
+  uniqueIndex('library_folders_sibling_name_uq').on(t.userId, sql`coalesce(${t.parentId}, '00000000-0000-0000-0000-000000000000'::uuid)`, sql`lower(${t.name})`),
+  uniqueIndex('library_folders_purpose_uq').on(t.userId, t.purpose).where(sql`${t.purpose} IS NOT NULL`),
+  check('library_folders_name_check', sql`${t.name} = btrim(${t.name}) AND char_length(${t.name}) BETWEEN 1 AND 100`),
+  check('library_folders_parent_check', sql`${t.parentId} IS NULL OR ${t.parentId} <> ${t.id}`),
+]);
+
 export const sources = pgTable(
   'sources',
   {
@@ -975,6 +992,7 @@ export const sources = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     kind: text('kind').notNull(), // 'pdf' | 'epub' | 'url' | 'text' | 'youtube'
+    folderId: uuid('folder_id').references(() => libraryFolders.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
     url: text('url'),
     storageKey: text('storage_key'),
@@ -1002,6 +1020,7 @@ export const sources = pgTable(
   },
   (t) => [
     index('sources_user_idx').on(t.userId),
+    index('sources_owner_folder_idx').on(t.userId, t.folderId),
     // Powers the worker claim (`WHERE status = 'pending' … FOR UPDATE SKIP LOCKED`).
     index('sources_status_idx').on(t.status),
     index('sources_operation_active_idx').on(t.userId, t.operationStartedAt, t.id)

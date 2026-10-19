@@ -27,6 +27,7 @@ import { sourceStudyModule } from './modules/source-study.ts';
 import { sourceTextMarksModule } from './modules/source-text-marks.ts';
 import { StudyError } from './modules/study-notes.ts';
 import { libraryModule } from './modules/library.ts';
+import { libraryFoldersModule, LibraryFolderError } from './modules/library-folders';
 import { operationsModule } from './modules/operations';
 import { uiActionsModule } from './modules/ui-actions';
 import { cardRecoveryModule } from './modules/card-recovery';
@@ -35,7 +36,7 @@ import { ActionDomainError } from './modules/ui-action-receipts';
 import { personalTokensModule } from './modules/personal-tokens.ts';
 import { handleMcp } from './mcp/server.ts';
 import { authRateRuleFor, clientIpFromRequest, rateLimitCheck } from './rate-limit.ts';
-import { pickRequestId, requestLogger, rootLogger, safeError } from './logger.ts';
+import { pickRequestId, requestLogger, requestLogFromContext, rootLogger, safeError } from './logger.ts';
 import type { Logger } from 'pino';
 import { embeddingDegraded } from './ai/index-queue.ts';
 import {
@@ -208,6 +209,10 @@ export function buildApp(options: BuildAppOptions = {}) {
     .onError({ as: 'global' }, ({ code, error, status, log, requestState }) => {
       const state = requestState as RequestLifecycleState | undefined;
       const errorLog = log ?? baseLogger;
+      if (error instanceof LibraryFolderError) {
+        if (state) state.errorStatus = error.status;
+        return status(error.status, { error: error.code });
+      }
       if (error instanceof ActionDomainError) {
         if (state) state.errorStatus = error.status;
         return status(error.status, error.payload);
@@ -268,12 +273,12 @@ export function buildApp(options: BuildAppOptions = {}) {
     .use(sourcesModule)
     .use(sourceStudyModule)
     .use(sourceTextMarksModule)
-    .use(libraryModule)
+    .use(new Elysia().use(libraryModule).use(libraryFoldersModule))
     .use(operationsModule)
     .use(uiActionsModule)
     .use(cardRecoveryModule)
     .use(remindersModule)
-    .all('/mcp', ({ request, log }) => handleMcp(request, (req) => readHandle(req), log), { parse: 'none' })
+    .all('/mcp', (context) => handleMcp(context.request, (req) => readHandle(req), requestLogFromContext(context)), { parse: 'none' })
     // Explicit fallback keeps the completion hook's final status accurate for
     // unmatched routes too (Elysia's implicit 404 is mapped after analytics).
     .all('/*', ({ set }) => {

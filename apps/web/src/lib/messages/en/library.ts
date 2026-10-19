@@ -8,11 +8,49 @@
 // can enforce both independently. Every key MUST exist in BOTH locales.
 
 const library = {
+  folders: {
+    "title": "Folders",
+    "navigation": "Library folders",
+    "breadcrumbs": "Folder path",
+    "all": "All materials",
+    "unfiled": "Unfiled",
+    "create": "New folder",
+    "name": "Folder name",
+    "rename": "Rename",
+    "move": "Move",
+    "moveFolder": "Move folder",
+    "delete": "Delete folder",
+    "deleteDestination": "Where should the materials go?",
+    "deletePreview": "{folders} folders and {materials} materials. Materials will be kept.",
+    "deleteConfirm": "Delete “{name}” and its {folders} folders? Move {materials} materials to “{destination}”. Source files, cards and notebook links will be kept.",
+    "browser": "From browser",
+    "collapse": "Collapse {name}",
+    "expand": "Expand {name}",
+    "subtreeCount": "{count} materials, including subfolders",
+    "selectVisible": "Select all shown",
+    "selected": "Selected: {count}",
+    "clear": "Clear selection",
+    "selectMaterial": "Select material: {title}",
+    "moveMaterial": "Move material: {title}",
+    "moveMaterials": "Move {count} materials",
+    "failed": "Could not update library folders. Please retry.",
+    "retry": "Retry",
+    "errors": {
+        "folder_changed": "This folder changed. Refresh it and try again.",
+        "folder_name_exists": "A folder with this name already exists here.",
+        "folder_cycle": "Choose a destination outside this folder and its children.",
+        "folder_limit": "The folder count or nesting limit has been reached.",
+        "folder_not_found": "The destination folder is no longer available. Choose another folder.",
+        "source_not_found": "Some selected materials are no longer available. Refresh the list.",
+        "invalid_folder_name": "Enter a folder name between 1 and 100 characters."
+    }
+},
   title: 'Library',
   subtitle: 'Your books, articles, and notes.',
 
   // ── Header ────────────────────────────────────────────────────────────────────
   header: {
+    filters: 'Filters',
     formatLabel: 'Format',
     readingLabel: 'Reading',
     searchPlaceholder: 'Search by title or author…',

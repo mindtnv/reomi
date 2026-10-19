@@ -1,4 +1,5 @@
 import { sourceOperationPresentation } from './source-operation-presentation';
+import { libraryFolderScope } from './library-folders';
 // Library module (L1) — the user's personal material store (`/library`). A
 // "library item" IS a `sources` row (Р1 — the table is NOT renamed; the library
 // is a UI/ownership concept over it). Sources are user-level now (notebooks
@@ -18,7 +19,7 @@ import { sourceOperationPresentation } from './source-operation-presentation';
 // Every query is `user.id`-FIRST-conjunct scoped; a foreign/missing id is 404.
 
 import { Elysia, t } from 'elysia';
-import { and, asc, count, countDistinct, desc, eq, ilike, inArray, lt, or, sql } from 'drizzle-orm';
+import { and, asc, count, countDistinct, desc, eq, gt, ilike, inArray, lt, or, sql } from 'drizzle-orm';
 import {
   cardSources,
   db,
@@ -85,6 +86,7 @@ function shapeLibraryItem(s: Source, agg: LibraryItemAggregates): Record<string,
     metadataRevision: s.metadataRevision,
     id: s.id,
     kind: s.kind,
+    folderId: s.folderId,
     title: s.title,
     author: s.author,
     description: s.description,
@@ -109,17 +111,25 @@ function shapeLibraryItem(s: Source, agg: LibraryItemAggregates): Record<string,
   };
 }
 
+// PostgreSQL timestamps have microseconds; Date is only used to validate the
+// calendar here. Cursor comparisons retain the original SQL timestamp string.
+function validCursorTime(value: unknown): value is string {
+  if (typeof value !== 'string' || value.startsWith('0000-') || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}(?:\d{1,3})?Z$/.test(value)) return false;
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString() === `${value.slice(0, 23)}Z`;
+}
+
 export const libraryModule = new Elysia({ prefix: '/library' })
   .use(authPlugin)
   // ── list ─────────────────────────────────────────────────────────────────────
   // Paginated material list with filters + one-query aggregates. Filters: q
   // (ILIKE title|author), kind, tag (array containment), reading (status), shelf
   // (reading|unattached). Sort: added (created_at DESC, default) | title |
-  // lastRead (reading-state updated_at DESC NULLS LAST). Cursor by created_at
-  // (added-sort only; the simple/shipped path — other sorts return one page).
+  // lastRead (reading-state updated_at DESC NULLS LAST). Every sort uses
+  // a stable keyset cursor with an id tiebreaker.
   .get(
     '/',
-    async ({ user, query }) => {
+    async ({ user, query, status }) => {
       const rawLimit = Number(query.limit ?? LIBRARY_PAGE);
       const limit = Math.max(
         1,
@@ -157,6 +167,8 @@ export const libraryModule = new Elysia({ prefix: '/library' })
         eq(sources.userId, user.id),
         sql`${sources.status} <> 'deleting'`,
       ];
+      const folderScope = await libraryFolderScope(user.id, query.folderId);
+      if (folderScope) conditions.push(folderScope);
       if (query.q) {
         const pat = `%${query.q}%`;
         conditions.push(or(ilike(sources.title, pat), ilike(sources.author, pat))!);
@@ -177,11 +189,26 @@ export const libraryModule = new Elysia({ prefix: '/library' })
       } else if (query.shelf === 'unattached') {
         conditions.push(sql`${notebookSq.notebookCount} IS NULL`);
       }
-      // Cursor (added-sort keyset by (created_at, id) — id is the tiebreaker so a
-      // batch of rows sharing a created_at can't drop/duplicate items across
-      // pages). Composite format `<iso>_<id>`; a legacy bare-iso cursor still
-      // works (id defaults to a max sentinel → created_at-only comparison).
-      if (query.cursor) {
+      // Opaque cursors carry all sort keys. The legacy added-sort ISO/id
+      // format remains accepted for existing clients.
+      const sort = query.sort ?? 'added';
+      const readKey = sql`coalesce(${sourceReadingState.updatedAt}, '-infinity'::timestamptz)`;
+      if (query.cursor?.startsWith('v2.')) {
+        try {
+          const cursor = JSON.parse(Buffer.from(query.cursor.slice(3), 'base64url').toString()) as { sort: string; id: string; title: string; readAt: string | null; createdAt: string };
+          if (cursor.sort !== sort || !validCursorTime(cursor.createdAt) || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(cursor.id)) throw new Error('invalid_cursor');
+          const createdKey = sql`${cursor.createdAt}::timestamptz`;
+          const tie = sql`(${sources.createdAt} < ${createdKey} OR (${sources.createdAt} = ${createdKey} AND ${sources.id} < ${cursor.id}::uuid))`;
+          if (sort === 'title') {
+            if (typeof cursor.title !== 'string') throw new Error('invalid_cursor');
+            conditions.push(or(gt(sources.title, cursor.title), and(eq(sources.title, cursor.title), gt(sources.id, cursor.id)))!);
+          } else if (sort === 'lastRead') {
+            if (cursor.readAt !== null && !validCursorTime(cursor.readAt)) throw new Error('invalid_cursor');
+            const key = cursor.readAt ?? '-infinity';
+            conditions.push(sql`(${readKey} < ${key}::timestamptz OR (${readKey} = ${key}::timestamptz AND ${tie}))`);
+          } else conditions.push(tie);
+        } catch { return status(400, { error: 'invalid_cursor' }); }
+      } else if (query.cursor) {
         const us = query.cursor.lastIndexOf('_');
         const isoPart = us === -1 ? query.cursor : query.cursor.slice(0, us);
         const idPart = us === -1 ? null : query.cursor.slice(us + 1);
@@ -200,9 +227,9 @@ export const libraryModule = new Elysia({ prefix: '/library' })
 
       const orderBy =
         query.sort === 'title'
-          ? [asc(sources.title)]
+          ? [asc(sources.title), asc(sources.id)]
           : query.sort === 'lastRead'
-            ? [sql`${sourceReadingState.updatedAt} DESC NULLS LAST`, desc(sources.createdAt)]
+            ? [sql`${readKey} DESC`, desc(sources.createdAt), desc(sources.id)]
             : [desc(sources.createdAt), desc(sources.id)];
 
       const rows = await db
@@ -213,6 +240,8 @@ export const libraryModule = new Elysia({ prefix: '/library' })
           cardCount: cardSq.cardCount,
           readingStatus: sourceReadingState.status,
           percent: sourceReadingState.percent,
+          cursorCreatedAt: sql<string>`to_char(${sources.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+          cursorReadAt: sql<string | null>`to_char(${sourceReadingState.updatedAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
         })
         .from(sources)
         .leftJoin(
@@ -227,9 +256,11 @@ export const libraryModule = new Elysia({ prefix: '/library' })
         .leftJoin(cardSq, eq(cardSq.sourceId, sources.id))
         .where(and(...conditions))
         .orderBy(...orderBy)
-        .limit(limit);
+        .limit(limit + 1);
 
-      const items = rows.map((r) =>
+      const page = rows.slice(0, limit);
+
+      const items = page.map((r) =>
         shapeLibraryItem(r.source, {
           indexed: Number(r.indexed ?? 0),
           notebookCount: Number(r.notebookCount ?? 0),
@@ -239,15 +270,12 @@ export const libraryModule = new Elysia({ prefix: '/library' })
         }),
       );
 
-      // nextCursor only for the default added-sort keyset (a full page implies
-      // more). Composite `<iso>_<id>` so the next page's tiebreaker resumes
-      // exactly after the last row even when created_at ties.
-      const nextCursor =
-        query.sort === undefined || query.sort === 'added'
-          ? rows.length === limit
-            ? `${rows[rows.length - 1]!.source.createdAt.toISOString()}_${rows[rows.length - 1]!.source.id}`
-            : null
-          : null;
+      // Keep SQL microseconds in every opaque cursor, including timestamp ties
+      // from a bulk insert. Converting these keys to Date would skip rows.
+      const last = page.at(-1);
+      const nextCursor = rows.length > limit && last
+        ? `v2.${Buffer.from(JSON.stringify({ sort, id: last.source.id, title: last.source.title, createdAt: last.cursorCreatedAt, readAt: last.cursorReadAt })).toString('base64url')}`
+        : null;
 
       return { items, nextCursor };
     },
@@ -266,6 +294,7 @@ export const libraryModule = new Elysia({ prefix: '/library' })
         ),
         limit: t.Optional(t.String()),
         cursor: t.Optional(t.String()),
+        folderId: t.Optional(t.Union([t.String({ format: 'uuid' }), t.Literal('unfiled')])),
       }),
     },
   )
@@ -279,6 +308,7 @@ export const libraryModule = new Elysia({ prefix: '/library' })
     async ({ user, query, status }) => {
       const q = (query.q ?? '').trim();
       if (!q) return status(400, { error: 'empty_query' });
+      const folderScope = await libraryFolderScope(user.id, query.folderId);
       const rawLimit = Number(query.limit ?? LIBRARY_SEARCH_DEFAULT);
       const limit = Math.max(
         1,
@@ -297,7 +327,7 @@ export const libraryModule = new Elysia({ prefix: '/library' })
       const readyRows = await db
         .select({ id: sources.id })
         .from(sources)
-        .where(and(eq(sources.userId, user.id), eq(sources.status, 'ready')));
+        .where(and(eq(sources.userId, user.id), eq(sources.status, 'ready'), folderScope));
       const sourceIds = readyRows.map((r) => r.id);
       if (sourceIds.length === 0) {
         return { groups: [], reason: 'no_sources' as const };
@@ -398,6 +428,7 @@ export const libraryModule = new Elysia({ prefix: '/library' })
       query: t.Object({
         q: t.Optional(t.String({ maxLength: 500 })),
         limit: t.Optional(t.String()),
+        folderId: t.Optional(t.Union([t.String({ format: 'uuid' }), t.Literal('unfiled')])),
       }),
     },
   )
@@ -424,8 +455,8 @@ export const libraryModule = new Elysia({ prefix: '/library' })
         return await createInlineSource(
           user.id,
           body.kind === 'url'
-            ? { kind: 'url', title: body.title, url: body.url }
-            : { kind: 'text', title: body.title, text: body.text },
+            ? { kind: 'url', title: body.title, url: body.url, folderId: body.folderId }
+            : { kind: 'text', title: body.title, text: body.text, folderId: body.folderId },
           body.notebookId,
           log,
         );
@@ -446,12 +477,14 @@ export const libraryModule = new Elysia({ prefix: '/library' })
           title: t.String({ minLength: 1, maxLength: TITLE_MAX }),
           url: t.String({ minLength: 1, maxLength: 2000 }),
           notebookId: t.Optional(t.String({ format: 'uuid' })),
+          folderId: t.Optional(t.Union([t.String({ format: 'uuid' }), t.Null()])),
         }),
         t.Object({
           kind: t.Literal('text'),
           title: t.String({ minLength: 1, maxLength: TITLE_MAX }),
           text: t.String({ minLength: 1, maxLength: MAX_INLINE_TEXT }),
           notebookId: t.Optional(t.String({ format: 'uuid' })),
+          folderId: t.Optional(t.Union([t.String({ format: 'uuid' }), t.Null()])),
         }),
       ]),
     },
@@ -480,6 +513,7 @@ export const libraryModule = new Elysia({ prefix: '/library' })
         title: t.String({ minLength: 1, maxLength: TITLE_MAX }),
         mime: t.String({ maxLength: 128 }),
         size: t.Integer({ minimum: 0 }),
+        folderId: t.Optional(t.Union([t.String({ format: 'uuid' }), t.Null()])),
       }),
     },
   )

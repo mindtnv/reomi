@@ -49,6 +49,7 @@ export * from './source-text-selection';
 export * from './card-evidence';
 
 export * from './source-readability';
+export * from './library-folders';
 export * from './plan-study';
 export * from './plan-offer';
 export * from './operations';

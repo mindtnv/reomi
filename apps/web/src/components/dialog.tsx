@@ -428,8 +428,10 @@ function DialogHost({ dialog, onClose }: { dialog: BasicDialog; onClose: () => v
           {dialog.kind === 'prompt' && (
             <div style={{ marginTop: 16 }}>
               {dialog.opts.label && (
-                <div
+                <label
+                  htmlFor={`${titleId.current}-input`}
                   style={{
+                    display: 'block',
                     fontSize: 11,
                     color: 'var(--text-dim)',
                     textTransform: 'uppercase',
@@ -438,9 +440,11 @@ function DialogHost({ dialog, onClose }: { dialog: BasicDialog; onClose: () => v
                   }}
                 >
                   {dialog.opts.label}
-                </div>
+                </label>
               )}
               <TextInput
+                id={`${titleId.current}-input`}
+                aria-label={dialog.opts.label ?? dialog.opts.title}
                 ref={inputRef}
                 type={dialog.opts.inputType ?? 'text'}
                 value={value}
