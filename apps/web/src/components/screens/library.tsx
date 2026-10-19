@@ -754,7 +754,13 @@ export const LibraryScreen = () => {
       {menuItem && itemMenu && <LibraryItemActions item={menuItem} x={itemMenu.x} y={itemMenu.y} mobile={isMobile}
         moving={folderControls.busy} onClose={closeItemMenu}
         isCurrent={() => screenMounted.current && currentItems.current.some(item => item.id === itemMenu.id) && useNN.getState().profile?.userId === itemMenu.owner && currentLibraryKey.current === itemMenu.scope && currentEntry.current === itemMenu.entry}
-        onOpen={() => openReader(menuItem.id)} onMove={() => void folderControls.moveItems([menuItem.id])}
+        onOpen={() => openReader(menuItem.id)} onMove={() => {
+          const { id } = menuItem, { owner, scope, entry } = itemMenu;
+          void folderControls.moveItems([id]).then(moved => {
+            if (moved && screenMounted.current && useNN.getState().profile?.userId === owner && currentLibraryKey.current === scope && currentEntry.current === entry)
+              setSelectedIds(previous => { const next = new Set(previous); next.delete(id); return next; });
+          });
+        }}
         onDetails={() => setDetailId(menuItem.id)} onPatched={onItemPatched} onDeleted={onItemDeleted} />}
 
       {/* Details panel */}

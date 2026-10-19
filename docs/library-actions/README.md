@@ -2,7 +2,7 @@
 
 The material overflow button opens a compact anchored menu. Right-click and ContextMenu / Shift+F10 open the same actions in grid and list views: Open, Move to folder, Rename, Details and Delete. The primary button still opens the reader; selection and menu controls are separate siblings. Touch retains a visible overflow control and the shared action sheet. Standalone per-material folder icons have been removed.
 
-Move reuses the existing folder destination dialog. Rename loads current metadata and uses the revision-aware small-action editor. Delete loads current notebook impact and requires explicit confirmation. Menus discard targets on account, collection, view, entry changes or disappearance. Late metadata responses from a previous account cannot open a dialog. Deleting a selected item clears its obsolete selection.
+Move reuses the existing folder destination dialog. Rename loads current metadata and uses the revision-aware small-action editor. Delete loads current notebook impact and requires explicit confirmation. Menus discard targets on account, collection, view, entry changes or disappearance. Late metadata responses from a previous account cannot open a dialog. Successfully moving or deleting a selected item clears its obsolete selection; canceling a move keeps it.
 
 `/library/study` is the existing collection of source notes and generated documents, including retained work after source deletion. It now uses the standard app page surface with clear explanatory copy and an explicitly labelled unavailable-source filter. It preserves the user's sidebar preference. Note/document deep links and draft recovery remain supported.
 

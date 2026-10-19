@@ -5,6 +5,7 @@
 - Material overflow opens an anchored dropdown; right-click and ContextMenu / Shift+F10 expose the same actions in grid and list. Primary activation still opens the reader.
 - Move lives in the menu with a directional folder icon; redundant folder buttons above the covers are removed. Grid selection is overlaid in the cover corner.
 - The existing saved-study collection of source notes and documents uses the app page surface, explanatory RU/EN copy and an explicitly labelled unavailable-source filter. Sidebar visibility remains the user's preference.
+- The folder journey checks cancellation preserves single selection and a successful menu move clears it.
 - The browser scenario renames a source, cancels deletion, then confirms deletion of a selected fixture and verifies the source note still opens by deep link and through the unavailable-source filter.
 
 ## Verification
@@ -14,8 +15,9 @@
 - Workspace typecheck and web lint: passed.
 - API and Next.js production builds: passed.
 - Complete local browser walk: 6 passed, 1 expected skip (`CHAT_API_KEY unset; skipping live assistant assertion`); artifact secret scan passed. Library journeys share one learner and keep the normal signup quota unchanged.
-- Final migration-built repository suite: 3537 passed, 0 failed, 18330 assertions across 335 files (437.84 s), using fresh `reomi_actions_final_test` built through migration 0049.
+- Migration-built repository suite: 3537 passed, 0 failed, 18330 assertions across 335 files (437.84 s), using fresh `reomi_actions_final_test` built through migration 0049.
 - Mandatory real-S3 round trips after the repository suite: 21 passed, 0 failed, 122 assertions (5.99 s).
+- After the final quick-move selection cleanup: menu/retained-work browser scenario passed (46.7 s), cancellation/single/batch folder journey passed (18.8 s); secret scan, all 16 focused unit checks, workspace typecheck, lint, strict specs and API/web production builds passed again. Current-head CI remains the final merge gate.
 - Strict OpenSpec: 32 items passed; final diff validation passed. Revalidated after syncing/archiving.
 
 ## Visual review

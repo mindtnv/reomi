@@ -68,9 +68,16 @@ test('library folders preserve materials through nested, single and batch organi
     await folderNav.getByRole('button', { name: /^All materials/ }).click();
     const destinationId = await createFolder(destinationName);
     await folderNav.getByRole('button', { name: new RegExp(`^${childName}`) }).click();
+    const singleSelection = page.getByRole('checkbox', { name: `Select material: ${prefix}Pod lifecycle`, exact: true });
+    await singleSelection.check();
+    await page.getByRole('button', { name: `Actions for ${prefix}Pod lifecycle`, exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Move to folder', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(singleSelection).toBeChecked();
     await page.getByRole('button', { name: `Actions for ${prefix}Pod lifecycle`, exact: true }).click();
     await page.getByRole('menuitem', { name: 'Move to folder', exact: true }).click();
     await chooseDestination(destinationName);
+    await expect(page.locator('.reomi-library-selection').getByRole('button', { name: 'Move', exact: true })).toHaveCount(0);
     await expect(page.getByRole('checkbox', { name: `Select material: ${prefix}Pod lifecycle`, exact: true })).toHaveCount(0);
     await page.getByRole('checkbox', { name: 'Select all shown', exact: true }).check();
     await page.locator('.reomi-library-selection').getByRole('button', { name: 'Move', exact: true }).click();
