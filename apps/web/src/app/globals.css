@@ -2681,7 +2681,34 @@ a, button { -webkit-tap-highlight-color: transparent; touch-action: manipulation
 .reomi-library-selectable > .nn-lib-card { width:100%; }
 .reomi-library-item-status { font-size:11px; line-height:1.4; color:var(--text-muted); margin:5px 0 0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 .reomi-folder-mobile-toggle { display:flex; align-items:center; gap:8px; flex:1; min-width:0; border:0; background:transparent; color:var(--text); font:inherit; text-align:left; cursor:pointer; }
-.reomi-library-item-tools { display:flex; align-items:center; justify-content:space-between; min-height:32px; padding:0 4px; }
+/* Sibling controls keep source activation independent of selection and menus. */
+.reomi-library-selectable > .nn-lib-card-menu { position:absolute; top:16px; right:16px; z-index:2; display:grid; place-items:center; width:30px; height:30px; border:1px solid var(--border); border-radius:8px; color:var(--text-muted); background:var(--surface); cursor:pointer; }
+.reomi-library-selectable > .nn-lib-card-menu:hover,.reomi-library-selectable > .nn-lib-card-menu[aria-expanded="true"] { background:var(--surface-3); color:var(--text); }
+.reomi-library-selectable > .reomi-library-item-select { position:absolute; top:16px; left:16px; z-index:2; display:grid; place-items:center; width:30px; height:30px; border-radius:8px; background:var(--surface); opacity:0; transition:opacity 120ms ease; }
+.reomi-library-selectable:is(:hover,:focus-within,[data-selected]) > .reomi-library-selectable > .reomi-library-item-select { opacity:1; }
+.reomi-library-item-select:focus-within,.nn-lib-card-menu:focus-visible { outline:2px solid var(--accent-400); outline-offset:2px; }
+@media (pointer:coarse) {
+  .reomi-library-selectable > .reomi-library-item-select { opacity:1; width:44px; height:44px; }
+  .reomi-library-selectable > .nn-lib-card-menu { width:44px; height:44px; }
+}
+@media (prefers-reduced-motion:reduce) { .reomi-library-selectable > .reomi-library-item-select { transition:none; } }
+.reomi-saved-study { display:flex; flex-direction:column; overflow:hidden; }
+.reomi-saved-study-intro { flex-shrink:0; }
+.reomi-saved-study-back { display:inline-flex; align-items:center; gap:4px; color:var(--text-muted); font-size:12px; text-decoration:none; margin-bottom:16px; }
+.reomi-saved-study-back:hover { color:var(--text); }
+.reomi-saved-study-intro h1 { margin:0; font-size:24px; line-height:1.2; font-weight:650; letter-spacing:-.025em; }
+.reomi-saved-study-intro p { margin:9px 0 0; max-width:640px; font-size:13px; line-height:1.6; color:var(--text-muted); }
+.reomi-saved-study-toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px; padding:18px 0; margin-bottom:4px; border-bottom:1px solid var(--border); flex-shrink:0; }
+.reomi-saved-study-tabs { display:flex; gap:4px; padding:4px; border-radius:12px; background:var(--surface-2); }
+.reomi-saved-study-tabs .reomi-button[data-active="true"] { background:var(--surface-3); border-color:var(--border); }
+.reomi-saved-study-toolbar > .reomi-check { color:var(--text-muted); font-size:12px; line-height:1.5; }
+.reomi-saved-study-content { flex:1; min-height:0; display:flex; flex-direction:column; }
+@media (max-width:719.98px) {
+  .reomi-saved-study-intro h1 { font-size:21px; }
+  .reomi-saved-study-back { margin-bottom:12px; }
+  .reomi-saved-study-toolbar { gap:12px; padding:14px 0; }
+  .reomi-saved-study-toolbar > .reomi-check { min-height:36px; }
+}
 .reomi-library-selectable-row { display:flex; align-items:center; gap:8px; min-width:0; }
 @media (max-width:959px) {
   .reomi-library-layout { grid-template-columns:minmax(0,1fr); gap:14px; }

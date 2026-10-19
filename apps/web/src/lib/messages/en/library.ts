@@ -8,6 +8,12 @@
 // can enforce both independently. Every key MUST exist in BOTH locales.
 
 const library = {
+  saved: {
+    description: 'Notes and documents saved while working with your sources. They stay here even if a source is deleted.',
+    unavailableFilter: 'Only work with an unavailable source',
+    unavailableHint: 'Show retained work whose original source is no longer in your library.',
+    back: 'Back to library',
+  },
   folders: {
     "emptyTitle": "This folder is empty",
     "emptyUnfiled": "No unfiled materials",
@@ -108,6 +114,9 @@ const library = {
 
   // ── Item card / list row ──────────────────────────────────────────────────────
   item: {
+    actionsFor: 'Actions for {title}',
+    move: 'Move to folder',
+    details: 'Details',
     untitled: 'Untitled',
     notebooks: '{count} notebooks',
     notebooksOne: '1 notebook',

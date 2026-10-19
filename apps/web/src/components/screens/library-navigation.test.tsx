@@ -164,3 +164,80 @@ test('switching folders clears selection and rejects a late page from the previo
   expect(host.textContent).not.toContain('Previous material');
   expect(host.textContent).toContain('Current material');
 });
+
+function menuFixture() {
+  return { id: 'menu-source', title: 'Menu source', kind: 'text', status: 'ready', total: 1, indexed: 1, notebookCount: 2, cardCount: 0, tags: [], metadataRevision: 3 } as any;
+}
+function showMenuSource() {
+  useNN.setState({ listLibrary: async () => ({ items: [menuFixture()], nextCursor: null }) });
+}
+test('material context menu does not open the reader, supports keyboard dismissal and restores focus', async () => {
+  localStorage.removeItem('reomi:lib:view'); localStorage.removeItem('nn:lib:view');
+  showMenuSource(); await render();
+  const material = host.querySelector('.reomi-library-selectable') as HTMLElement;
+  const primary = material.querySelector('.nn-lib-card') as HTMLButtonElement;
+  const overflow = material.querySelector('.nn-lib-card-menu') as HTMLButtonElement;
+  expect(primary.querySelector('button,[role="button"],input')).toBeNull();
+  await act(async () => primary.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 100, clientY: 100 })));
+  const menu = document.querySelector('[role="menu"]')!;
+  expect(menu).not.toBeNull(); expect(document.querySelector('.reomi-library-reader')).toBeNull();
+  expect(menu.querySelectorAll('[role="menuitem"]')).toHaveLength(5);
+  await act(async () => menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  expect(document.querySelector('[role="menu"]')).toBeNull(); expect(document.activeElement).toBe(overflow);
+  await act(async () => overflow.dispatchEvent(new KeyboardEvent('keydown', { key: 'F10', shiftKey: true, bubbles: true, cancelable: true })));
+  expect(document.querySelector('[role="menu"]')).not.toBeNull();
+});
+test('a menu from an old account is discarded immediately', async () => {
+  showMenuSource(); await render();
+  const overflow = host.querySelector('.nn-lib-card-menu') as HTMLButtonElement;
+  await act(async () => overflow.click()); expect(document.querySelector('[role="menu"]')).not.toBeNull();
+  await act(async () => useNN.setState({ profile: { userId: 'another-owner' } as any }));
+  expect(document.querySelector('[role="menu"]')).toBeNull();
+});
+test('quick delete fetches current attachment impact and cancellation performs no deletion', async () => {
+  const originalDelete = useNN.getState().deleteLibraryItem; let deleted = 0, read = 0;
+  try {
+    showMenuSource(); useNN.setState({ getLibraryItem: async () => { read++; return menuFixture(); }, deleteLibraryItem: async () => { deleted++; } });
+    await render(); await act(async () => (host.querySelector('.nn-lib-card-menu') as HTMLButtonElement).click());
+    const remove = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button => button.textContent === 'actions.delete')!;
+    await act(async () => remove.click());
+    expect(read).toBe(1); expect(document.querySelector('[role="dialog"]')?.textContent).toContain('library.delete.messageAttached');
+    const cancel = [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(button => button.textContent === 'actions.cancel')!;
+    await act(async () => cancel.click()); expect(deleted).toBe(0);
+  } finally { useNN.setState({ deleteLibraryItem: originalDelete }); }
+});
+
+test('late quick-action metadata cannot open a confirmation after the account changes', async () => {
+  let accept!: (value: any) => void;
+  showMenuSource(); useNN.setState({ getLibraryItem: () => new Promise(resolve => { accept = resolve; }) });
+  await render(); await act(async () => (host.querySelector('.nn-lib-card-menu') as HTMLButtonElement).click());
+  const remove = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button => button.textContent === 'actions.delete')!;
+  await act(async () => remove.click());
+  await act(async () => useNN.setState({ profile: { userId: 'another-owner' } as any }));
+  await act(async () => accept(menuFixture()));
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+});
+
+test('a removed menu target cannot reopen its old menu when the collection refreshes', async () => {
+  let present = true;
+  useNN.setState({ listLibrary: async () => ({ items: present ? [menuFixture()] : [], nextCursor: null }) });
+  await render(); await act(async () => (host.querySelector('.nn-lib-card-menu') as HTMLButtonElement).click());
+  expect(document.querySelector('[role="menu"]')).not.toBeNull();
+  present = false; await act(async () => window.dispatchEvent(new Event('nn:knowledge-changed')));
+  expect(document.querySelector('[role="menu"]')).toBeNull();
+  present = true; await act(async () => window.dispatchEvent(new Event('nn:knowledge-changed')));
+  expect(host.querySelector('.nn-lib-card-menu')).not.toBeNull();
+  expect(document.querySelector('[role="menu"]')).toBeNull();
+});
+
+test('late quick-action metadata cannot open a confirmation for a removed target', async () => {
+  let accept!: (value: any) => void, present = true;
+  useNN.setState({ listLibrary: async () => ({ items: present ? [menuFixture()] : [], nextCursor: null }),
+    getLibraryItem: () => new Promise(resolve => { accept = resolve; }) });
+  await render(); await act(async () => (host.querySelector('.nn-lib-card-menu') as HTMLButtonElement).click());
+  const remove = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button => button.textContent === 'actions.delete')!;
+  await act(async () => remove.click());
+  present = false; await act(async () => window.dispatchEvent(new Event('nn:knowledge-changed')));
+  await act(async () => accept(menuFixture()));
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+});

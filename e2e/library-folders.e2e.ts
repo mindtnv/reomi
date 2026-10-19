@@ -1,19 +1,10 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { smokeTarget } from './smoke-target';
-import { rememberSecret } from './secret-scan';
+import { librarySmokeSession } from './library-smoke-session';
 
 test('library folders preserve materials through nested, single and batch organization', async ({ page }) => {
-  const target = smokeTarget(process.env);
-  rememberSecret(target.password);
-  const api = target.mode === 'prod' ? 'https://api.reomi.ru' : 'http://localhost:3000';
-  const origin = target.mode === 'prod' ? 'https://app.reomi.ru' : 'http://localhost:3001';
-  const credentials = target.mode === 'prod'
-    ? { email: target.email, password: target.password }
-    : { email: target.email, password: target.password, name: target.name };
-  const login = await page.request.post(`${api}/api/auth/${target.mode === 'prod' ? 'sign-in' : 'sign-up'}/email`, { data: credentials, headers: { origin } });
-  expect(login.ok()).toBe(true);
+  const { target, api } = await librarySmokeSession(page);
   const prefix = target.mode === 'prod' ? `${target.deckName} ` : '';
   const rootName = `${prefix}Research`, childName = `${prefix}Workloads`, destinationName = `${prefix}Reading list`;
   const folderIds: string[] = [], sourceIds: string[] = [];
@@ -77,8 +68,16 @@ test('library folders preserve materials through nested, single and batch organi
     await folderNav.getByRole('button', { name: /^All materials/ }).click();
     const destinationId = await createFolder(destinationName);
     await folderNav.getByRole('button', { name: new RegExp(`^${childName}`) }).click();
-    await page.getByRole('button', { name: `Move material: ${prefix}Pod lifecycle`, exact: true }).click();
+    const singleSelection = page.getByRole('checkbox', { name: `Select material: ${prefix}Pod lifecycle`, exact: true });
+    await singleSelection.check();
+    await page.getByRole('button', { name: `Actions for ${prefix}Pod lifecycle`, exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Move to folder', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(singleSelection).toBeChecked();
+    await page.getByRole('button', { name: `Actions for ${prefix}Pod lifecycle`, exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Move to folder', exact: true }).click();
     await chooseDestination(destinationName);
+    await expect(page.locator('.reomi-library-selection').getByRole('button', { name: 'Move', exact: true })).toHaveCount(0);
     await expect(page.getByRole('checkbox', { name: `Select material: ${prefix}Pod lifecycle`, exact: true })).toHaveCount(0);
     await page.getByRole('checkbox', { name: 'Select all shown', exact: true }).check();
     await page.locator('.reomi-library-selection').getByRole('button', { name: 'Move', exact: true }).click();
