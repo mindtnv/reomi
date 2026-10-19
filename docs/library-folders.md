@@ -45,3 +45,9 @@ Rollback the web and then API to the previous immutable image tags. Keep the add
 - `apps/web/src/components/screens/library-navigation.test.tsx`: restored folder scope is included in the first library query.
 
 Reviewed browser evidence is under [`docs/library-folders/`](library-folders/): normal and standalone desktop/mobile views, expanded filters and hierarchy, and Russian views at 390px and 320px. The browser asserts a collapsed phone toolbar below 120px at 390px and that every toolbar button remains inside its container at every captured width.
+
+## Release
+
+[PR #96](https://github.com/mindtnv/reomi/pull/96) shipped as `8a123fdb29564fe74fb14316f44ba9fe481c0219`. Both applications were healthy on that tag; [deployment](https://github.com/mindtnv/reomi/actions/runs/39271528418), [production smoke](https://github.com/mindtnv/reomi/actions/runs/39272673026) and read-only catalog verification passed. The production folder scenario retained its source IDs through movement and populated subtree deletion.
+
+Durable contract: [`library-folders`](../openspec/specs/library-folders/spec.md). Full acceptance evidence: [`2026-10-19-add-library-folders`](../openspec/changes/archive/2026-10-19-add-library-folders/acceptance.md).

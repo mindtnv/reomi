@@ -15,6 +15,6 @@
 
 ## 3. Release and closure
 
-- [ ] 3.1 Update CLAUDE.md then mirror AGENTS.md and record migration/rollback; after final edits pass strict OpenSpec, typecheck, lint, fresh migration-faithful test:ci, required S3 round trips, production build and existing browser smoke.
-- [ ] 3.2 Open and review the PR with browser evidence, resolve findings and merge only after required checks pass; record the PR and release commit.
-- [ ] 3.3 Verify the production deployment and API/web health plus the folder workflow, then archive this change with its durable spec, publish the archive and close #95 with release evidence.
+- [x] 3.1 Update CLAUDE.md then mirror AGENTS.md and record migration/rollback; after final edits pass strict OpenSpec, typecheck, lint, fresh migration-faithful test:ci, required S3 round trips, production build and existing browser smoke.
+- [x] 3.2 Open and review the PR with browser evidence, resolve findings and merge only after required checks pass; record the PR and release commit.
+- [x] 3.3 Verify the production deployment and API/web health plus the folder workflow, then archive this change with its durable spec, publish the archive and close #95 with release evidence.
