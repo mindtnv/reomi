@@ -51,3 +51,5 @@ Reviewed browser evidence is under [`docs/library-folders/`](library-folders/): 
 [PR #96](https://github.com/mindtnv/reomi/pull/96) shipped as `8a123fdb29564fe74fb14316f44ba9fe481c0219`. Both applications were healthy on that tag; [deployment](https://github.com/mindtnv/reomi/actions/runs/39271528418), [production smoke](https://github.com/mindtnv/reomi/actions/runs/39272673026) and read-only catalog verification passed. The production folder scenario retained its source IDs through movement and populated subtree deletion.
 
 Durable contract: [`library-folders`](../openspec/specs/library-folders/spec.md). Full acceptance evidence: [`2026-10-19-add-library-folders`](../openspec/changes/archive/2026-10-19-add-library-folders/acceptance.md).
+
+Folder names remain literal text even when they look like dates. The typed client disables date revival for folder responses; `apps/web/src/lib/library-folders.test.ts` and the browser's `2026-10-19` folder verify this. Additional reviewed evidence: [`date-name.png`](library-folders/date-name.png).

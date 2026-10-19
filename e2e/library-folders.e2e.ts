@@ -54,7 +54,8 @@ test('library folders preserve materials through nested, single and batch organi
     await page.goto('/library');
     await expect(folderNav.getByRole('button', { name: /^All materials/ })).toBeVisible();
     const rootId = await createFolder(rootName);
-    await createFolder('Kubernetes');
+    await createFolder('2026-10-19');
+    await shot('date-name');
     await page.locator('.reomi-folder-actions').getByRole('button', { name: 'Rename', exact: true }).click();
     const renameInput = page.getByRole('dialog').getByRole('textbox', { name: 'Folder name', exact: true });
     await renameInput.fill(childName);

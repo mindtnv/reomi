@@ -26,6 +26,12 @@ Nine screenshots under `docs/library-folders/` were inspected: desktop and phone
 
 Semantic search is unavailable locally without an embedding provider; scoped retrieval is separately exercised with fixture vectors. This does not block ordinary reading or organization.
 
+## Closure hardening
+
+PR #97 also preserves literal folder names in the typed client. The existing client's automatic date revival converted names such as `2026-10-19` into Date objects and could crash the tree. The folder API now uses the existing text-preserving client. A regression unit test covers date-only and ISO timestamp names; the real browser workflow creates and displays a date-named folder before renaming it. Its additional inspected screenshot is `docs/library-folders/date-name.png`.
+
+The closure PR's required CI verifies this final tree in addition to the original release evidence above.
+
 ## Release
 
 The implementation was merged in [PR #96](https://github.com/mindtnv/reomi/pull/96) as `8a123fdb29564fe74fb14316f44ba9fe481c0219`.
