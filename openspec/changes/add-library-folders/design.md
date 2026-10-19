@@ -41,6 +41,8 @@ Reuse the library screen and session resource cache. A folder navigation compone
 - Evidence drift: placement never updates source content timestamps or regenerates chunks.
 - Rollout mismatch: deploy additive schema/API before the web; retain schema on rollback.
 
+The existing source metadata trigger overwrites explicit revision assignments. Migration `0049_library_folder_metadata_revision.sql` therefore adds folder placement to its compared fields; placement increases metadata revision while the source content timestamp stays unchanged.
+
 ## Migration Plan
 
 Generate and commit a Drizzle migration after the current journal head. Add the owned folders table, parent/owner indexes, normalized sibling/default uniqueness, nullable source FK and owner/folder index. Existing sources need no data rewrite. Apply the committed chain to fresh dev/test databases; never use schema push.

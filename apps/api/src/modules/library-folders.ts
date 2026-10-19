@@ -91,7 +91,7 @@ export const libraryFoldersModule = new Elysia({ prefix: '/library/folders' })
     const rows = await tx.select({ id: sources.id }).from(sources)
       .where(and(eq(sources.userId, user.id), inArray(sources.id, ids), sql`${sources.status} <> 'deleting'`)).orderBy(asc(sources.id)).for('update');
     if (rows.length !== ids.length) throw new LibraryFolderError(404, 'source_not_found');
-    await tx.update(sources).set({ folderId: body.folderId, metadataRevision: sql`${sources.metadataRevision} + 1` })
+    await tx.update(sources).set({ folderId: body.folderId })
       .where(and(eq(sources.userId, user.id), inArray(sources.id, ids)));
     return { moved: ids.length };
   }), { auth: true, body: t.Object({ sourceIds: t.Array(idSchema, { minItems: 1, maxItems: 1000 }), folderId: destinationSchema }) })
@@ -123,7 +123,7 @@ export const libraryFoldersModule = new Elysia({ prefix: '/library/folders' })
     if (state.confirmationToken !== body.confirmationToken) throw new LibraryFolderError(409, 'folder_changed');
     await validateLibraryFolder(tx, user.id, destinationId);
     if (destinationId && state.folderIds.includes(destinationId)) throw new LibraryFolderError(409, 'folder_cycle');
-    await tx.update(sources).set({ folderId: destinationId, metadataRevision: sql`${sources.metadataRevision} + 1` })
+    await tx.update(sources).set({ folderId: destinationId })
       .where(and(eq(sources.userId, user.id), inArray(sources.folderId, state.folderIds)));
     await tx.delete(libraryFolders).where(and(eq(libraryFolders.userId, user.id), inArray(libraryFolders.id, state.folderIds)));
     return { deleted: state.folderCount, moved: state.materialCount };

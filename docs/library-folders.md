@@ -32,7 +32,7 @@ Limits are 1000 folders per owner, depth 20, and 100 characters per normalized f
 
 ## Migration and rollout
 
-`0048_outgoing_starhawk.sql` adds the folders table, a nullable `sources.folder_id`, ownership/placement indexes, sibling-name uniqueness and one designated browser folder per user. It does not rewrite or delete existing sources. Build local and test databases through the committed migration chain; schema push is not a substitute.
+`0048_outgoing_starhawk.sql` adds the folders table, a nullable `sources.folder_id`, ownership/placement indexes, sibling-name uniqueness and one designated browser folder per user. `0049_library_folder_metadata_revision.sql` extends the existing metadata revision trigger to include folder placement; explicit revision assignments alone would be overwritten by that trigger. Neither migration rewrites or deletes existing sources. Build local and test databases through the committed migration chain; schema push is not a substitute.
 
 Deploy the API before the web through the checked immutable-image workflow. Verify both application's health, folder CRUD, scoped listing and content-preserving deletion. The browser regression creates uniquely owned fixtures and cleans only its own IDs; production uses the established smoke account.
 

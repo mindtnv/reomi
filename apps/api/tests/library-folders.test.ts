@@ -54,6 +54,7 @@ describe('library folders', () => {
     expect(move.status).toBe(200);
     let [live] = await db.select().from(sources).where(eq(sources.id, source.id));
     expect(live!.folderId).toBe(child.id);
+    expect(live!.metadataRevision).toBe(source.metadataRevision + 1);
     expect(live!.updatedAt.toISOString()).toBe(source.updatedAt.toISOString());
     const preview = await (await callApp(app, 'GET', `${folderPath}/${root.id}/delete-preview`, { cookie: a.cookie })).json<{ folderCount: number; materialCount: number; confirmationToken: string }>();
     expect(preview.folderCount).toBe(2);
@@ -62,6 +63,7 @@ describe('library folders', () => {
     expect(remove.status).toBe(200);
     [live] = await db.select().from(sources).where(eq(sources.id, source.id));
     expect(live!.folderId).toBeNull();
+    expect(live!.metadataRevision).toBe(source.metadataRevision + 2);
     expect(live!.updatedAt.toISOString()).toBe(source.updatedAt.toISOString());
     expect(await db.select().from(notebookSources)).toHaveLength(1);
     expect((await db.select().from(sourceReadingState))[0]!.percent).toBe(0.5);
