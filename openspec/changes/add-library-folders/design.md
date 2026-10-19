@@ -20,7 +20,7 @@ Folder mutations and placement use a per-owner transaction advisory lock. Revali
 
 ### Scope before pagination or retrieval
 
-The folder listing returns direct/subtree counts calculated from complete source aggregates. The list accepts `folderId` (UUID or `unfiled`); omitted means All. Resolve the bounded owned subtree, then apply its predicate before all list filters and limits. Semantic search applies the same scope to its ready-source whitelist before vector retrieval. Stable sort-specific cursors handle added, title and last-read order, each with deterministic id ties.
+The folder listing returns direct/subtree counts calculated from complete source aggregates. The list accepts `folderId` (UUID or `unfiled`); omitted means All. Resolve the bounded owned subtree, then apply its predicate before all list filters and limits. Semantic search applies the same scope to its ready-source whitelist before vector retrieval. Stable sort-specific cursors handle added, title and last-read order, each with deterministic id ties. Timestamp cursor fields retain PostgreSQL microseconds through SQL formatting and comparison; JavaScript Date is used only for calendar validation, so a bulk insert cannot lose remaining rows between pages.
 
 ### Preview safe subtree deletion
 

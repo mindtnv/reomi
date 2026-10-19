@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db, sources, sourceReadingState, notebooks, notebookSources, sourceChunks, kbChunk, cards, cardSources } from '@reomi/db';
 import { __setAiClientForTests, __resetAiClientForTests } from '../src/ai/openai-client';
 import { buildApp } from '../src/app';
@@ -122,7 +122,7 @@ describe('library folders', () => {
   test('malformed sort cursor fields return a client error rather than a database error', async () => {
     const a = await signUpAndCookie(app, uniqueEmail());
     const source = await seed(a.userId);
-    for (const patch of [{ readAt: 42 }, { createdAt: 42 }, { readAt: 'invalid' }]) {
+    for (const patch of [{ readAt: 42 }, { createdAt: 42 }, { readAt: 'invalid' }, { createdAt: '2026-02-31T00:00:00.000Z' }, { createdAt: '0000-01-01T00:00:00.000Z' }]) {
       const cursor = `v2.${Buffer.from(JSON.stringify({ sort: 'lastRead', id: source.id, title: source.title, createdAt: source.createdAt.toISOString(), readAt: null, ...patch })).toString('base64url')}`;
       expect((await callApp(app, 'GET', `/library?sort=lastRead&cursor=${encodeURIComponent(cursor)}`, { cookie: a.cookie })).status).toBe(400);
     }
@@ -133,11 +133,13 @@ describe('library folders', () => {
     const parent = await create(a.cookie, 'Parent');
     const child = await create(a.cookie, 'Child', parent.id);
     const outside = await seed(a.userId, 'Outside');
-    const records = [];
-    for (let i = 0; i < 7; i++) records.push(await seed(a.userId, `Article ${Math.floor(i / 2)}`));
+    const records = await db.insert(sources).values(Array.from({ length: 7 }, (_, i) => ({
+      userId: a.userId, kind: 'text' as const, title: `Article ${Math.floor(i / 2)}`, status: 'ready' as const, verified: true,
+      createdAt: sql`'2026-10-19T00:00:00.123456Z'::timestamptz`,
+    }))).returning();
     await callApp(app, 'POST', `${folderPath}/move-items`, { cookie: a.cookie, body: { sourceIds: records.slice(0, 3).map(s => s.id), folderId: parent.id } });
     await callApp(app, 'POST', `${folderPath}/move-items`, { cookie: a.cookie, body: { sourceIds: records.slice(3).map(s => s.id), folderId: child.id } });
-    await db.insert(sourceReadingState).values({ userId: a.userId, sourceId: records[3]!.id, status: 'reading', updatedAt: new Date('2026-10-19T00:00:00Z') });
+    await db.insert(sourceReadingState).values([3, 4, 5].map(i => ({ userId: a.userId, sourceId: records[i]!.id, status: 'reading' as const, updatedAt: sql`'2026-10-19T01:00:00.654321Z'::timestamptz` })));
     const counts = await (await callApp(app, 'GET', folderPath, { cookie: a.cookie })).json<{ items: Folder[]; totalCount: number; unfiledCount: number }>();
     expect(counts.totalCount).toBe(8); expect(counts.unfiledCount).toBe(1);
     expect(counts.items.find(f => f.id === parent.id)?.count).toBe(7);

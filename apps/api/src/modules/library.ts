@@ -111,6 +111,14 @@ function shapeLibraryItem(s: Source, agg: LibraryItemAggregates): Record<string,
   };
 }
 
+// PostgreSQL timestamps have microseconds; Date is only used to validate the
+// calendar here. Cursor comparisons retain the original SQL timestamp string.
+function validCursorTime(value: unknown): value is string {
+  if (typeof value !== 'string' || value.startsWith('0000-') || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}(?:\d{1,3})?Z$/.test(value)) return false;
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString() === `${value.slice(0, 23)}Z`;
+}
+
 export const libraryModule = new Elysia({ prefix: '/library' })
   .use(authPlugin)
   // ── list ─────────────────────────────────────────────────────────────────────
@@ -188,13 +196,14 @@ export const libraryModule = new Elysia({ prefix: '/library' })
       if (query.cursor?.startsWith('v2.')) {
         try {
           const cursor = JSON.parse(Buffer.from(query.cursor.slice(3), 'base64url').toString()) as { sort: string; id: string; title: string; readAt: string | null; createdAt: string };
-          if (cursor.sort !== sort || typeof cursor.createdAt !== 'string' || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(cursor.id) || Number.isNaN(new Date(cursor.createdAt).getTime())) throw new Error('invalid_cursor');
-          const tie = or(lt(sources.createdAt, new Date(cursor.createdAt)), and(eq(sources.createdAt, new Date(cursor.createdAt)), lt(sources.id, cursor.id)))!;
+          if (cursor.sort !== sort || !validCursorTime(cursor.createdAt) || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(cursor.id)) throw new Error('invalid_cursor');
+          const createdKey = sql`${cursor.createdAt}::timestamptz`;
+          const tie = sql`(${sources.createdAt} < ${createdKey} OR (${sources.createdAt} = ${createdKey} AND ${sources.id} < ${cursor.id}::uuid))`;
           if (sort === 'title') {
             if (typeof cursor.title !== 'string') throw new Error('invalid_cursor');
             conditions.push(or(gt(sources.title, cursor.title), and(eq(sources.title, cursor.title), gt(sources.id, cursor.id)))!);
           } else if (sort === 'lastRead') {
-            if (cursor.readAt !== null && (typeof cursor.readAt !== 'string' || Number.isNaN(new Date(cursor.readAt).getTime()))) throw new Error('invalid_cursor');
+            if (cursor.readAt !== null && !validCursorTime(cursor.readAt)) throw new Error('invalid_cursor');
             const key = cursor.readAt ?? '-infinity';
             conditions.push(sql`(${readKey} < ${key}::timestamptz OR (${readKey} = ${key}::timestamptz AND ${tie}))`);
           } else conditions.push(tie);
@@ -231,7 +240,8 @@ export const libraryModule = new Elysia({ prefix: '/library' })
           cardCount: cardSq.cardCount,
           readingStatus: sourceReadingState.status,
           percent: sourceReadingState.percent,
-          lastReadAt: sourceReadingState.updatedAt,
+          cursorCreatedAt: sql<string>`to_char(${sources.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+          cursorReadAt: sql<string | null>`to_char(${sourceReadingState.updatedAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
         })
         .from(sources)
         .leftJoin(
@@ -260,12 +270,11 @@ export const libraryModule = new Elysia({ prefix: '/library' })
         }),
       );
 
-      // nextCursor only for the default added-sort keyset (a full page implies
-      // more). Composite `<iso>_<id>` so the next page's tiebreaker resumes
-      // exactly after the last row even when created_at ties.
+      // Keep SQL microseconds in every opaque cursor, including timestamp ties
+      // from a bulk insert. Converting these keys to Date would skip rows.
       const last = page.at(-1);
       const nextCursor = rows.length > limit && last
-        ? `v2.${Buffer.from(JSON.stringify({ sort, id: last.source.id, title: last.source.title, createdAt: last.source.createdAt.toISOString(), readAt: last.lastReadAt?.toISOString() ?? null })).toString('base64url')}`
+        ? `v2.${Buffer.from(JSON.stringify({ sort, id: last.source.id, title: last.source.title, createdAt: last.cursorCreatedAt, readAt: last.cursorReadAt })).toString('base64url')}`
         : null;
 
       return { items, nextCursor };

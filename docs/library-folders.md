@@ -26,7 +26,7 @@ All endpoints use the existing session authentication and derive ownership from 
 | POST | `/library/folders/move-items` | 1–1000 `sourceIds`, nullable `folderId`; the batch is atomic |
 | POST | `/library/folders/browser-default` | Optional `name`; explicit idempotent default acquisition |
 
-Library list/search accept optional `folderId`: a UUID scopes the subtree; `unfiled` scopes unfiled sources; omission means All. Inline material creation and upload presign accept an optional destination. Library cursors are opaque and must be replayed unchanged. Older added-sort cursors remain accepted.
+Library list/search accept optional `folderId`: a UUID scopes the subtree; `unfiled` scopes unfiled sources; omission means All. Inline material creation and upload presign accept an optional destination. Library cursors are opaque and must be replayed unchanged. Their timestamp keys retain SQL microseconds, including equal timestamps from bulk additions. Older added-sort cursors remain accepted.
 
 Limits are 1000 folders per owner, depth 20, and 100 characters per normalized folder name. Mutations serialize per owner, edits check revisions and subtree deletion revalidates the preview inside its transaction. Material placement advances metadata revision only, preserving evidence content versions.
 
