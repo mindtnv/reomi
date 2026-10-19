@@ -46,6 +46,7 @@ const TABLES = [
   'topic_modules',
   'topic_plans',
   'sources',
+  'library_folders',
   'notebooks',
   'reviews',
   'card_holds',

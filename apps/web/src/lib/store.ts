@@ -426,13 +426,13 @@ interface State {
   /** Paginated material list + filters (GET /library). */
   listLibrary: (params?: LibraryQuery) => Promise<{ items: LibraryItem[]; nextCursor: string | null }>;
   /** Semantic search across the library (GET /library/search). */
-  searchLibrary: (q: string, limit?: number) => Promise<LibrarySearchResult>;
+  searchLibrary: (q: string, limit?: number, folderId?: string) => Promise<LibrarySearchResult>;
   /** One item: metadata + status + attached notebooks + cardCount (GET /library/items/:id). */
   getLibraryItem: (id: string) => Promise<LibraryItemDetail>;
   /** Inline url/text create (POST /library/items, + optional immediate attach). */
-  addLibraryUrl: (title: string, url: string, notebookId?: string) => Promise<LibraryItem>;
+  addLibraryUrl: (title: string, url: string, notebookId?: string, folderId?: string) => Promise<LibraryItem>;
   /** Inline text create (POST /library/items kind:'text', + optional attach). */
-  addLibraryText: (title: string, text: string, notebookId?: string) => Promise<LibraryItem>;
+  addLibraryText: (title: string, text: string, notebookId?: string, folderId?: string) => Promise<LibraryItem>;
   /**
    * Upload a pdf/epub into the library: claim+presign → direct POST to S3 →
    * finalize (MIRRORS uploadSource). 409 duplicate_source rejects with an
@@ -443,6 +443,7 @@ interface State {
     title: string,
     mime: SourceMime,
     notebookId?: string,
+    folderId?: string,
   ) => Promise<LibraryItem>;
   /** Edit item metadata (PATCH /library/items/:id) — title/author/tags/readingStatus. */
   patchLibraryItem: (id: string, patch: LibraryPatch) => Promise<LibraryItem>;
@@ -464,6 +465,7 @@ interface State {
 
 /** Filters for the /library list. */
 export interface LibraryQuery {
+  folderId?: string;
   q?: string;
   kind?: SourceKind;
   tag?: string;
@@ -1595,9 +1597,10 @@ export const useNN = create<State>()((set, get) => ({
     };
   },
 
-  async searchLibrary(q, limit) {
+  async searchLibrary(q, limit, folderId) {
     const query: Record<string, string | number> = { q };
     if (limit != null) query.limit = limit;
+    if (folderId) query.folderId = folderId;
     return (await ok(
       await (api as any).library.search.get({ query }),
     )) as LibrarySearchResult;
@@ -1609,8 +1612,8 @@ export const useNN = create<State>()((set, get) => ({
     )) as LibraryItemDetail;
   },
 
-  async addLibraryUrl(title, url, notebookId) {
-    const res = await (api as any).library.items.post({ kind: 'url', title, url, ...(notebookId ? { notebookId } : {}) });
+  async addLibraryUrl(title, url, notebookId, folderId) {
+    const res = await (api as any).library.items.post({ kind: 'url', title, url, ...(notebookId ? { notebookId } : {}), ...(folderId ? { folderId } : {}) });
     const value = res.error?.value as { error?: string; existingSourceId?: string } | undefined;
     if (res.error?.status === 409 && value?.error === 'duplicate_source' && value.existingSourceId) {
       throw new DuplicateSourceError(value.existingSourceId);
@@ -1619,18 +1622,19 @@ export const useNN = create<State>()((set, get) => ({
     return (await ok(res)) as LibraryItem;
   },
 
-  async addLibraryText(title, text, notebookId) {
+  async addLibraryText(title, text, notebookId, folderId) {
     return (await ok(
-      await (api as any).library.items.post({ kind: 'text', title, text, ...(notebookId ? { notebookId } : {}) }),
+      await (api as any).library.items.post({ kind: 'text', title, text, ...(notebookId ? { notebookId } : {}), ...(folderId ? { folderId } : {}) }),
     )) as LibraryItem;
   },
 
-  async uploadLibraryItem(file, title, mime, notebookId) {
+  async uploadLibraryItem(file, title, mime, notebookId, folderId) {
     // 1. Claim + presign (per-user cap enforced server-side → 409 library_full).
     const presignRes = await (api as any).library.items.presign.post({
       title,
       mime,
       size: file.size,
+      ...(folderId ? { folderId } : {}),
     });
     if (presignRes.error) {
       if (presignRes.error.status === 409) throw new LibraryFullError();

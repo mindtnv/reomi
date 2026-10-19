@@ -53,7 +53,7 @@ describe('repository contracts', () => {
       readRepoFile('packages/db/src/migrations/meta/_journal.json'),
     ) as { entries: Array<{ tag: string }> };
     const head = journal.entries.at(-1)?.tag;
-    expect(head).toBe('0047_talented_daimon_hellstrom');
+    expect(head).toBe('0048_outgoing_starhawk');
     expect(journal.entries.some((row) => row.tag === '0045_card_holds')).toBe(true);
     expect(journal.entries.some((row) => row.tag === '0046_blushing_professor_monster')).toBe(true);
     expect(journal.entries.some((row) => row.tag === '0042_youtube_source')).toBe(true);

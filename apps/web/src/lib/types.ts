@@ -382,6 +382,7 @@ export type ReadingStatus = 'unread' | 'reading' | 'finished';
  *  library item IS a `sources` row; the list/detail responses fold in the
  *  reading-state + aggregate counts (no N+1). */
 export interface LibraryItem {
+  folderId?: string | null;
   metadataRevision?: number;
   searchAvailable?: boolean;
   id: string;

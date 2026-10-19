@@ -15,7 +15,7 @@ export type IconName =
   | 'clip' | 'doc' | 'book' | 'send' | 'note' | 'copy' | 'warning'
   | 'archive' | 'card-type' | 'info' | 'code' | 'globe' | 'star'
   | 'chat' | 'review' | 'decks' | 'cards' | 'library' | 'notebook' | 'chart'
-  | 'panel' | 'menu' | 'logout' | 'stop' | 'expand';
+  | 'panel' | 'menu' | 'logout' | 'stop' | 'expand' | 'folder';
 
 export const NNIcon = ({
   name,
@@ -36,6 +36,7 @@ export const NNIcon = ({
     strokeLinejoin: 'round' as const,
   };
   const paths: Partial<Record<string, ReactNode>> = {
+    folder: <path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" {...p}/>,
     math: <path d="M5 6h14M5 12h14M5 18h14M8 3v6M16 15v6" {...p}/>,
     flask: <path d="M9 3h6M10 3v6L4 19a1 1 0 0 0 1 2h14a1 1 0 0 0 1-2L14 9V3M7 15h10" {...p}/>,
     atom: <path d="M3 12a9 4 0 1 0 18 0 9 4 0 1 0-18 0M7 4c-5 3 5 20 10 16S12 1 7 4M17 4c5 3-5 20-10 16S12 1 17 4M12 12h.01" {...p}/>,

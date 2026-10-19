@@ -16,7 +16,7 @@ const { createRoot } = await import('react-dom/client');
 const { NNCardsBrowser } = await import('./cards-browser');
 
 const router = { push() {}, replace() {}, back() {}, forward() {}, refresh() {}, prefetch() {}, hmrRefresh() {}, bfcacheId: 'test' };
-const until = '2026-10-17T21:00:00.000Z';
+const until = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
 function browserCard(id: string, front: string, hold: CardHold | null, suspended = false): Card & { hold: CardHold | null } {
   return {

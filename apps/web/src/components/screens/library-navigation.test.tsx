@@ -35,7 +35,7 @@ async function render(path='/library', screen:React.ReactNode=<LibraryScreen/>) 
 }
 function savedView() {
   const journal=new NavigationJournal('library-owner','/library',null,window.sessionStorage);
-  journal.field('library','search','saved topic');journal.field('library','kind','text');journal.field('library','sort','title');journal.field('library','reading','finished');journal.flush();
+  journal.field('library','folderId','11111111-1111-4111-8111-111111111111');journal.field('library','search','saved topic');journal.field('library','kind','text');journal.field('library','sort','title');journal.field('library','reading','finished');journal.flush();
   window.history.replaceState({[NAVIGATION_HISTORY_KEY]:journal.marker()},'');
 }
 test('reload initializes the remembered library view before requesting its collection',async()=>{
@@ -43,7 +43,7 @@ test('reload initializes the remembered library view before requesting its colle
   const input=host.querySelector('input[aria-label="library.header.searchPlaceholder"]') as HTMLInputElement;
   expect(input.value).toBe('saved topic');
   const collectionQueries=queries.filter(q=>q?.limit!==6);
-  expect(collectionQueries.some(q=>q?.q==='saved topic'&&q.kind==='text'&&q.sort==='title'&&q.reading==='finished')).toBe(true);
+  expect(collectionQueries.some(q=>q?.q==='saved topic'&&q.kind==='text'&&q.sort==='title'&&q.reading==='finished'&&q.folderId==='11111111-1111-4111-8111-111111111111')).toBe(true);
   expect(collectionQueries.some(q=>q?.sort==='added'&&!q.q)).toBe(false);
 });
 test('reset clears remembered browsing state and keeps appearance preferences',async()=>{
@@ -137,4 +137,30 @@ test('consuming a library focus URL retains the addressed details layer', async 
     expect(host.querySelector('[aria-label="library.details.close"]')).not.toBeNull();
     expect(host.textContent).toContain('Focused book');
   } finally { history.replaceState({}, '', previous); }
+});
+
+test('switching folders clears selection and rejects a late page from the previous scope', async () => {
+  const folder = '01900000-0000-7000-8000-000000000099';
+  const item = (id: string, title: string) => ({ id, title, kind: 'text', status: 'ready', metadataRevision: 0,
+    tags: [], total: 1, indexed: 1, author: null, readingStatus: 'unread', percent: null, notebookCount: 0, cardCount: 0, createdAt: new Date().toISOString() });
+  let finishPage!: (value: any) => void;
+  useNN.setState({ listLibrary: async query => {
+    if (query?.reading === 'reading') return { items: [], nextCursor: null };
+    if (query?.cursor) return new Promise(resolve => { finishPage = resolve; });
+    return { items: [item(query?.folderId ? 'b' : 'a', query?.folderId ? 'Current material' : 'Previous material')], nextCursor: query?.folderId ? null : 'next' } as any;
+  } });
+  globalThis.fetch = (async () => Response.json({ items: [{ id: folder, name: 'Destination', parentId: null, revision: 0, purpose: null, count: 1, directCount: 1 }], totalCount: 2, unfiledCount: 1 })) as unknown as typeof fetch;
+  history.replaceState({}, '');
+  await render();
+  await act(async () => host.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
+  expect(host.textContent).toContain('library.folders.selected');
+  await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent === 'notebooks.reader.loadMore')!.click());
+  expect(finishPage).toBeDefined();
+  await act(async () => [...host.querySelectorAll<HTMLButtonElement>('.reomi-folder-link')].find(button => button.textContent?.includes('Destination'))!.click());
+  expect(host.textContent).toContain('Current material');
+  expect(host.querySelectorAll('input[type="checkbox"]:checked')).toHaveLength(0);
+  await act(async () => finishPage({ items: [item('late', 'Late previous material')], nextCursor: null }));
+  expect(host.textContent).not.toContain('Late previous material');
+  expect(host.textContent).not.toContain('Previous material');
+  expect(host.textContent).toContain('Current material');
 });

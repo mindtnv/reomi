@@ -1,4 +1,5 @@
 import { StudyError } from './study-notes';
+import { lockLibraryFolders, validateLibraryFolder } from './library-folders';
 import { newOperationRun } from '../operation-run';
 // Shared source/library helpers (L1). The library refactor split a source from
 // any single notebook (sources are user-level; notebooks attach via the
@@ -109,9 +110,9 @@ export async function attachSourceToNotebook(
 
 // ── inline create (url / text) ───────────────────────────────────────────────
 
-export type InlineSourceInput =
+export type InlineSourceInput = (
   | { kind: 'url'; title: string; url: string }
-  | { kind: 'text'; title: string; text: string };
+  | { kind: 'text'; title: string; text: string }) & { folderId?: string | null };
 
 /** A rejected inline source. The transaction has not inserted a row. */
 export class SourceInputError extends Error {
@@ -146,6 +147,10 @@ export async function insertInlineSource(
   tx: Tx, userId: string, input: InlineSourceInput, notebookId?: string,
 ): Promise<Source> {
   let created: Source;
+  if (input.folderId) {
+    await lockLibraryFolders(tx, userId);
+    await validateLibraryFolder(tx, userId, input.folderId);
+  }
   if (input.kind === 'url') {
     created = await insertUrlSource(tx, userId, input);
   } else {
@@ -166,6 +171,10 @@ export async function insertInlineSource(
   }
   if (notebookId) {
     await attachSourceToNotebook(tx, { userId, notebookId, sourceId: created.id });
+  }
+  if (input.folderId) {
+    [created] = await tx.update(sources).set({ folderId: input.folderId })
+      .where(and(eq(sources.userId, userId), eq(sources.id, created.id))).returning() as [Source];
   }
   return created;
 }
@@ -242,7 +251,7 @@ export type PresignResult =
  */
 export async function presignUploadSource(
   userId: string,
-  body: { mime: string; size: number; title: string },
+  body: { mime: string; size: number; title: string; folderId?: string | null },
   log: Logger = rootLogger,
 ): Promise<PresignResult> {
   if (!(body.mime in SOURCE_MIME_TO_KIND)) return { ok: false, error: 'unsupported_mime' };
@@ -252,7 +261,12 @@ export async function presignUploadSource(
   const sourceId = newUuidV7();
   const key = sourceKeyFor(sourceId);
   try {
-    await db.insert(sources).values({
+    await db.transaction(async tx => {
+      if (body.folderId) {
+        await lockLibraryFolders(tx, userId);
+        await validateLibraryFolder(tx, userId, body.folderId);
+      }
+      await tx.insert(sources).values({
       id: sourceId,
       userId,
       kind,
@@ -262,6 +276,8 @@ export async function presignUploadSource(
       byteSize: body.size,
       status: 'pending',
       verified: false,
+      folderId: body.folderId ?? null,
+      });
     });
   } catch (err) {
     if (isUniqueViolation(err)) return { ok: false, error: 'source_conflict' };
