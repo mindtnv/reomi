@@ -647,12 +647,12 @@ export const LibraryScreen = () => {
           </div>
         ) : (
           <div className="nn-empty-state" style={{ paddingTop: 56 }}>
-            <span className="nn-empty-state-icon"><NNIcon name="book" size={36} color="var(--text-dim)" /></span>
+            <span className="nn-empty-state-icon"><NNIcon name={folderId ? "folder" : "book"} size={36} color="var(--text-dim)" /></span>
             <h3 className="nn-h1" style={{ fontSize: 22 }}>
-              {t('library.empty.title')}
+              {t(folderId ? (folderId === 'unfiled' ? 'library.folders.emptyUnfiled' : 'library.folders.emptyTitle') : 'library.empty.title')}
             </h3>
-            <p className="nn-empty-state-hint" style={{ maxWidth: 320 }}>{t('library.empty.hint')}</p>
-            <NNBtn variant="primary" size="sm" icon="plus" onClick={onPickFiles}>{t('library.empty.cta')}</NNBtn>
+            <p className="nn-empty-state-hint" style={{ maxWidth: 320 }}>{t(folderId ? 'library.folders.emptyHint' : 'library.empty.hint')}</p>
+            <NNBtn variant="primary" size="sm" icon="plus" onClick={onPickFiles}>{t(folderId ? 'library.folders.emptyAdd' : 'library.empty.cta')}</NNBtn>
           </div>
         )
       ) : view === 'grid' ? (

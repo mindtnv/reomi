@@ -1,5 +1,7 @@
-import { api, ok, ApiError } from './api';
+import { assistantApi as api, ok, ApiError } from './api';
 import type { FolderNode } from '@reomi/shared';
+
+// Folder names are user text; keep date-looking values as strings.
 
 export interface LibraryFolder extends FolderNode {
   revision: number;
