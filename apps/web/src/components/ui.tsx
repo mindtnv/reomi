@@ -15,7 +15,7 @@ export type IconName =
   | 'clip' | 'doc' | 'book' | 'send' | 'note' | 'copy' | 'warning'
   | 'archive' | 'card-type' | 'info' | 'code' | 'globe' | 'star'
   | 'chat' | 'review' | 'decks' | 'cards' | 'library' | 'notebook' | 'chart'
-  | 'panel' | 'menu' | 'logout' | 'stop' | 'expand' | 'folder';
+  | 'panel' | 'menu' | 'logout' | 'stop' | 'expand' | 'folder' | 'folder-move' | 'trash';
 
 export const NNIcon = ({
   name,
@@ -36,6 +36,8 @@ export const NNIcon = ({
     strokeLinejoin: 'round' as const,
   };
   const paths: Partial<Record<string, ReactNode>> = {
+    'folder-move': <><path d="M20 11V8a2 2 0 0 0-2-2h-6l-2-3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6M13 16h8m-3-3 3 3-3 3" {...p}/></>,
+    trash: <path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7" {...p}/>,
     folder: <path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" {...p}/>,
     math: <path d="M5 6h14M5 12h14M5 18h14M8 3v6M16 15v6" {...p}/>,
     flask: <path d="M9 3h6M10 3v6L4 19a1 1 0 0 0 1 2h14a1 1 0 0 0 1-2L14 9V3M7 15h10" {...p}/>,

@@ -23,6 +23,7 @@ import { useTransientLayer } from '@/lib/use-transient-layer';
 import { useNavigationGuard } from '@/components/navigation';
 import { useSmallAction } from '@/lib/use-small-action';
 import { SaveFeedback } from '@/components/save-feedback';
+import { LibraryItemActions } from '@/components/library-item-actions';
 import { LibraryIngestIndicator } from '@/components/library-ingest-indicator';
 import { useLibraryPdfCovers } from '@/lib/library-pdf-cover';
 import React, { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from 'react';
@@ -218,8 +219,19 @@ export const LibraryScreen = () => {
   // ── Details panel ────────────────────────────────────────────────────────────
   const [detailId, setDetailId] = useWorkspaceState<string | null>('library', 'detailId', null);
 
-  // L2 — clicking a material opens the full-screen reader; details moved to a
-  // ⋯ button on each card/row.
+  const ownerId = useNN(state => state.profile?.userId);
+  const screenMounted = useRef(true);
+  useEffect(() => { screenMounted.current = true; return () => { screenMounted.current = false; }; }, []);
+  const [itemMenu, setItemMenu] = useState<{ id: string; x: number; y: number; trigger: HTMLElement; owner: string | undefined; scope: string; entry: string | undefined } | null>(null);
+  const currentEntry = useRef(queryEntry); currentEntry.current = queryEntry;
+  const closeItemMenu = useCallback((restoreFocus: boolean) => {
+    setItemMenu(current => {
+      if (restoreFocus && current?.trigger.isConnected) current.trigger.focus({ preventScroll: true });
+      return null;
+    });
+  }, []);
+
+  // Primary activation opens the reader; overflow and context activation open quick actions.
   const openReader = useCallback((id: string) => navigation.push(`/library/${id}`), [navigation]);
 
   // ── Fetch list when filters change ──────────────────────────────────────────────
@@ -244,6 +256,23 @@ export const LibraryScreen = () => {
     keepPreviousData: false,
   });
   const items = libraryResource.data?.items ?? [];
+  const currentItems = useRef(items); currentItems.current = items;
+  const menuItem = itemMenu && itemMenu.owner === ownerId && itemMenu.scope === libraryKey && itemMenu.entry === queryEntry && searchMode === 'title'
+    ? items.find(item => item.id === itemMenu.id) : undefined;
+  useEffect(() => { setItemMenu(null); }, [ownerId, libraryKey, queryEntry, searchMode, view]);
+  useEffect(() => { if (itemMenu && !menuItem) setItemMenu(null); }, [itemMenu, menuItem]);
+  const openItemMenu = (item: LibraryItem, event: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>) => {
+    event.preventDefault(); event.stopPropagation();
+    const container = event.currentTarget.closest('.reomi-library-selectable, .reomi-library-selectable-row');
+    const trigger = container?.querySelector<HTMLElement>('.nn-lib-card-menu, .reomi-library-row-menu') ?? event.currentTarget;
+    const rect = trigger.getBoundingClientRect();
+    const pointer = event.type === 'contextmenu' && 'clientX' in event && (event.clientX !== 0 || event.clientY !== 0);
+    setItemMenu({ id: item.id, x: pointer ? event.clientX : rect.right - 260, y: pointer ? event.clientY : rect.bottom + 6,
+      trigger, owner: ownerId, scope: libraryKey, entry: queryEntry });
+  };
+  const itemContextKeys = (item: LibraryItem, event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) openItemMenu(item, event);
+  };
   const nextCursor = libraryResource.data?.nextCursor ?? null;
   const loaded = libraryResource.data !== null || libraryResource.status === 'error';
   const setItems = useCallback((update: SetStateAction<LibraryItem[]>) => {
@@ -483,6 +512,7 @@ export const LibraryScreen = () => {
     setShelf((prev) => prev.map((it) => (it.id === updated.id && (it.metadataRevision ?? 0) <= (updated.metadataRevision ?? it.metadataRevision ?? 0) ? { ...it, ...updated } : it)));
   }, []);
   const onItemDeleted = useCallback((id: string) => {
+    setSelectedIds(previous => { const next = new Set(previous); next.delete(id); return next; });
     setItems((prev) => prev.filter((it) => it.id !== id));
     setShelf((prev) => prev.filter((it) => it.id !== id));
     setDetailId(null);
@@ -658,19 +688,25 @@ export const LibraryScreen = () => {
       ) : view === 'grid' ? (
         <div className="nn-lib-grid">
           {items.map((it) => (
-            <div key={it.id} className="reomi-library-selectable">
-              <div className="reomi-library-item-tools"><Checkbox aria-label={t('library.folders.selectMaterial', { title: it.title })} checked={selectedIds.has(it.id)} onChange={() => toggleSelected(it.id)} />
-              <Button size="sm" variant="ghost" disabled={folderControls.busy} aria-label={t('library.folders.moveMaterial', { title: it.title })} onClick={() => void folderControls.moveItems([it.id])}><NNIcon name="folder" size={15}/></Button></div>
-              <LibraryCard item={it} onOpen={() => openReader(it.id)} onDetails={() => setDetailId(it.id)} t={t} />
+            <div key={it.id} className="reomi-library-selectable" data-selected={selectedIds.has(it.id) || undefined}
+              onContextMenu={event => openItemMenu(it, event)} onKeyDown={event => itemContextKeys(it, event)}>
+              <Checkbox className="reomi-library-item-select" aria-label={t('library.folders.selectMaterial', { title: it.title })} checked={selectedIds.has(it.id)} onChange={() => toggleSelected(it.id)} />
+              <LibraryCard item={it} onOpen={() => openReader(it.id)} t={t} />
+              <Button variant="bare" className="nn-lib-card-menu" aria-label={t('library.item.actionsFor', { title: it.title })}
+                aria-haspopup="menu" aria-expanded={menuItem?.id === it.id} onClick={event => openItemMenu(it, event)}><NNIcon name="dots" size={17} /></Button>
             </div>
           ))}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 12 }}>
           {items.map((it) => (
-            <div key={it.id} className="reomi-library-selectable-row"><Checkbox aria-label={t('library.folders.selectMaterial', { title: it.title })} checked={selectedIds.has(it.id)} onChange={() => toggleSelected(it.id)} />
-            <div style={{ minWidth: 0, flex: 1 }}><LibraryListRow item={it} onOpen={() => openReader(it.id)} onDetails={() => setDetailId(it.id)} t={t} /></div>
-            <Button size="sm" variant="ghost" disabled={folderControls.busy} aria-label={t('library.folders.moveMaterial', { title: it.title })} onClick={() => void folderControls.moveItems([it.id])}><NNIcon name="folder" size={15}/></Button></div>
+            <div key={it.id} className="reomi-library-selectable-row"
+              onContextMenu={event => openItemMenu(it, event)} onKeyDown={event => itemContextKeys(it, event)}>
+              <Checkbox aria-label={t('library.folders.selectMaterial', { title: it.title })} checked={selectedIds.has(it.id)} onChange={() => toggleSelected(it.id)} />
+              <div style={{ minWidth: 0, flex: 1 }}><LibraryListRow item={it} onOpen={() => openReader(it.id)} t={t} /></div>
+              <Button variant="ghost" size="sm" className="reomi-library-row-menu" aria-label={t('library.item.actionsFor', { title: it.title })}
+                aria-haspopup="menu" aria-expanded={menuItem?.id === it.id} onClick={event => openItemMenu(it, event)}><NNIcon name="dots" size={17}/></Button>
+            </div>
           ))}
         </div>
       )}
@@ -714,6 +750,12 @@ export const LibraryScreen = () => {
           t={t}
         />
       )}
+
+      {menuItem && itemMenu && <LibraryItemActions item={menuItem} x={itemMenu.x} y={itemMenu.y} mobile={isMobile}
+        moving={folderControls.busy} onClose={closeItemMenu}
+        isCurrent={() => screenMounted.current && currentItems.current.some(item => item.id === itemMenu.id) && useNN.getState().profile?.userId === itemMenu.owner && currentLibraryKey.current === itemMenu.scope && currentEntry.current === itemMenu.entry}
+        onOpen={() => openReader(menuItem.id)} onMove={() => void folderControls.moveItems([menuItem.id])}
+        onDetails={() => setDetailId(menuItem.id)} onPatched={onItemPatched} onDeleted={onItemDeleted} />}
 
       {/* Details panel */}
       {detailId && (
@@ -1064,7 +1106,7 @@ const CoverPlaceholder = ({ item, size, aspect }: { item: LibraryItem | { id: st
 
 // ── Grid card ─────────────────────────────────────────────────────────────────
 
-const LibraryCard = ({ item, onOpen, onDetails, t }: { item: LibraryItem; onOpen: () => void; onDetails: () => void; t: Tr }) => {
+const LibraryCard = ({ item, onOpen, t }: { item: LibraryItem; onOpen: () => void; t: Tr }) => {
   const notReady = item.status !== 'ready' && (item.total === 0 || item.status === 'deleting');
   const parked = item.status === 'indexing' && item.searchAvailable === false;
   const statusLabel = labelForStatus(item, t);
@@ -1073,41 +1115,6 @@ const LibraryCard = ({ item, onOpen, onDetails, t }: { item: LibraryItem; onOpen
       <div style={{ position: 'relative' }}>
         <CoverPlaceholder item={item} aspect />
         {!parked && ['pending', 'parsing', 'indexing'].includes(item.status) && <LibraryIngestIndicator item={item} t={t} />}
-        {/* Details (⋯) — stops propagation so the card click still opens the reader. */}
-        <span
-          role="button"
-          tabIndex={0}
-          aria-label={t('library.item.menu')}
-          title={t('library.item.menu')}
-          onClick={(e) => {
-            e.stopPropagation();
-            onDetails();
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              e.stopPropagation();
-              onDetails();
-            }
-          }}
-          className="nn-lib-card-menu"
-          style={{
-            position: 'absolute',
-            top: 6,
-            right: 6,
-            width: 26,
-            height: 26,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: 'var(--r-sm)',
-            background: 'color-mix(in srgb, var(--surface) 80%, transparent)',
-            border: '1px solid var(--border)',
-            cursor: 'pointer',
-          }}
-        >
-          <NNIcon name="dots" size={14} color="var(--text-muted)" />
-        </span>
         {item.percent != null && item.percent > 0 && item.status === 'ready' && (
           <div className="nn-lib-progress" style={{ position: 'absolute', left: 6, right: 6, bottom: 6 }}>
             <div className="nn-lib-progress-fill" style={{ width: `${Math.round(item.percent * 100)}%` }} />
@@ -1143,7 +1150,7 @@ const LibraryCard = ({ item, onOpen, onDetails, t }: { item: LibraryItem; onOpen
 
 // ── List row ──────────────────────────────────────────────────────────────────
 
-const LibraryListRow = ({ item, onOpen, onDetails, t }: { item: LibraryItem; onOpen: () => void; onDetails: () => void; t: Tr }) => {
+const LibraryListRow = ({ item, onOpen, t }: { item: LibraryItem; onOpen: () => void; t: Tr }) => {
   const notReady = item.status !== 'ready' && (item.total === 0 || item.status === 'deleting');
   return (
     <Button variant="bare" type="button" data-navigation-anchor={item.id} onClick={onOpen} className="nn-lib-row">
@@ -1169,27 +1176,7 @@ const LibraryListRow = ({ item, onOpen, onDetails, t }: { item: LibraryItem; onO
         </NNBadge>
       )}
       {notReady && <NNBadge tone={statusTone(item.status)} size="xs">{labelForStatus(item, t)}</NNBadge>}
-      {/* Details (⋯) — stops propagation so the row click still opens the reader. */}
-      <span
-        role="button"
-        tabIndex={0}
-        aria-label={t('library.item.menu')}
-        title={t('library.item.menu')}
-        onClick={(e) => {
-          e.stopPropagation();
-          onDetails();
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            e.stopPropagation();
-            onDetails();
-          }
-        }}
-        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 'var(--r-sm)', cursor: 'pointer' }}
-      >
-        <NNIcon name="dots" size={14} color="var(--text-dim)" />
-      </span>
+
     </Button>
   );
 };
