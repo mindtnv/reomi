@@ -9,6 +9,10 @@
 
 const library = {
   folders: {
+    "emptyTitle": "This folder is empty",
+    "emptyUnfiled": "No unfiled materials",
+    "emptyHint": "Add a material or move one here from your library.",
+    "emptyAdd": "Add a file",
     "title": "Folders",
     "navigation": "Library folders",
     "breadcrumbs": "Folder path",
