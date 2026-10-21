@@ -9,9 +9,9 @@ test('live Kubernetes sections become readable library materials and retain iden
   const base = `${api}/library/documentation`;
   const title = `${target.deckName} Kubernetes`;
   let connectionId: string | undefined, folderId: string | undefined;
-  type Item = { id: string; kind: string; url: string; total: number };
+  type Item = { id: string; kind: string; total: number };
   async function items(): Promise<Item[]> {
-    const response = await page.request.get(`${api}/library/items?folderId=${folderId}&limit=300`);
+    const response = await page.request.get(`${api}/library?folderId=${folderId}&limit=300`);
     expect(response.ok()).toBe(true);
     const result = await response.json(); expect(result.nextCursor).toBeNull(); return result.items;
   }
@@ -36,7 +36,11 @@ test('live Kubernetes sections become readable library materials and retain iden
     expect(confirmed.ok()).toBe(true); folderId = (await confirmed.json()).folderId;
     await complete();
     const saved = await items(); expect(saved).toHaveLength(branch!.pageCount);
-    for (const item of saved) { expect(item.kind).toBe('url'); expect(item.url).toContain(`https://kubernetes.io${branch!.prefix}`); expect(item.total).toBeGreaterThan(0); }
+    for (const item of saved) {
+      expect(item.kind).toBe('url'); expect(item.total).toBeGreaterThan(0);
+      const detail = await page.request.get(`${api}/sources/${item.id}`);
+      expect(detail.ok()).toBe(true); expect((await detail.json()).url).toContain(`https://kubernetes.io${branch!.prefix}`);
+    }
     await page.goto(`/library/${saved[0]!.id}`);
     await expect(page.locator('[data-source-text-body]').first()).toBeVisible();
     expect((await page.locator('[data-source-text-body]').allTextContents()).join(' ').length).toBeGreaterThan(100);
@@ -44,7 +48,7 @@ test('live Kubernetes sections become readable library materials and retain iden
     expect(scheduled.ok()).toBe(true);
     expect(await scheduled.json()).toMatchObject({ schedule: 'daily' });
     await page.goto('/library');
-    const control = page.getByRole('button', { name: `Auto-update: ${title}`, exact: true });
+    const control = page.getByRole('button', { name: `Auto-update: ${title}` });
     await expect(control).toContainText('Every day');
     await control.click(); await page.getByRole('option', { name: 'Off', exact: true }).click();
     await expect(control).toContainText('Off');
