@@ -86,7 +86,8 @@ test('loaded extension previews locally, recovers an uncertain save and creates 
     await page.getByRole('button', { name: 'Permissions' }).click(); await page.getByRole('option', { name: 'Browser capture' }).click();
     await shot(page, 'settings-desktop-light');
     await page.addInitScript(() => { const native = matchMedia.bind(window); window.matchMedia = query => { const value = native(query); if (query === '(display-mode: standalone)') Object.defineProperty(value, 'matches', { value: true }); return value; }; });
-    await page.setViewportSize({ width: 320, height: 740 }); await page.reload(); await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible(); await page.getByRole('tab', { name: 'Connections', exact: true }).click(); await shot(page, 'settings-standalone-small');
+    await page.setViewportSize({ width: 320, height: 740 }); await page.reload(); await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible();
+    await page.getByRole('button', { name: 'Settings sections' }).click(); await page.getByRole('option', { name: 'Connections', exact: true }).click(); await shot(page, 'settings-standalone-small');
     await page.request.delete(`${api}/profile/tokens/${tokenId}`); tokenId = undefined;
     await popup.reload(); await expect(popup.getByRole('alert')).toContainText('invalid, expired or revoked');
   } finally {

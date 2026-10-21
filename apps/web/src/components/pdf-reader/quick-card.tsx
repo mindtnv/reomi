@@ -48,6 +48,8 @@ export interface QuickCardDialogProps {
   prefillFront?: string;
   prefillBack?: string;
   contextHint?: string;
+  /** A URL-backed capture handoff already owns its browser history entry. */
+  history?: boolean;
   /** W4: marquee/selection rects so the server can plant a card marker. */
   rects?: MarkRect[];
   /** Locale (e.g. 'en'|'ru') — passed to suggest-card so AI writes in the user's language. */
@@ -69,6 +71,7 @@ export function QuickCardDialog({
   prefillFront,
   prefillBack,
   contextHint,
+  history = true,
   rects,
   locale,
   onCreated,
@@ -174,7 +177,7 @@ export function QuickCardDialog({
     }
   }, [sourceId, sourceVersion, deckId, front, back, page, quote, textSelection, rects, submitting, onCreated, onClose]);
 
-  const layer = useTransientLayer({ root: dialogRoot, enabled: open, modal: true, busy: submitting || suggesting, onClose });
+  const layer = useTransientLayer({ root: dialogRoot, enabled: open, modal: true, history, busy: submitting || suggesting, onClose });
   useNavigationGuard(async () => {
     if (submitLock.current || suggesting) return false;
     if (front === (prefillFront ?? '') && back === (prefillBack ?? quote ?? '')) return true;

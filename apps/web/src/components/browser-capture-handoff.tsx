@@ -22,7 +22,7 @@ function CaptureDraft({ sourceId, sourceName, chatEnabled, onCreated, receiptId,
   const close = useCallback(() => {
     setClosed(true); setData(null);
     const url = new URL(window.location.href); url.searchParams.delete('capture');
-    router.replace(`${url.pathname}${url.search}${url.hash}`);
+    router.replace(`${url.pathname}${url.search}${url.hash}`, { viewOnly: true, scroll: false });
   }, [router]);
   useEffect(() => {
     const controller = new AbortController(); setError(false); setData(null);
@@ -36,7 +36,7 @@ function CaptureDraft({ sourceId, sourceName, chatEnabled, onCreated, receiptId,
   if (closed) return null;
   if (error) return <div role="alert" className="reomi-capture-notice"><span>{t('library.capture.unavailable')}</span><Button size="sm" variant="soft" onClick={() => setRevision(v => v + 1)}>{t('library.folders.retry')}</Button><Button size="sm" variant="ghost" onClick={close}>{t('actions.close')}</Button></div>;
   if (!data) return <div role="status" className="reomi-capture-notice">{t('library.capture.loading')}</div>;
-  return <QuickCardDialog open onClose={close} sourceId={sourceId} sourceName={sourceName} sourceVersion={data.sourceVersion}
+  return <QuickCardDialog open history={false} onClose={close} sourceId={sourceId} sourceName={sourceName} sourceVersion={data.sourceVersion}
     quote={data.quote} textSelection={data.textSelection} locale={locale} chatEnabled={chatEnabled} t={t}
     contextHint={t(data.mode === 'page' ? 'library.capture.pageHint' : 'library.capture.selectionHint')}
     onCreated={onCreated} />;
