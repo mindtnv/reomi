@@ -1041,6 +1041,46 @@ export const sources = pgTable(
 // transaction as its kb_chunk embedding write — so the ingest progress numerator
 // is COUNT(embedded = true): crash-safe, never a desynced counter.
 
+export const libraryDocumentation = pgTable('library_documentation', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  rootUrl: text('root_url').notNull(),
+  locale: text('locale').notNull().$type<'en' | 'ru'>(),
+  title: text('title').notNull(),
+  folderId: uuid('folder_id').references(() => libraryFolders.id, { onDelete: 'set null' }),
+  state: text('state').notNull().default('draft').$type<import('@reomi/shared').DocumentationState>(),
+  manifest: jsonb('manifest').notNull().$type<import('@reomi/shared').DocumentationManifest>(),
+  selectedPrefixes: jsonb('selected_prefixes').notNull().default(sql`'[]'::jsonb`).$type<string[]>(),
+  sectionFolders: jsonb('section_folders').notNull().default(sql`'{}'::jsonb`).$type<Record<string, string>>(),
+  runId: uuid('run_id'),
+  errorCode: text('error_code'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  checkedAt: timestamp('checked_at', { withTimezone: true }),
+}, t => [
+  index('library_documentation_owner_idx').on(t.userId, t.createdAt),
+  index('library_documentation_queue_idx').on(t.state, t.updatedAt),
+  uniqueIndex('library_documentation_connection_uq').on(t.userId, t.rootUrl, t.locale).where(sql`${t.state} <> 'draft'`),
+]);
+
+export const libraryDocumentationPages = pgTable('library_documentation_pages', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  collectionId: uuid('collection_id').notNull().references(() => libraryDocumentation.id, { onDelete: 'cascade' }),
+  url: text('url').notNull(),
+  title: text('title').notNull(),
+  section: text('section').notNull(),
+  sourceId: uuid('source_id').references(() => sources.id, { onDelete: 'set null' }),
+  imported: boolean('imported').notNull().default(false),
+  state: text('state').notNull().default('pending').$type<'pending' | 'ready' | 'error' | 'missing' | 'deleted'>(),
+  errorCode: text('error_code'),
+  checkedAt: timestamp('checked_at', { withTimezone: true }),
+}, t => [
+  uniqueIndex('library_documentation_pages_url_uq').on(t.collectionId, t.url),
+  index('library_documentation_pages_queue_idx').on(t.collectionId, t.state, t.id),
+  index('library_documentation_pages_source_idx').on(t.sourceId),
+]);
+
 export const sourceChunks = pgTable(
   'source_chunks',
   {

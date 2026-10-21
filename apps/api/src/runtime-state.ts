@@ -130,6 +130,7 @@ export const indexWorkerState = new WorkerTracker('index');
 export const sourceIngestWorkerState = new WorkerTracker('source_ingest');
 export const artifactWorkerState = new WorkerTracker('artifact');
 export const reminderWorkerState = new WorkerTracker('reminder');
+export const documentationWorkerState = new WorkerTracker('documentation');
 
 let lifecycle: 'running' | 'shutting_down' = 'running';
 

@@ -54,3 +54,4 @@ export * from './plan-study';
 export * from './plan-offer';
 export * from './operations';
 export * from './ui-actions';
+export * from './library-documentation';

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import {
   artifactWorkerState,
+  documentationWorkerState,
   indexWorkerState,
   markRuntimeRunning,
   markRuntimeShuttingDown,
@@ -32,6 +33,7 @@ describe('runtime readiness', () => {
     sourceIngestWorkerState.reset();
     artifactWorkerState.reset();
     reminderWorkerState.reset();
+    documentationWorkerState.reset();
   });
 
   test('reports ready with idle workers and a reachable database', async () => {
@@ -49,6 +51,7 @@ describe('runtime readiness', () => {
         sourceIngest: { queued: 0, active: 0, degraded: false },
         artifact: { queued: 0, active: 0, degraded: false },
         reminder: { queued: 0, active: 0, degraded: false },
+        documentation: { queued: 0, active: 0, degraded: false },
       },
     });
   });

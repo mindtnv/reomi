@@ -18,6 +18,7 @@ import {
 } from './ai/artifacts.ts';
 import { createProcessFailureHandlers, createShutdownCoordinator } from './shutdown.ts';
 import { drainReminders, startReminderScheduler } from './reminders/scheduler.ts';
+import { drainDocumentationWorker, startDocumentationWorker } from './ai/library-documentation-worker';
 
 const receiptMaintenance = createReceiptMaintenance(async () => {
   await cleanupUiActionReceipts(); await cleanupOperationRetryReceipts();
@@ -40,6 +41,7 @@ const app = buildApp().listen(env.PORT, () => {
   // Startup work has no causal request id and is deliberately root-scoped.
   void reconcileOnStartup().then(() => reconcileDocumentsOnStartup({ all: true }));
   void resumeSourceIngestOnStartup();
+  void startDocumentationWorker().catch(err => rootLogger.error({ err: safeError(err) }, 'documentation.start_failed'));
   void reconcileArtifactsOnStartup();
   receiptMaintenance.start();
   if (env.NODE_ENV !== 'test' && env.MEDIA_GC_ENABLED) mediaGc.start();
@@ -57,6 +59,7 @@ const shutdown = createShutdownCoordinator({
     receipts: () => receiptMaintenance.drain(),
     mediaGc: () => mediaGc.drain(),
     reminder: () => drainReminders(),
+    documentation: timeoutMs => drainDocumentationWorker(timeoutMs),
   },
   closeDb,
   // Avoid process.exit(): after the listener/pool close, the event loop exits

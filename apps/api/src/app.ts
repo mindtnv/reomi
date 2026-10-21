@@ -27,6 +27,7 @@ import { sourceStudyModule } from './modules/source-study.ts';
 import { sourceTextMarksModule } from './modules/source-text-marks.ts';
 import { StudyError } from './modules/study-notes.ts';
 import { libraryModule } from './modules/library.ts';
+import { libraryDocumentationModule } from './modules/library-documentation';
 import { libraryFoldersModule, LibraryFolderError } from './modules/library-folders';
 import { operationsModule } from './modules/operations';
 import { uiActionsModule } from './modules/ui-actions';
@@ -41,6 +42,7 @@ import type { Logger } from 'pino';
 import { embeddingDegraded } from './ai/index-queue.ts';
 import {
   artifactWorkerState,
+  documentationWorkerState,
   indexWorkerState,
   lifecycleSnapshot,
   reminderWorkerState,
@@ -173,6 +175,7 @@ export function buildApp(options: BuildAppOptions = {}) {
         sourceIngest: sourceIngestWorkerState.snapshot(),
         artifact: artifactWorkerState.snapshot(),
         reminder: reminderWorkerState.snapshot(),
+        documentation: documentationWorkerState.snapshot(),
       };
       let db: { ok: true; latencyMs: number } | { ok: false; error: 'unavailable' };
       try {
@@ -273,7 +276,7 @@ export function buildApp(options: BuildAppOptions = {}) {
     .use(sourcesModule)
     .use(sourceStudyModule)
     .use(sourceTextMarksModule)
-    .use(new Elysia().use(libraryModule).use(libraryFoldersModule))
+    .use(new Elysia().use(libraryModule).use(libraryFoldersModule).use(libraryDocumentationModule))
     .use(operationsModule)
     .use(uiActionsModule)
     .use(cardRecoveryModule)

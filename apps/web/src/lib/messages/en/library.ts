@@ -8,6 +8,34 @@
 // can enforce both independently. Every key MUST exist in BOTH locales.
 
 const library = {
+  documentation: {
+    add: 'Connect documentation', description: 'Choose website sections. Each page becomes a separate library material.',
+    connected: 'Connected documentation', url: 'Documentation URL', language: 'Page language',
+    scopeHint: 'We look within the documentation. Translations, other websites and old versions are not added automatically.',
+    detectedRoot: 'Website section to import', folderName: 'Folder name', sections: 'Sections', allSections: 'All sections',
+    discovered: '{count} pages found', selection: '{count} selected. {added} new materials, {available} places available.',
+    chooseSmaller: 'Choose a smaller section, or expand a branch and exclude parts you do not need.',
+    findSections: 'Find sections', discovering: 'Finding sections…', import: 'Add to library', starting: 'Starting import…', back: 'Back',
+    openFolder: 'Open folder', checkUpdates: 'Check for updates', cancelImport: 'Stop import', resume: 'Resume import',
+    disconnect: 'Disconnect documentation', disconnectHint: 'Stop this connection? Imported pages, folders, notes and cards will remain in your library.',
+    progress: '{done} of {total} pages', importProgress: 'Import progress', failures: '{count} need attention', failureDetails: 'Pages with errors',
+    failed: 'Could not complete the action. Try again.', loadFailed: 'Could not load connected documentation.',
+    states: { draft: 'Preview', queued: 'Queued', running: 'Importing', completed: 'Imported', attention: 'Needs attention', cancelled: 'Stopped' },
+    errors: {
+      documentation_unavailable: 'Documentation is unavailable. Saved materials have not changed.',
+      documentation_empty: 'No pages found. Try the URL of a documentation section.',
+      documentation_preview_expired: 'This preview expired. Go back and find sections again.',
+      documentation_already_connected: 'This documentation is already connected. Use Check for updates.',
+      documentation_busy: 'An import is already running. Wait for it to finish or stop it.',
+      documentation_folder_missing: 'The import folder was deleted. Saved materials remain in the library.',
+      library_full: 'Not enough library capacity. Choose fewer sections or free up space.',
+      folder_limit: 'The folder limit has been reached.', folder_depth_limit: 'Too many nested sections. Choose a narrower documentation URL.',
+      invalid_sections: 'Choose at least one available section.', source_busy: 'This material is already being processed. Check again later.',
+      fetch_failed: 'Could not fetch this page. Previously saved text remains available.', empty_source: 'No readable text found on the page.',
+      remote_missing: 'This page is no longer in the index. Its saved material remains in the library.',
+      documentation_limit: 'The connected documentation limit has been reached.', documentation_preview_limit: 'Too many previews. Try again in a few minutes.',
+    },
+  },
   saved: {
     description: 'Notes and documents saved while working with your sources. They stay here even if a source is deleted.',
     unavailableFilter: 'Only work with an unavailable source',
