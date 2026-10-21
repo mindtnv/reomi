@@ -1,6 +1,7 @@
 import browser from 'webextension-polyfill';
 import { API, WEB } from './config';
 import { messages } from './messages';
+import { captureStablePage } from './stable-capture';
 import type { CaptureResult, Captured, Connection, LocalState, Mode, Pending, Receipt } from './types';
 
 const locale = navigator.language.startsWith('ru') ? 'ru' : 'en', copy = messages[locale];
@@ -62,15 +63,15 @@ async function readPage() {
     const tab = supplied ? await browser.tabs.get(entry.tabId) : (await browser.tabs.query({ active: true, currentWindow: true }))[0];
     if (tab?.id == null || !tab.url || !/^https?:\/\//.test(tab.url)) throw new Error('unsupported');
     const originalUrl = tab.url;
-    await browser.scripting.executeScript({ target: { tabId: tab.id }, files: ['capture.js'] });
-    const [result] = await browser.scripting.executeScript({ target: { tabId: tab.id }, func: () => {
-      const value = (window as Window & { __reomiCapture?: CaptureResult }).__reomiCapture;
-      delete (window as Window & { __reomiCapture?: CaptureResult }).__reomiCapture; return value;
-    } });
-    const value = result?.result as CaptureResult | undefined;
-    if (!value?.ok) throw new Error(value?.error ?? 'unreadable');
-    if ((await browser.tabs.get(tab.id)).url !== originalUrl || value.capture.url !== originalUrl) throw new Error('changed_page');
-    captured = value.capture; mode = supplied && entry.selection || captured.selection ? 'selection' : 'page';
+    captured = await captureStablePage(originalUrl, async () => {
+      await browser.scripting.executeScript({ target: { tabId: tab.id! }, files: ['capture.js'] });
+      const [result] = await browser.scripting.executeScript({ target: { tabId: tab.id! }, func: () => {
+        const value = (window as Window & { __reomiCapture?: CaptureResult }).__reomiCapture;
+        delete (window as Window & { __reomiCapture?: CaptureResult }).__reomiCapture; return value;
+      } });
+      return result?.result as CaptureResult | undefined;
+    }, async () => (await browser.tabs.get(tab.id!)).url);
+    mode = supplied && entry.selection || captured.selection ? 'selection' : 'page';
     if (supplied && entry.selection && !captured.selection) throw new Error('no_selection');
     renderCapture();
   } catch (e) { show('capture'); captured = null; titleInput.value = ''; el('excerpt').textContent = ''; error(e instanceof Error ? e.message : 'failed');
