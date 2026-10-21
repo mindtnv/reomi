@@ -30,7 +30,7 @@ test('capture handoff supports reviewed cards, source backlinks, keyboard and na
     await expect(page.locator('[data-source-text-body]')).toContainText(quote); await shot('handoff-desktop-light');
     await page.addInitScript(() => { const original = matchMedia.bind(window); window.matchMedia = query => { const result = original(query); if (query === '(display-mode: standalone)') Object.defineProperty(result, 'matches', { value: true }); return result; }; localStorage.setItem('reomi:theme', JSON.stringify({ version: 2, mode: 'dark', palette: 'default' })); });
     await page.setViewportSize({ width: 320, height: 740 }); await page.reload(); await expect(dialog, clientErrors.join('\n')).toBeVisible(); await shot('handoff-standalone-small-dark');
-    await dialog.getByRole('button', { name: /^Deck:/ }).click(); await page.getByRole('option', { name: target.deckName, exact: true }).click();
+    await dialog.getByRole('button', { name: /^Deck,/ }).click(); await page.getByRole('option', { name: target.deckName, exact: true }).click();
     await dialog.getByRole('textbox', { name: 'Front', exact: true }).fill('What does a Pod group?');
     const completed = page.waitForResponse(r => r.url().endsWith(`/sources/${sourceId}/quick-card`) && r.request().method() === 'POST');
     await page.keyboard.press('Control+Enter'); const cardResponse = await completed; expect(cardResponse.ok()).toBe(true);

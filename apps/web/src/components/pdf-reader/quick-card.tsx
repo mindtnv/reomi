@@ -297,6 +297,7 @@ export function QuickCardDialog({
               {t('notebooks.quickcard.deckLabel')}
             </label>
             <NNSelect<string>
+              ariaLabel={t('notebooks.quickcard.deckLabel')}
               value={deckId}
               onChange={handleDeckChange}
               options={deckOptions}
