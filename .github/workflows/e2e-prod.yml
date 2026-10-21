@@ -3,6 +3,12 @@
 name: e2e-prod
 
 on:
+  workflow_dispatch:
+    inputs:
+      documentation:
+        description: 'Import a small live Kubernetes section and clean up this run'
+        type: boolean
+        default: false
   workflow_run:
     workflows: [deploy]
     types: [completed]
@@ -15,13 +21,17 @@ concurrency:
 jobs:
   e2e-prod:
     name: Production smoke
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
+        if: github.event_name == 'workflow_run'
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: actions/checkout@v6
+        if: github.event_name == 'workflow_dispatch'
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -50,4 +60,5 @@ jobs:
         env:
           E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          E2E_LIVE_DOCUMENTATION: ${{ github.event_name == 'workflow_dispatch' && inputs.documentation && 'true' || 'false' }}
         run: bun run e2e:prod

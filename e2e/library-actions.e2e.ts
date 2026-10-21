@@ -22,7 +22,7 @@ test('library quick actions and saved work keep the app workspace', async ({ pag
     const note = await page.request.post(`${api}/sources/${id}/notes`, { data: { title: noteTitle, content: noteContent } });
     expect(note.ok()).toBe(true); noteId = (await note.json() as { id: string }).id;
     await page.goto('/library/study');
-    await expect.soft(page.locator('.reomi-saved-study.reomi-page-surface')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.reomi-saved-study.reomi-page-surface')).toBeVisible();
     await page.goto('/library');
     const material = page.locator('.reomi-library-selectable').filter({ has: page.locator(`[data-navigation-anchor="${id}"]`) });
     await expect(material).toBeVisible();

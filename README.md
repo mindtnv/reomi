@@ -72,7 +72,7 @@ bun run db:seed                # seed local demo/reference data
 bun run db:studio              # open Drizzle Studio
 ```
 
-Production, dev, and test databases use `db:generate`, reviewed/committed SQL, and `db:migrate:apply`. `db:push --force` does not replay the chain through `0050_deep_young_avengers.sql` (the `0020_known_klaw.sql` backfill, the `0027_dazzling_madame_masque.sql` cloze constraint, and the `0038_fancy_yellowjacket.sql` triggers) and does not connect to `DATABASE_URL`.
+Production, dev, and test databases use `db:generate`, reviewed/committed SQL, and `db:migrate:apply`. `db:push --force` does not replay the chain through `0051_lame_matthew_murdock.sql` (the `0020_known_klaw.sql` backfill, the `0027_dazzling_madame_masque.sql` cloze constraint, and the `0038_fancy_yellowjacket.sql` triggers) and does not connect to `DATABASE_URL`.
 
 ## Containers
 

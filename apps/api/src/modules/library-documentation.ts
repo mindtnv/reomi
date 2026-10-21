@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { authPlugin } from '../auth-plugin';
 import { interruptDocumentationFetch, wakeDocumentationWorker } from '../ai/library-documentation-worker';
-import { cancelDocumentation, confirmDocumentation, disconnectDocumentation, documentationPageErrors, documentationSummary, listDocumentation, previewDocumentation, updateDocumentation } from './library-documentation-service';
+import { cancelDocumentation, configureDocumentationSchedule, confirmDocumentation, disconnectDocumentation, documentationPageErrors, documentationSummary, listDocumentation, previewDocumentation, updateDocumentation } from './library-documentation-service';
 
 const params = t.Object({ id: t.String({ format: 'uuid' }) });
 export const libraryDocumentationModule = new Elysia({ prefix: '/library/documentation' }).use(authPlugin)
@@ -11,6 +11,9 @@ export const libraryDocumentationModule = new Elysia({ prefix: '/library/documen
   })
   .get('/:id', ({ user, params }) => documentationSummary(user.id, params.id), { auth: true, params })
   .get('/:id/errors', ({ user, params }) => documentationPageErrors(user.id, params.id), { auth: true, params })
+  .patch('/:id/schedule', ({ user, params, body }) => configureDocumentationSchedule(user.id, params.id, body.schedule), {
+    auth: true, params, body: t.Object({ schedule: t.Union([t.Literal('off'), t.Literal('daily'), t.Literal('weekly')]) }),
+  })
   .post('/:id/confirm', async ({ user, params, body }) => {
     const result = await confirmDocumentation(user.id, params.id, body.title, body.prefixes); wakeDocumentationWorker(); return result;
   }, { auth: true, params, body: t.Object({ title: t.String({ minLength: 1, maxLength: 100 }), prefixes: t.Array(t.String({ minLength: 1, maxLength: 2000 }), { minItems: 1, maxItems: 1000 }) }) })

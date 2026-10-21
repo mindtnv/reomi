@@ -4,11 +4,12 @@ import { db, cards, cardSources, libraryDocumentation, libraryDocumentationPages
 import { buildApp } from '../src/app';
 import { __setDnsLookupForTests, __setPageFetchForTests } from '../src/ai/page-reader';
 import { runDocumentationCollection, recoverDocumentationImports } from '../src/ai/library-documentation-worker';
+import { claimDocumentationCheck, runDueDocumentationCheck, runClaimedDocumentationCheck } from '../src/ai/library-documentation-scheduler';
 import { callApp, resetTestDb, seedBasicCard, signUpAndCookie, uniqueEmail } from './helpers';
 
 const app = buildApp(), base = '/library/documentation';
 let urls: string[], version: number, failedUrl: string | null;
-type Summary = { id: string; folderId: string; state: string; total: number; completed: number; failed: number; pending: number; deleted: number };
+type Summary = { id: string; folderId: string; state: string; total: number; completed: number; failed: number; pending: number; deleted: number; schedule: string; nextSyncAt: string | null; syncError: string | null; lastResult: { added: number; updated: number; unchanged: number; failed: number; missing: number } | null };
 async function preview(cookie: string) {
   const response = await callApp(app, 'POST', `${base}/preview`, { cookie, body: { url: 'https://example.com/docs/home/', locale: 'en' } });
   expect(response.status).toBe(200);
@@ -211,5 +212,91 @@ describe('library documentation imports', () => {
     expect((await db.select().from(sources)).map(s => s.id)).toEqual(saved.map(s => s.id));
     expect((await db.select().from(sourceChunks)).map(c => c.id)).toEqual(chunks.map(c => c.id));
     expect((await db.select().from(libraryFolders)).map(f => f.id)).toEqual(folders.map(f => f.id));
+  });
+});
+
+describe('scheduled documentation synchronization', () => {
+  async function connected() {
+    const a = await signUpAndCookie(app, uniqueEmail()), draft = await preview(a.cookie);
+    await confirm(a.cookie, draft.id); await runDocumentationCollection(draft.id);
+    return { ...a, id: draft.id };
+  }
+  async function schedule(cookie: string, id: string, value: string) {
+    return callApp(app, 'PATCH', `${base}/${id}/schedule`, { cookie, body: { schedule: value } });
+  }
+  async function due(id: string) {
+    await db.update(libraryDocumentation).set({ nextSyncAt: new Date(Date.now() - 60_000) }).where(eq(libraryDocumentation.id, id));
+  }
+  test('existing connections default off; settings are owned and disabling clears the due time', async () => {
+    const a = await connected(), b = await signUpAndCookie(app, uniqueEmail());
+    expect((await summary(a.cookie, a.id)).schedule).toBe('off');
+    expect((await schedule(b.cookie, a.id, 'daily')).status).toBe(404);
+    expect((await schedule(a.cookie, a.id, 'hourly')).status).toBe(400);
+    expect((await schedule(a.cookie, a.id, 'daily')).status).toBe(200);
+    const enabled = await summary(a.cookie, a.id);
+    expect(new Date(enabled.nextSyncAt!).getTime()).toBeGreaterThan(Date.now());
+    await schedule(a.cookie, a.id, 'off');
+    expect((await summary(a.cookie, a.id)).nextSyncAt).toBeNull();
+    expect(await claimDocumentationCheck()).toBeNull();
+  });
+  test('one claim wins, live claims block manual updates and expired claims recover', async () => {
+    const a = await connected(); await schedule(a.cookie, a.id, 'daily'); await due(a.id);
+    const claims = await Promise.all([claimDocumentationCheck(), claimDocumentationCheck()]);
+    expect(claims.filter(Boolean)).toHaveLength(1);
+    expect((await callApp(app, 'POST', `${base}/${a.id}/updates`, { cookie: a.cookie })).status).toBe(409);
+    await db.update(libraryDocumentation).set({ syncClaimUntil: new Date(Date.now() - 1) }).where(eq(libraryDocumentation.id, a.id));
+    const recovered = await claimDocumentationCheck();
+    expect(recovered).not.toBeNull(); expect(recovered!.claimId).not.toBe(claims.find(Boolean)!.claimId);
+    await runClaimedDocumentationCheck(claims.find(Boolean)!);
+    expect((await summary(a.cookie, a.id)).state).toBe('completed');
+    await runClaimedDocumentationCheck(recovered!);
+    expect((await summary(a.cookie, a.id)).state).toBe('queued');
+  });
+  test('off fences a claimed check and cancelled imports never restart automatically', async () => {
+    const a = await connected(); await schedule(a.cookie, a.id, 'weekly'); await due(a.id);
+    const claim = await claimDocumentationCheck(); expect(claim).not.toBeNull();
+    await schedule(a.cookie, a.id, 'off'); await runClaimedDocumentationCheck(claim!);
+    expect((await summary(a.cookie, a.id)).state).toBe('completed');
+    await schedule(a.cookie, a.id, 'daily'); await due(a.id);
+    await db.update(libraryDocumentation).set({ state: 'cancelled' }).where(eq(libraryDocumentation.id, a.id));
+    expect(await claimDocumentationCheck()).toBeNull();
+  });
+  test('scheduled checks preserve identities and report actual added, updated and unchanged work', async () => {
+    const a = await connected(); const original = await db.select().from(sources);
+    expect((await summary(a.cookie, a.id)).lastResult).toMatchObject({ added: 2, updated: 0, unchanged: 0 });
+    await schedule(a.cookie, a.id, 'daily'); await due(a.id);
+    urls.push('https://example.com/docs/concepts/workloads/jobs');
+    await runDueDocumentationCheck(); await runDocumentationCollection(a.id);
+    expect((await summary(a.cookie, a.id)).lastResult).toMatchObject({ added: 1, updated: 0, unchanged: 2 });
+    expect((await db.select().from(sources)).filter(s => original.some(o => o.id === s.id))).toHaveLength(2);
+    version = 2; await due(a.id); await runDueDocumentationCheck(); await runDocumentationCollection(a.id);
+    expect((await summary(a.cookie, a.id)).lastResult).toMatchObject({ added: 0, updated: 3, unchanged: 0 });
+    failedUrl = original[0]!.url; version = 3;
+    await due(a.id); await runDueDocumentationCheck(); await runDocumentationCollection(a.id);
+    expect((await summary(a.cookie, a.id)).lastResult).toMatchObject({ added: 0, updated: 2, failed: 1 });
+  });
+  test('disabling while discovery is in flight prevents a late import commit', async () => {
+    const a = await connected(); await schedule(a.cookie, a.id, 'daily'); await due(a.id);
+    let release: ((response: Response) => void) | undefined;
+    __setPageFetchForTests(async input => String(input).endsWith('/sitemap.xml')
+      ? new Promise<Response>(resolve => { release = resolve; }) : new Response('', { status: 404 }));
+    const running = runDueDocumentationCheck();
+    for (let attempt = 0; !release && attempt < 100; attempt++) await new Promise(resolve => setTimeout(resolve, 5));
+    expect(release).toBeDefined();
+    await schedule(a.cookie, a.id, 'off');
+    release!(new Response(`<urlset>${urls.map(url => `<url><loc>${url}</loc></url>`).join('')}</urlset>`, { headers: { 'content-type': 'application/xml' } }));
+    await running;
+    expect(await summary(a.cookie, a.id)).toMatchObject({ state: 'completed', schedule: 'off', syncError: null });
+  });
+  test('discovery failures retain source text and use backoff rather than repeated immediate checks', async () => {
+    const a = await connected(); await schedule(a.cookie, a.id, 'daily'); await due(a.id);
+    const before = await db.select().from(sourceChunks);
+    __setPageFetchForTests(async () => { throw new Error('offline'); });
+    await runDueDocumentationCheck();
+    const result = await summary(a.cookie, a.id);
+    expect(result.syncError).toBe('documentation_unavailable');
+    expect(new Date(result.nextSyncAt!).getTime()).toBeGreaterThan(Date.now() + 14 * 60_000);
+    expect(await db.select().from(sourceChunks)).toEqual(before);
+    expect(await claimDocumentationCheck()).toBeNull();
   });
 });

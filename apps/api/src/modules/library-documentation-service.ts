@@ -1,6 +1,6 @@
 import { and, asc, count, eq, inArray, ne, sql } from 'drizzle-orm';
 import { db, libraryDocumentation as collections, libraryDocumentationPages as pages, libraryFolders, sources } from '@reomi/db';
-import { documentationRuleSelected, newUuidV7, type DocumentationManifest, type DocumentationPage } from '@reomi/shared';
+import { documentationPeriod, documentationRuleSelected, newUuidV7, type DocumentationManifest, type DocumentationPage, type DocumentationSchedule } from '@reomi/shared';
 import { env } from '../env';
 import { discoverDocumentation, documentationLabel, documentationSections, documentationUrlKey, selectedDocumentationPages } from '../ai/library-documentation-discovery';
 import { LibraryFolderError, lockLibraryFolders, validateLibraryFolder } from './library-folders';
@@ -24,6 +24,8 @@ export async function documentationSummary(userId: string, id: string) {
   const counts = Object.fromEntries(grouped.map(g => [g.state, Number(g.n)]));
   return { id: row.id, rootUrl: row.rootUrl, title: row.title, locale: row.locale, folderId: row.folderId,
     state: row.state, errorCode: row.errorCode, checkedAt: row.checkedAt, updatedAt: row.updatedAt,
+    schedule: row.schedule, nextSyncAt: row.nextSyncAt, syncError: row.syncError, lastResult: row.lastResult,
+    checking: Boolean(row.syncClaimId && row.syncClaimUntil && row.syncClaimUntil.getTime() > Date.now()),
     total: grouped.reduce((sum, g) => sum + Number(g.n), 0), completed: counts.ready ?? 0,
     pending: counts.pending ?? 0, failed: (counts.error ?? 0) + (counts.missing ?? 0), deleted: counts.deleted ?? 0 };
 }
@@ -141,10 +143,27 @@ export async function confirmDocumentation(userId: string, id: string, titleInpu
   return documentationSummary(userId, id);
 }
 
-export async function updateDocumentation(userId: string, id: string) {
+function assertDiscoveryClaim(row: DocumentationCollection, claimId?: string) {
+  const live = Boolean(row.syncClaimId && row.syncClaimUntil && row.syncClaimUntil.getTime() > Date.now());
+  if (claimId ? !live || row.syncClaimId !== claimId || row.schedule === 'off' : live) fail('documentation_busy');
+}
+
+export async function configureDocumentationSchedule(userId: string, id: string, schedule: DocumentationSchedule) {
+  await db.transaction(async tx => {
+    const row = await owned(userId, id, tx, true);
+    if (row.state === 'draft') fail('documentation_not_confirmed');
+    const period = documentationPeriod(schedule);
+    await tx.update(collections).set({ schedule, nextSyncAt: period ? new Date(Date.now() + period) : null,
+      syncClaimId: null, syncClaimUntil: null, syncFailures: 0, syncError: null, updatedAt: new Date() }).where(eq(collections.id, id));
+  });
+  return documentationSummary(userId, id);
+}
+
+export async function updateDocumentation(userId: string, id: string, claimId?: string) {
   const before = await owned(userId, id);
   if (before.state === 'draft') fail('documentation_not_confirmed');
   if (before.state === 'running' || before.state === 'queued') fail('documentation_busy');
+  assertDiscoveryClaim(before, claimId);
   let manifest: DocumentationManifest;
   try { manifest = await discoverDocumentation(before.rootUrl, before.locale); } catch { return fail('documentation_unavailable'); }
   if (!manifest.pages.length) fail('documentation_unavailable');
@@ -152,6 +171,7 @@ export async function updateDocumentation(userId: string, id: string) {
     await lockLibraryFolders(tx, userId);
     const row = await owned(userId, id, tx, true);
     if (row.runId !== before.runId || row.state !== before.state) fail('documentation_busy');
+    assertDiscoveryClaim(row, claimId);
     const selected = manifest.pages.filter(p => documentationRuleSelected(p.section, row.selectedPrefixes));
     const mapping = await ensureSectionFolders(tx, row, selected);
     const old = await tx.select().from(pages).where(and(eq(pages.userId, userId), eq(pages.collectionId, id))).for('update');
@@ -164,13 +184,14 @@ export async function updateDocumentation(userId: string, id: string) {
     const current = new Set(selected.map(p => p.url));
     for (const page of old) {
       const deleted = page.imported && !page.sourceId;
-      await tx.update(pages).set({ state: deleted ? 'deleted' : current.has(page.url) ? 'pending' : 'missing',
+      await tx.update(pages).set({ state: deleted ? 'deleted' : current.has(page.url) ? 'pending' : 'missing', lastChange: null,
         errorCode: deleted ? null : current.has(page.url) ? null : 'remote_missing' }).where(eq(pages.id, page.id));
     }
     if (added.length) await tx.insert(pages).values(added.map(p => ({ ...p, userId, collectionId: id,
       sourceId: existing.get(p.url) ?? null, imported: existing.has(p.url) })));
     await tx.update(collections).set({ manifest, sectionFolders: mapping, state: 'queued', runId: newUuidV7(),
-      errorCode: null, updatedAt: new Date() }).where(eq(collections.id, id));
+      errorCode: null, updatedAt: new Date(), syncClaimId: null, syncClaimUntil: null, syncFailures: 0, syncError: null,
+      nextSyncAt: documentationPeriod(row.schedule) ? new Date(Date.now() + documentationPeriod(row.schedule)!) : null }).where(eq(collections.id, id));
   });
   return documentationSummary(userId, id);
 }

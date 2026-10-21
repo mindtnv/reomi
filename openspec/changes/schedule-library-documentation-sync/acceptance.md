@@ -1,0 +1,9 @@
+# Acceptance
+
+- Focused tests: 21 passed, including concurrent claims, expired-claim recovery, manual update races, disabling before and during discovery, stable source identities, actual run outcomes and discovery backoff.
+- Full suite against the committed migration chain through generated 0051: 3574 passed, 0 failed, 18529 assertions. Real S3: 21 passed, 0 failed, 122 assertions.
+- Workspace types, ESLint and production build passed. Strict OpenSpec: 35 items passed. Repository-contract tests passed after adding the optional manual production acceptance entry point.
+- Browser checks passed across the complete journey and targeted reruns: accessibility machine evidence, Settings, library actions/folders and password snapshot passed in the complete run; the corrected documentation and sign-in/deck/review/statistics tests then both passed (1.2 minutes). The new selector now matches NNSelect's button and its current-value accessible label. A replacement worker after the initial selector failure exhausted the normal local signup limit, so the owned dev server was restarted before rerunning those two checks. Live assistant and opt-in production import were expected local skips; no production rate-limit settings changed.
+- After final layout changes, documentation UI passed again (12.4 seconds). Four changed normal/standalone screenshots were visually reviewed and saved under `docs/library-auto-sync/`; keyboard selection and 320px horizontal bounds passed.
+- An opt-in production smoke imports at most two entirely new Kubernetes concepts pages from the real `/docs/home/` manifest, opens readable text, changes the schedule, refreshes with stable source IDs and removes only that run's connection/materials/folder. This is not yet claimed as executed.
+- [PR #102](https://github.com/mindtnv/reomi/pull/102) contains the implementation. Production schedule verification remains pending until release and the optional real-site acceptance.
