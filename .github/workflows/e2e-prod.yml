@@ -9,6 +9,10 @@ on:
         description: 'Import a small live Kubernetes section and clean up this run'
         type: boolean
         default: false
+      capture:
+        description: 'Save a browser capture and source-backed card in the smoke account, then clean up'
+        type: boolean
+        default: false
   workflow_run:
     workflows: [deploy]
     types: [completed]
@@ -61,4 +65,5 @@ jobs:
           E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
           E2E_LIVE_DOCUMENTATION: ${{ github.event_name == 'workflow_dispatch' && inputs.documentation && 'true' || 'false' }}
+          E2E_LIVE_CAPTURE: ${{ github.event_name == 'workflow_dispatch' && inputs.capture && 'true' || 'false' }}
         run: bun run e2e:prod

@@ -5,7 +5,7 @@ import { librarySmokeSession } from './library-smoke-session';
 import { rememberSecret } from './secret-scan';
 
 test('capture handoff supports reviewed cards, source backlinks, keyboard and narrow standalone screens', async ({ page }) => {
-  test.skip(process.env.E2E_TARGET === 'prod', 'Capture credentials and fixture text belong to a disposable local learner.');
+  test.skip(process.env.E2E_TARGET === 'prod' && process.env.E2E_LIVE_CAPTURE !== 'true', 'Opt-in capture acceptance uses the designated smoke account and cleans up only its own resources.');
   const clientErrors: string[] = []; page.on('pageerror', error => clientErrors.push(error.message));
   const { api, target } = await librarySmokeSession(page);
   const quote = 'A Pod groups containers that share network resources and storage.';
@@ -18,7 +18,7 @@ test('capture handoff supports reviewed cards, source backlinks, keyboard and na
     await page.screenshot({ path: join(dir, `browser-extension-${name}.png`), fullPage: true });
   }
   try {
-    const saved = await page.request.post(`${api}/extension/captures`, { headers: { authorization: `Bearer ${credential.token}` }, data: { requestKey: crypto.randomUUID(), title: 'Understanding Pods', text: quote, url: 'https://example.test/learning/pods', mode: 'selection' } }); expect(saved.ok()).toBe(true);
+    const saved = await page.request.post(`${api}/extension/captures`, { headers: { authorization: `Bearer ${credential.token}` }, data: { requestKey: crypto.randomUUID(), title: 'Understanding Pods', text: quote, url: `https://example.test/learning/pods?capture=${target.deckName}`, mode: 'selection' } }); expect(saved.ok()).toBe(true);
     const receipt = await saved.json(); sourceId = receipt.sourceId;
     const deck = await page.request.post(`${api}/decks`, { data: { name: target.deckName } }); expect(deck.ok()).toBe(true); deckId = (await deck.json()).id;
     await page.goto('/settings'); await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible(); await page.getByRole('tab', { name: 'Connections', exact: true }).click();
@@ -30,6 +30,7 @@ test('capture handoff supports reviewed cards, source backlinks, keyboard and na
     await expect(page.locator('[data-source-text-body]')).toContainText(quote); await shot('handoff-desktop-light');
     await page.addInitScript(() => { const original = matchMedia.bind(window); window.matchMedia = query => { const result = original(query); if (query === '(display-mode: standalone)') Object.defineProperty(result, 'matches', { value: true }); return result; }; localStorage.setItem('reomi:theme', JSON.stringify({ version: 2, mode: 'dark', palette: 'default' })); });
     await page.setViewportSize({ width: 320, height: 740 }); await page.reload(); await expect(dialog, clientErrors.join('\n')).toBeVisible(); await shot('handoff-standalone-small-dark');
+    await dialog.getByRole('button', { name: /^Deck:/ }).click(); await page.getByRole('option', { name: target.deckName, exact: true }).click();
     await dialog.getByRole('textbox', { name: 'Front', exact: true }).fill('What does a Pod group?');
     const completed = page.waitForResponse(r => r.url().endsWith(`/sources/${sourceId}/quick-card`) && r.request().method() === 'POST');
     await page.keyboard.press('Control+Enter'); const cardResponse = await completed; expect(cardResponse.ok()).toBe(true);
