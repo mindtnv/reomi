@@ -136,14 +136,12 @@ describe('repository contracts', () => {
       'needs: [test, s3-integration, build-api, build-web]',
     );
   });
-  test('deployment stops the old API writer before migration-bearing replacement', () => {
+  test('deployment uses the tested prepare/drain/recover coordinator', () => {
     const workflow = readRepoFile('.github/workflows/deploy.yml');
-    const stop = workflow.indexOf('$COOLIFY_URL/applications/$API_APP_UUID/stop');
-    const deploy = workflow.indexOf('$COOLIFY_URL/deploy?uuid=$uuid');
-    expect(stop).toBeGreaterThan(-1);
-    expect(deploy).toBeGreaterThan(stop);
-    expect(workflow).toContain('old API did not stop');
-    expect(workflow).toContain('-X POST "$COOLIFY_URL/applications/$API_APP_UUID/stop?docker_cleanup=false"');
+    expect(workflow).toContain('run: bun scripts/deploy-coolify.ts');
+    expect(workflow).toContain('timeout-minutes: 40');
+    expect(workflow).not.toContain('/stop?docker_cleanup=false');
+    expect(readRepoFile('scripts/deploy-coolify.test.ts')).toContain('production rollout recovery');
   });
 
   test('deploy publishes reomi images and keeps the Coolify application ids', () => {
@@ -159,10 +157,6 @@ describe('repository contracts', () => {
     expect(workflow.indexOf('reomi-api:${{ github.sha }}')).toBeLessThan(
       workflow.indexOf('reomi-web:${{ github.sha }}'),
     );
-    expect(workflow).toContain('"neuronexus" in name or "reomi" in name');
-    const apiStop = workflow.indexOf('applications/$API_APP_UUID/stop');
-    const webUuidLoop = workflow.indexOf('for uuid in "$API_APP_UUID" "$WEB_APP_UUID"');
-    expect(webUuidLoop).toBeGreaterThan(apiStop);
   });
 
   test('browser smoke follows a pull request locally and a finished deploy in production', () => {
