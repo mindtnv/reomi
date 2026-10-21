@@ -10,6 +10,7 @@ import { computeSourceHash } from './index-queue';
 import { enqueueSource } from './source-ingest';
 import { lockLibraryFolders } from '../modules/library-folders';
 import { sourceUrlMap, type DocumentationCollection } from '../modules/library-documentation-service';
+import { runDueDocumentationCheck } from './library-documentation-scheduler';
 
 type Page = typeof pages.$inferSelect;
 let running: Promise<void> | null = null;
@@ -32,9 +33,13 @@ export function interruptDocumentationFetch(id: string) {
 }
 
 async function pump() {
+  let checkedSchedule = false;
   while (!stopping) {
     const [next] = await db.select({ id: collections.id }).from(collections).where(eq(collections.state, 'queued')).orderBy(asc(collections.updatedAt)).limit(1);
-    if (!next) break;
+    if (!next) {
+      if (!checkedSchedule) { checkedSchedule = true; if (await runDueDocumentationCheck()) continue; }
+      break;
+    }
     await runDocumentationCollection(next.id);
   }
 }
@@ -97,8 +102,16 @@ export async function runDocumentationCollection(id: string) {
       }
     }
     if (abort.signal.aborted) return;
-    const [{ n }] = await db.select({ n: count() }).from(pages).where(and(eq(pages.collectionId, id), inArray(pages.state, ['error', 'missing'])));
-    await db.update(collections).set({ state: Number(n) ? 'attention' : 'completed', errorCode: null, checkedAt: new Date(), updatedAt: new Date() })
+    const outcomes = await db.select({ state: pages.state, change: pages.lastChange, n: count() }).from(pages)
+      .where(and(eq(pages.userId, collection.userId), eq(pages.collectionId, id))).groupBy(pages.state, pages.lastChange);
+    const lastResult = { added: 0, updated: 0, unchanged: 0, failed: 0, missing: 0, completedAt: new Date().toISOString() };
+    for (const outcome of outcomes) {
+      if (outcome.state === 'error') lastResult.failed += Number(outcome.n);
+      else if (outcome.state === 'missing') lastResult.missing += Number(outcome.n);
+      else if (outcome.state === 'ready' && outcome.change) lastResult[outcome.change] += Number(outcome.n);
+    }
+    await db.update(collections).set({ state: lastResult.failed + lastResult.missing ? 'attention' : 'completed', errorCode: null,
+      checkedAt: new Date(), updatedAt: new Date(), lastResult })
       .where(and(eq(collections.id, id), eq(collections.runId, collection.runId), eq(collections.state, 'running')));
     documentationWorkerState.recover();
   } catch (error) {
@@ -147,7 +160,7 @@ async function savePage(collection: DocumentationCollection, page: Page, fetched
     if (!destinationId) throw new DocumentationWorkerError('documentation_folder_missing');
     const folderRows = await tx.select({ id: libraryFolders.id }).from(libraryFolders).where(and(eq(libraryFolders.userId, live.userId), inArray(libraryFolders.id, [live.folderId, destinationId])));
     if (!folderRows.some(f => f.id === destinationId) || !folderRows.some(f => f.id === live.folderId)) throw new DocumentationWorkerError('documentation_folder_missing');
-    let sourceId = currentPage.sourceId;
+    let sourceId = currentPage.sourceId, added = false;
     if (!sourceId) {
       const existing = await tx.select({ id: sources.id, url: sources.url, kind: sources.kind }).from(sources).where(and(eq(sources.userId, live.userId), ne(sources.status, 'deleting')));
       sourceId = sourceUrlMap(existing).get(page.url) ?? null;
@@ -157,6 +170,7 @@ async function savePage(collection: DocumentationCollection, page: Page, fetched
           title: (fetched.title || page.title).slice(0, 300), folderId: destinationId,
           docVersion: storedDocVersion(new URL(live.rootUrl).hostname), verified: true, status: 'indexing', ...newOperationRun() }).returning();
         sourceId = created!.id;
+        added = true;
       }
     }
     const [source] = await tx.select().from(sources).where(and(eq(sources.id, sourceId), eq(sources.userId, live.userId))).for('update');
@@ -175,7 +189,8 @@ async function savePage(collection: DocumentationCollection, page: Page, fetched
       await tx.update(sources).set({ status: 'indexing', ...newOperationRun(), errorCode: null,
         charCount: fetched.text.length, chunkCount: chunks.length, updatedAt: new Date() }).where(eq(sources.id, sourceId));
     }
-    await tx.update(pages).set({ sourceId, imported: true, state: 'ready', errorCode: null, checkedAt: new Date() }).where(eq(pages.id, page.id));
+    await tx.update(pages).set({ sourceId, imported: true, state: 'ready', errorCode: null,
+      lastChange: added ? 'added' : changed ? 'updated' : 'unchanged', checkedAt: new Date() }).where(eq(pages.id, page.id));
     return changed ? sourceId : null;
   });
 }

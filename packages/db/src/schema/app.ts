@@ -1057,9 +1057,17 @@ export const libraryDocumentation = pgTable('library_documentation', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   checkedAt: timestamp('checked_at', { withTimezone: true }),
+  schedule: text('schedule').notNull().default('off').$type<import('@reomi/shared').DocumentationSchedule>(),
+  nextSyncAt: timestamp('next_sync_at', { withTimezone: true }),
+  syncClaimId: uuid('sync_claim_id'),
+  syncClaimUntil: timestamp('sync_claim_until', { withTimezone: true }),
+  syncFailures: integer('sync_failures').notNull().default(0),
+  syncError: text('sync_error'),
+  lastResult: jsonb('last_result').$type<import('@reomi/shared').DocumentationResult>(),
 }, t => [
   index('library_documentation_owner_idx').on(t.userId, t.createdAt),
   index('library_documentation_queue_idx').on(t.state, t.updatedAt),
+  index('library_documentation_due_idx').on(t.nextSyncAt).where(sql`${t.schedule} <> 'off'`),
   uniqueIndex('library_documentation_connection_uq').on(t.userId, t.rootUrl, t.locale).where(sql`${t.state} <> 'draft'`),
 ]);
 
@@ -1073,6 +1081,7 @@ export const libraryDocumentationPages = pgTable('library_documentation_pages', 
   sourceId: uuid('source_id').references(() => sources.id, { onDelete: 'set null' }),
   imported: boolean('imported').notNull().default(false),
   state: text('state').notNull().default('pending').$type<'pending' | 'ready' | 'error' | 'missing' | 'deleted'>(),
+  lastChange: text('last_change').$type<'added' | 'updated' | 'unchanged'>(),
   errorCode: text('error_code'),
   checkedAt: timestamp('checked_at', { withTimezone: true }),
 }, t => [

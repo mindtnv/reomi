@@ -38,10 +38,12 @@ test('documentation preview, collection controls and compact source reading', as
       }
       collection = { id: collectionId, rootUrl: 'https://kubernetes.io/docs/', title: 'Kubernetes', locale: 'en', folderId,
         state: 'completed', total: 2, completed: 2, pending: 0, failed: 0, deleted: 0, errorCode: null,
-        checkedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+        checkedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), schedule: 'off', nextSyncAt: null,
+        checking: false, syncError: null, lastResult: { added: 2, updated: 0, unchanged: 0, failed: 0, missing: 0, completedAt: new Date().toISOString() } };
       return route.fulfill({ json: collection });
     }
     if (path.endsWith('/updates')) { collection = { ...collection, state: 'running', pending: 2, completed: 0 }; return route.fulfill({ json: collection }); }
+    if (path.endsWith('/schedule')) { const schedule = route.request().postDataJSON().schedule; collection = { ...collection, schedule, nextSyncAt: schedule === 'off' ? null : new Date(Date.now() + 86_400_000).toISOString() }; return route.fulfill({ json: collection }); }
     if (path.endsWith('/cancel')) { collection = { ...collection, state: 'cancelled' }; return route.fulfill({ json: collection }); }
     return route.fulfill({ json: { items: collection ? [collection] : [] } });
   });
@@ -71,6 +73,11 @@ test('documentation preview, collection controls and compact source reading', as
     expect(selected).toContain('/docs/concepts/'); expect(selected).toContain('!/docs/tasks/');
     await expect(page.locator('.nn-lib-row').filter({ hasText: 'Pods' })).toBeVisible();
     await expect(page.locator('.nn-lib-grid')).toHaveCount(0);
+    const schedule = page.getByRole('button', { name: 'Auto-update: Kubernetes', exact: true });
+    await schedule.focus(); await page.keyboard.press('Enter');
+    await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter');
+    await expect(schedule).toContainText('Every day');
+    await expect(page.getByText(/^Next check:/)).toBeVisible();
     await shot('collection-desktop-light');
     await page.getByRole('button', { name: 'Check for updates', exact: true }).click();
     await expect(page.getByRole('progressbar', { name: 'Import progress' })).toBeVisible();

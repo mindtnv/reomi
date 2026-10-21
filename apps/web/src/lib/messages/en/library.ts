@@ -9,6 +9,11 @@
 
 const library = {
   documentation: {
+    schedule: 'Auto-update', scheduleFor: 'Auto-update: {title}',
+    schedules: { off: 'Off', daily: 'Every day', weekly: 'Every week' },
+    checking: 'Checking for updates…', nextCheck: 'Next check: {date}', lastChecked: 'Checked: {date}',
+    schedulePaused: 'Auto-update continues after you resume the import.',
+    changes: 'Added {added} · Updated {updated} · Unchanged {unchanged}',
     add: 'Connect documentation', description: 'Choose website sections. Each page becomes a separate library material.',
     connected: 'Connected documentation', url: 'Documentation URL', language: 'Page language',
     scopeHint: 'We look within the documentation. Translations, other websites and old versions are not added automatically.',

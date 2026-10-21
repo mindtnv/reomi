@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { documentationRuleSelected } from '@reomi/shared';
+import { documentationRuleSelected, type DocumentationSchedule } from '@reomi/shared';
 import { ApiError } from '@/lib/api';
 import { documentationApi, documentationSelection, type DocumentationPreview } from '@/lib/library-documentation';
 import { useLocale, useT } from '@/lib/i18n';
@@ -29,7 +29,7 @@ export function LibraryDocumentation(props: Parameters<typeof DocumentationWorks
 function DocumentationWorkspace({ open, onClose, onChanged, onOpenFolder }: {
   open: boolean; onClose: () => void; onChanged: () => void; onOpenFolder: (id: string) => void;
 }) {
-  const t = useT(), dialog = useDialog(), owner = useNN(s => s.profile?.userId);
+  const t = useT(), { locale } = useLocale(), dialog = useDialog(), owner = useNN(s => s.profile?.userId);
   const mounted = useRef(true), busyRef = useRef(false);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const fetcher = useCallback(async () => ({ ...await documentationApi.list(), owner }), [owner]);
@@ -37,20 +37,20 @@ function DocumentationWorkspace({ open, onClose, onChanged, onOpenFolder }: {
   const [busy, setBusy] = useState<string | null>(null), [error, setError] = useState('');
   const [details, setDetails] = useState<{ id: string; items: { id: string; title: string; url: string; errorCode: string | null }[] } | null>(null);
   const items = resource.data?.owner === owner ? resource.data?.items ?? [] : [];
-  const active = items.some(c => c.state === 'queued' || c.state === 'running');
-  const counts = items.map(c => `${c.id}:${c.completed}:${c.failed}:${c.state}`).join('|');
+  const active = items.some(c => c.state === 'queued' || c.state === 'running' || c.checking);
+  const scheduled = items.some(c => c.schedule && c.schedule !== 'off');
+  const counts = items.map(c => `${c.id}:${c.completed}:${c.failed}:${c.state}:${c.checkedAt}`).join('|');
   const priorCounts = useRef(counts);
   useEffect(() => {
     if (priorCounts.current !== counts) { priorCounts.current = counts; onChanged(); }
   }, [counts, onChanged]);
   useEffect(() => {
-    if (!active) return;
     const refresh = () => { if (!document.hidden) resource.refresh(); };
-    const timer = setInterval(refresh, 2000);
+    const timer = active || scheduled ? setInterval(refresh, active ? 2000 : 60_000) : null;
     document.addEventListener('visibilitychange', refresh);
-    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
-  }, [active, resource.refresh]);
-  async function run(id: string, action: 'update' | 'cancel' | 'errors' | 'disconnect') {
+    return () => { if (timer) clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
+  }, [active, scheduled, resource.refresh]);
+  async function run(id: string, action: 'update' | 'cancel' | 'errors' | 'disconnect' | 'schedule', schedule?: DocumentationSchedule) {
     if (busyRef.current) return;
     busyRef.current = true; setBusy(id); setError('');
     const current = () => mounted.current && owner === useNN.getState().profile?.userId;
@@ -62,7 +62,8 @@ function DocumentationWorkspace({ open, onClose, onChanged, onOpenFolder }: {
         if (action === 'disconnect') {
           if (!await dialog.confirm({ title: t('library.documentation.disconnect'), message: t('library.documentation.disconnectHint'), confirmLabel: t('library.documentation.disconnect') }) || !current()) return;
           await documentationApi.disconnect(id);
-        } else if (action === 'update') await documentationApi.update(id); else await documentationApi.cancel(id);
+        } else if (action === 'schedule' && schedule) await documentationApi.schedule(id, schedule);
+        else if (action === 'update') await documentationApi.update(id); else await documentationApi.cancel(id);
         if (current()) { invalidateSessionResourceScope('library:documentation'); resource.refresh(); onChanged(); setDetails(null); }
       }
     } catch (e) {
@@ -77,15 +78,23 @@ function DocumentationWorkspace({ open, onClose, onChanged, onOpenFolder }: {
         const running = item.state === 'queued' || item.state === 'running';
         return <div className="reomi-doc-connection" key={item.id}>
           <div className="reomi-doc-connection-title"><NNIcon name="book" size={20} /><div><strong>{item.title}</strong><span className="reomi-doc-muted">{new URL(item.rootUrl).hostname} · {item.locale.toUpperCase()}</span></div></div>
-          <div className="reomi-doc-progress" aria-live="polite"><span>{t(`library.documentation.states.${item.state}`)} · {t('library.documentation.progress', { done: item.completed, total: item.total })}</span>
+          <div className="reomi-doc-progress" aria-live="polite"><span>{t(item.checking ? 'library.documentation.checking' : `library.documentation.states.${item.state}`)} · {t('library.documentation.progress', { done: item.completed, total: item.total })}</span>
             {running && <progress max={Math.max(1, item.total)} value={item.total - item.pending} aria-label={t('library.documentation.importProgress')} />}
             {item.failed > 0 && <Button variant="ghost" size="sm" onClick={() => void run(item.id, 'errors')} disabled={busy !== null}>{t('library.documentation.failures', { count: item.failed })}</Button>}
             {item.errorCode && <span role="status" className="reomi-doc-error">{t(errorKey(item.errorCode))}</span>}
+            {item.syncError && <span role="status" className="reomi-doc-error">{t(errorKey(item.syncError))}</span>}
+            {item.lastResult && <span className="reomi-doc-muted">{t('library.documentation.changes', { added: item.lastResult.added, updated: item.lastResult.updated, unchanged: item.lastResult.unchanged })}</span>}
+            {item.checkedAt && <span className="reomi-doc-muted">{t('library.documentation.lastChecked', { date: new Date(item.checkedAt).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' }) })}</span>}
           </div>
+          <div className="reomi-doc-controls"><label className="reomi-doc-schedule"><span>{t('library.documentation.schedule')}</span><NNSelect
+            ariaLabel={t('library.documentation.scheduleFor', { title: item.title })} value={item.schedule ?? 'off'} disabled={busy !== null}
+            options={(['off', 'daily', 'weekly'] as const).map(value => ({ value, label: t(`library.documentation.schedules.${value}`) }))}
+            onChange={value => void run(item.id, 'schedule', value as DocumentationSchedule)} /></label>
+          {item.schedule !== 'off' && item.nextSyncAt && <span className="reomi-doc-muted reomi-doc-next">{item.state === 'cancelled' ? t('library.documentation.schedulePaused') : t('library.documentation.nextCheck', { date: new Date(item.nextSyncAt).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' }) })}</span>}
           <div className="reomi-doc-actions"><Button variant="soft" size="sm" disabled={!item.folderId} onClick={() => item.folderId && onOpenFolder(item.folderId)}>{t('library.documentation.openFolder')}</Button>
-            <Button variant="ghost" size="sm" disabled={busy !== null || !item.folderId} onClick={() => void run(item.id, running ? 'cancel' : 'update')}>
+            <Button variant="ghost" size="sm" disabled={busy !== null || !item.folderId || item.checking} onClick={() => void run(item.id, running ? 'cancel' : 'update')}>
               {busy === item.id ? t('states.loading') : t(running ? 'library.documentation.cancelImport' : item.state === 'cancelled' ? 'library.documentation.resume' : 'library.documentation.checkUpdates')}
-            </Button><Button variant="ghost" size="sm" disabled={busy !== null} aria-label={t('library.documentation.disconnect')} onClick={() => void run(item.id, 'disconnect')}><NNIcon name="x" size={14} /></Button></div>
+            </Button><Button variant="ghost" size="sm" disabled={busy !== null} aria-label={t('library.documentation.disconnect')} onClick={() => void run(item.id, 'disconnect')}><NNIcon name="x" size={14} /></Button></div></div>
         </div>;
       })}
       {details && <div className="reomi-doc-errors"><div className="reomi-doc-heading"><strong>{t('library.documentation.failureDetails')}</strong><Button size="sm" variant="ghost" onClick={() => setDetails(null)}>{t('actions.close')}</Button></div>
