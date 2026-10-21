@@ -2,6 +2,8 @@
 
 Implementation branch: `feat/library-documentation-import`.
 
+Pull request: [#99](https://github.com/mindtnv/reomi/pull/99).
+
 ## Contract and behavior
 
 - Explicit section preview and confirmation, ordinary library source identity, hierarchy, quotas and capacity reservations.

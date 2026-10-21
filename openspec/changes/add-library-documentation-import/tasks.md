@@ -20,4 +20,4 @@
 
 - [x] 4.1 Update canonical project documentation and rollout/rollback guidance; verify AGENTS mirrors CLAUDE and strict OpenSpec validation succeeds.
 - [x] 4.2 Run fresh migration-faithful full tests, separate mandatory real-S3 tests, typecheck, lint, production builds and browser smoke after the final change; record acceptance evidence.
-- [ ] 4.3 Review the final diff, commit the feature and create/attach a pull request with validation and screenshots; record the PR URL in acceptance evidence.
+- [x] 4.3 Review the final diff, commit the feature and create/attach a pull request with validation and screenshots; record the PR URL in acceptance evidence.
