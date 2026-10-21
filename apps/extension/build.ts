@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { zipSync } from 'fflate';
 
 const root = dirname(fileURLToPath(import.meta.url)), dev = process.argv.includes('--dev');
+const { version } = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as { version: string };
+if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error('Extension version must be three numeric components');
 const api = dev ? 'http://localhost:3000' : 'https://api.reomi.ru', web = dev ? 'http://localhost:3001' : 'https://app.reomi.ru';
 for (const target of ['chromium', 'firefox'] as const) {
   const out = join(root, 'dist', `${target}${dev ? '-dev' : ''}`); await mkdir(out, { recursive: true });
@@ -15,7 +17,7 @@ for (const target of ['chromium', 'firefox'] as const) {
   for (const name of ['popup.html','popup.css']) await copyFile(join(root,'src',name),join(out,name));
   await copyFile(join(root,'../web/public/icons/icon-192.png'),join(out,'icon.png'));
   const manifest = {
-    manifest_version: 3, name: 'Reomi — save and study', version: '0.1.0', description: 'Save readable pages to your Reomi library and create reviewed cards with their sources.',
+    manifest_version: 3, name: 'Reomi — save and study', version, description: 'Save readable pages to your Reomi library and create reviewed cards with their sources.',
     permissions: ['activeTab', 'scripting', 'storage', 'contextMenus'], host_permissions: [`${api}/*`, ...(dev && process.env.REOMI_EXTENSION_TEST_ORIGIN ? [`${new URL(process.env.REOMI_EXTENSION_TEST_ORIGIN).origin}/*`] : [])],
     action: { default_popup: 'popup.html', default_icon: 'icon.png', default_title: 'Reomi' }, icons: { '192': 'icon.png' },
     background: target === 'chromium' ? { service_worker: 'background.js' } : { scripts: ['background.js'] },
@@ -26,6 +28,6 @@ for (const target of ['chromium', 'firefox'] as const) {
   await writeFile(join(out,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');
   const entries: Record<string, [Uint8Array, { mtime: Date }]> = {};
   for (const name of ['background.js','capture.js','icon.png','manifest.json','popup.css','popup.html','popup.js']) entries[name] = [new Uint8Array(await readFile(join(out,name))), { mtime: new Date('1980-01-01T00:00:00Z') }];
-  const zip = join(root,'dist',`reomi-${target}${dev ? '-dev' : ''}-0.1.0.zip`); await writeFile(zip,zipSync(entries,{level:9}));
+  const zip = join(root,'dist',`reomi-${target}${dev ? '-dev' : ''}-${version}.zip`); await writeFile(zip,zipSync(entries,{level:9}));
   process.stdout.write(`${target}: ${zip}\n`);
 }
