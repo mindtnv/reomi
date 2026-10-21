@@ -10,4 +10,4 @@
 
 - [x] 2.1 Add bilingual compact schedule/result controls and verify keyboard, mobile and standalone screenshots.
 - [x] 2.2 Update documentation and mirrored guides; pass strict specs, types, lint, full migrated tests, real S3, build and browser smoke.
-- [ ] 2.3 Publish, review, merge and verify the deployed schedule controls; record acceptance evidence.
+- [x] 2.3 Publish, review, merge and verify the deployed schedule controls; record acceptance evidence.

@@ -24,8 +24,11 @@ export function extractPage(doc: Document, view: Window): CaptureResult {
     const style = view.getComputedStyle(node);
     if (style.display === 'none' || style.visibility === 'hidden') copy.remove();
   }
-  const article = new Readability(clone, { charThreshold: 80 }).parse();
-  const text = article?.textContent?.trim() ?? '';
+  const article = new Readability(clone, { charThreshold: 80, serializer: root => {
+    (root as Element).querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,pre,blockquote,tr,br').forEach(node => { node.prepend('\n\n'); node.append('\n\n'); });
+    return root.textContent ?? '';
+  } }).parse();
+  const text = article?.content?.replace(/\n[ \t]+/g, '\n').replace(/\n{3,}/g, '\n\n').trim() ?? '';
   if (!text && !selection) return { ok: false, error: 'unreadable' };
   if (text.length > 200000 && !selection) return { ok: false, error: 'too_large' };
   return { ok: true, capture: { url: url.href, title: (article?.title?.trim() || doc.title || url.hostname).slice(0, 300), text, selection } };

@@ -21,7 +21,7 @@ for (const target of ['chromium', 'firefox'] as const) {
     background: target === 'chromium' ? { service_worker: 'background.js' } : { scripts: ['background.js'] },
     commands: { 'capture-selection': { suggested_key: { default: 'Alt+Shift+S' }, description: 'Save a selected passage to Reomi' } },
     content_security_policy: { extension_pages: "script-src 'self'; object-src 'none'; base-uri 'none'" },
-    ...(target === 'firefox' ? { browser_specific_settings: { gecko: { id: 'capture@reomi.ru', strict_min_version: '128.0', data_collection_permissions: { required: ['websiteContent'], optional: [] } } } } : {}),
+    ...(target === 'firefox' ? { browser_specific_settings: { gecko: { id: 'capture@reomi.ru', strict_min_version: '142.0', data_collection_permissions: { required: ['websiteContent'], optional: [] } } } } : {}),
   };
   await writeFile(join(out,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');
   const entries: Record<string, [Uint8Array, { mtime: Date }]> = {};
