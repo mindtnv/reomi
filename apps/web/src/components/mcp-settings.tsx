@@ -70,7 +70,7 @@ export function McpSettings() {
     {error && <div role="alert" style={{ color: 'var(--rose-400)', fontSize: 13 }}>{t('settings.mcp.error')} <NNBtn size="sm" onClick={refresh}>{t('settings.mcp.retry')}</NNBtn></div>}
     <form className="reomi-mcp-create" onSubmit={create} style={{ display: 'grid', gap: 10 }}>
       <Field label={t('settings.mcp.name')}>
-        <TextInput value={name} onChange={e => setName(e.target.value)} maxLength={80} required placeholder="Codex / Claude" />
+        <TextInput value={name} onChange={e => setName(e.target.value)} maxLength={80} required placeholder={scope === 'capture' ? 'Reomi browser' : 'Codex / Claude'} />
       </Field>
       <div className="reomi-mcp-choice">
         <span>{t('settings.mcp.permissions')}</span>

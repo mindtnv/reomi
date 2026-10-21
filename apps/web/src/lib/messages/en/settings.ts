@@ -5,8 +5,8 @@ const m = {
 
   tabs: {label: 'Settings sections', general: 'General', appearance: 'Appearance', learning: 'Learning', ai: 'Assistant', connections: 'Connections', data: 'Data'},
   mcp: {
-    title: 'App access', subtitle: 'Connect external agents to your knowledge base.',
-    hint: 'Each token grants access only to your data. Changes require a preview and your confirmation in the agent client.',
+    title: 'App access', subtitle: 'Connect the Reomi extension and external agents.',
+    hint: 'Choose permissions and an expiry for each app. You can revoke its access at any time.',
     name: 'Token name', permissions: 'Permissions', read: 'Read only', write: 'Read and manage',
     capture: 'Browser capture', captureHint: 'Paste this token into the Reomi extension. It can save pages and list your folders; it cannot read the rest of your library or connect an agent.',
     expires: 'Expires after', days: '{n} days', create: 'Generate token', working: 'Working…',

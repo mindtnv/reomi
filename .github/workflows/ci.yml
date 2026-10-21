@@ -190,3 +190,11 @@ jobs:
           name: e2e-artifacts
           if-no-files-found: ignore
           path: e2e/artifacts/*.png
+
+      - name: Upload browser capture evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-capture-evidence
+          if-no-files-found: ignore
+          path: e2e/artifacts/browser-extension-*.png
