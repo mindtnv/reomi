@@ -8,6 +8,7 @@ const m = {
     title: 'App access', subtitle: 'Connect external agents to your knowledge base.',
     hint: 'Each token grants access only to your data. Changes require a preview and your confirmation in the agent client.',
     name: 'Token name', permissions: 'Permissions', read: 'Read only', write: 'Read and manage',
+    capture: 'Browser capture', captureHint: 'Paste this token into the Reomi extension. It can save pages and list your folders; it cannot read the rest of your library or connect an agent.',
     expires: 'Expires after', days: '{n} days', create: 'Generate token', working: 'Working…',
     oneTime: 'Copy this token now. It will not be shown again.', copyToken: 'Copy token', saved: 'I saved the token', copied: 'Copied',
     empty: 'No personal tokens yet.', validUntil: 'Valid until', lastUsed: 'Last used', never: 'Never',

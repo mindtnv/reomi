@@ -8,7 +8,7 @@ export const personalAccessTokens = pgTable('personal_access_tokens', {
   name: text('name').notNull(),
   tokenHash: text('token_hash').notNull(),
   prefix: text('prefix').notNull(),
-  scope: text('scope', { enum: ['read', 'write'] }).notNull().default('read'),
+  scope: text('scope', { enum: ['read', 'write', 'capture'] }).notNull().default('read'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
@@ -16,7 +16,7 @@ export const personalAccessTokens = pgTable('personal_access_tokens', {
 }, (t) => [
   uniqueIndex('personal_access_tokens_hash_uq').on(t.tokenHash),
   index('personal_access_tokens_user_created_idx').on(t.userId, t.createdAt),
-  check('personal_access_tokens_scope_check', sql`${t.scope} in ('read', 'write')`),
+  check('personal_access_tokens_scope_check', sql`${t.scope} in ('read', 'write', 'capture')`),
 ]);
 
 export const mcpActions = pgTable('mcp_actions', {

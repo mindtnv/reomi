@@ -42,7 +42,7 @@ export function sourceUrlMap(rows: { id: string; url: string | null; kind: strin
   return map;
 }
 
-async function reservedUrls(userId: string, tx: typeof db | Tx = db, exceptId?: string) {
+export async function reservedUrls(userId: string, tx: typeof db | Tx = db, exceptId?: string) {
   const rows = await tx.select({ url: pages.url }).from(pages).innerJoin(collections, eq(collections.id, pages.collectionId))
     .where(and(eq(pages.userId, userId), eq(collections.userId, userId), eq(pages.imported, false), eq(pages.state, 'pending'),
       inArray(collections.state, ['queued', 'running']), exceptId ? ne(collections.id, exceptId) : undefined));

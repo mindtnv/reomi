@@ -34,7 +34,7 @@ afterEach(async () => {
   delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
 });
 
-test('app access uses designed fields, segments, and a disclosure button', async () => {
+test('app access offers scoped credentials and a separate agent disclosure', async () => {
   await act(async () => root.render(<I18nProvider><DialogProvider><McpSettings /></DialogProvider></I18nProvider>));
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
   expect(host.querySelectorAll('select').length).toBe(0);
@@ -42,11 +42,15 @@ test('app access uses designed fields, segments, and a disclosure button', async
   const name = host.querySelector<HTMLInputElement>('input.reomi-input')!;
   expect(name.placeholder).toBe('Codex / Claude');
   const groups = host.querySelectorAll('[role="radiogroup"]');
-  expect(groups).toHaveLength(2);
-  expect(groups[0].textContent).toContain('Read only');
-  expect(groups[0].textContent).toContain('Read and manage');
-  expect(groups[1].textContent).toContain('90 days');
-  const connect = host.querySelector<HTMLButtonElement>('button[aria-expanded="false"]')!;
+  expect(groups).toHaveLength(1);
+  expect(groups[0].textContent).toContain('90 days');
+  const permissions = host.querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]')!;
+  expect(permissions.textContent).toContain('Read only');
+  await act(async () => permissions.click());
+  const capture = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(option => option.textContent?.includes('Browser capture'))!;
+  await act(async () => capture.click());
+  expect(host.textContent).toContain('Paste this token into the Reomi extension');
+  const connect = [...host.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.includes('Connect an agent'))!;
   expect(connect.textContent).toContain('Connect an agent');
   await act(async () => connect.click());
   expect(connect.getAttribute('aria-expanded')).toBe('true');

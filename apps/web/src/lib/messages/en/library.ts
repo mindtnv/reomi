@@ -8,6 +8,8 @@
 // can enforce both independently. Every key MUST exist in BOTH locales.
 
 const library = {
+  capture: { loading: 'Opening your saved passage…', unavailable: 'This capture is unavailable or its source has changed. Open the material and select a passage, or sign in to the account connected to the extension.',
+    pageHint: 'Your page is saved. This draft starts with its opening passage; you can select another passage in the material.', selectionHint: 'Your selected passage is saved in the library. Review the card and choose a deck before saving.' },
   documentation: {
     schedule: 'Auto-update', scheduleFor: 'Auto-update: {title}',
     schedules: { off: 'Off', daily: 'Every day', weekly: 'Every week' },

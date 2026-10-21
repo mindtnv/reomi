@@ -38,7 +38,7 @@ export const personalTokensModule = new Elysia({ prefix: '/profile/tokens' })
     return result ?? status(409, { error: 'token_limit' });
   }, { auth: true, body: t.Object({
     name: t.String({ minLength: 1, maxLength: 80 }),
-    scope: t.Optional(t.Union([t.Literal('read'), t.Literal('write')])),
+    scope: t.Optional(t.Union([t.Literal('read'), t.Literal('write'), t.Literal('capture')])),
     expiresInDays: t.Optional(t.Integer({ minimum: 1, maximum: 365 })),
   }) })
   .delete('/:id', async ({ user, params, status }) => {

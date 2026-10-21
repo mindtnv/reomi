@@ -7,9 +7,10 @@ import { useT } from '@/lib/i18n';
 import { apiErrorFromResponse } from '@/lib/api';
 import { copyCodeText } from './chat/code-copy';
 import { useDialog } from './dialog';
+import { NNSelect } from './nn-select';
 
 const apiBase = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000').replace(/\/$/, '');
-type TokenItem = { id: string; name: string; prefix: string; scope: 'read' | 'write'; expiresAt: string; lastUsedAt: string | null; revokedAt: string | null };
+type TokenItem = { id: string; name: string; prefix: string; scope: 'read' | 'write' | 'capture'; expiresAt: string; lastUsedAt: string | null; revokedAt: string | null };
 async function request<T>(path = '', options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${apiBase}/profile/tokens${path}`, { ...options, credentials: 'include', headers: { 'content-type': 'application/json' }, cache: 'no-store' });
   if (!response.ok) throw await apiErrorFromResponse(response);
@@ -23,7 +24,7 @@ export function McpSettings() {
   const [busy, setBusy] = useState(false);
   const mutationLock = useRef(false);
   const [name, setName] = useState('');
-  const [scope, setScope] = useState<'read' | 'write'>('read');
+  const [scope, setScope] = useState<'read' | 'write' | 'capture'>('read');
   const [days, setDays] = useState(90);
   const [connectOpen, setConnectOpen] = useState(false);
   const [created, setCreated] = useState<{ token: string; item: TokenItem } | null>(null);
@@ -73,10 +74,12 @@ export function McpSettings() {
       </Field>
       <div className="reomi-mcp-choice">
         <span>{t('settings.mcp.permissions')}</span>
-        <SegmentedControl label={t('settings.mcp.permissions')} value={scope} onChange={setScope} options={[
+        <NNSelect ariaLabel={t('settings.mcp.permissions')} value={scope} onChange={setScope} options={[
           { value: 'read', label: t('settings.mcp.read') },
           { value: 'write', label: t('settings.mcp.write') },
+          { value: 'capture', label: t('settings.mcp.capture') },
         ]} />
+        {scope === 'capture' && <p className="reomi-field-hint">{t('settings.mcp.captureHint')}</p>}
       </div>
       <div className="reomi-mcp-choice">
         <span>{t('settings.mcp.expires')}</span>
@@ -95,7 +98,7 @@ export function McpSettings() {
       {items?.map(item => {
         const inactive = Boolean(item.revokedAt) || new Date(item.expiresAt) <= new Date();
         return <div className="reomi-mcp-token" key={item.id} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ flex: '1 1 220px', minWidth: 0 }}><div style={{ fontSize: 13, overflowWrap: 'anywhere' }}>{item.name} · {t(item.scope === 'read' ? 'settings.mcp.read' : 'settings.mcp.write')}</div><div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>{item.prefix}… · {t('settings.mcp.validUntil')} {new Date(item.expiresAt).toLocaleDateString()} · {t('settings.mcp.lastUsed')} {item.lastUsedAt ? new Date(item.lastUsedAt).toLocaleString() : t('settings.mcp.never')}</div></div>
+          <div style={{ flex: '1 1 220px', minWidth: 0 }}><div style={{ fontSize: 13, overflowWrap: 'anywhere' }}>{item.name} · {t(`settings.mcp.${item.scope}`)}</div><div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>{item.prefix}… · {t('settings.mcp.validUntil')} {new Date(item.expiresAt).toLocaleDateString()} · {t('settings.mcp.lastUsed')} {item.lastUsedAt ? new Date(item.lastUsedAt).toLocaleString() : t('settings.mcp.never')}</div></div>
           {inactive ? <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>{t(item.revokedAt ? 'settings.mcp.revoked' : 'settings.mcp.expired')}</span> : <NNBtn size="sm" disabled={busy} onClick={() => void revoke(item)}>{t('settings.mcp.revoke')}</NNBtn>}
         </div>;
       })}

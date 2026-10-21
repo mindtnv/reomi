@@ -35,6 +35,7 @@ import { cardRecoveryModule } from './modules/card-recovery';
 import { remindersModule } from './modules/reminders';
 import { ActionDomainError } from './modules/ui-action-receipts';
 import { personalTokensModule } from './modules/personal-tokens.ts';
+import { browserCaptureModule, browserCaptureHandoffModule, CaptureError } from './modules/browser-capture';
 import { handleMcp } from './mcp/server.ts';
 import { authRateRuleFor, clientIpFromRequest, rateLimitCheck } from './rate-limit.ts';
 import { pickRequestId, requestLogger, requestLogFromContext, rootLogger, safeError } from './logger.ts';
@@ -216,6 +217,10 @@ export function buildApp(options: BuildAppOptions = {}) {
         if (state) state.errorStatus = error.status;
         return status(error.status, { error: error.code });
       }
+      if (error instanceof CaptureError) {
+        if (state) state.errorStatus = error.status;
+        return status(error.status, { error: error.message });
+      }
       if (error instanceof ActionDomainError) {
         if (state) state.errorStatus = error.status;
         return status(error.status, error.payload);
@@ -254,7 +259,7 @@ export function buildApp(options: BuildAppOptions = {}) {
     })
     .use(profileModule)
     .use(studyDayModule)
-    .use(personalTokensModule)
+    .use(new Elysia().use(personalTokensModule).use(browserCaptureModule))
     .use(decksModule)
     .use(noteTypesModule)
     .use(notesModule)
@@ -276,7 +281,7 @@ export function buildApp(options: BuildAppOptions = {}) {
     .use(sourcesModule)
     .use(sourceStudyModule)
     .use(sourceTextMarksModule)
-    .use(new Elysia().use(libraryModule).use(libraryFoldersModule).use(libraryDocumentationModule))
+    .use(new Elysia().use(libraryModule).use(libraryFoldersModule).use(libraryDocumentationModule).use(browserCaptureHandoffModule))
     .use(operationsModule)
     .use(uiActionsModule)
     .use(cardRecoveryModule)

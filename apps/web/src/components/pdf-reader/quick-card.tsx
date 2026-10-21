@@ -47,6 +47,7 @@ export interface QuickCardDialogProps {
   textSelection?: SourceTextSelection;
   prefillFront?: string;
   prefillBack?: string;
+  contextHint?: string;
   /** W4: marquee/selection rects so the server can plant a card marker. */
   rects?: MarkRect[];
   /** Locale (e.g. 'en'|'ru') — passed to suggest-card so AI writes in the user's language. */
@@ -67,6 +68,7 @@ export function QuickCardDialog({
   textSelection,
   prefillFront,
   prefillBack,
+  contextHint,
   rects,
   locale,
   onCreated,
@@ -275,6 +277,7 @@ export function QuickCardDialog({
 
         {/* Body */}
         <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {contextHint && <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)' }}>{contextHint}</p>}
           {/* Deck picker */}
           <div>
             <label
