@@ -13,8 +13,8 @@
 #
 # Secrets: COOLIFY_TOKEN (team-8 API token). NEXT_PUBLIC_* are build args here
 # (baked into the web bundle — Coolify never sees them).
-# Rollback: point docker_registry_image_tag at a previous sha via the Coolify
-# API/UI and redeploy.
+# Rollback: the coordinator immediately restores previous tags on failure.
+# See docs/production-rollout.md for compatibility and manual recovery.
 
 name: deploy
 
@@ -207,73 +207,15 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Includes a separate bounded recovery window; never cancel an active rollout.
+    timeout-minutes: 40
     needs: [test, s3-integration, build-api, build-web]
     steps:
-      - name: Point Coolify at the new tags and deploy
-        run: |
-          set -euo pipefail
-          auth=(-H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" -H "Content-Type: application/json")
-          # Drain the old writer before the new image applies migrations.
-          # In particular, provenance backfills cannot race an older API.
-          curl -fsS "${auth[@]}" -X POST "$COOLIFY_URL/applications/$API_APP_UUID/stop?docker_cleanup=false" > /dev/null
-          stopped=""
-          for i in $(seq 1 30); do
-            stopped=$(curl -fsS "${auth[@]}" "$COOLIFY_URL/applications/$API_APP_UUID" \
-              | python3 -c 'import json,sys; print(json.load(sys.stdin).get("status",""))')
-            case "$stopped" in exited*|stopped*) break ;; esac
-            sleep 2
-          done
-          case "$stopped" in exited*|stopped*) ;; *) echo "::error::old API did not stop: $stopped"; exit 1 ;; esac
-          for uuid in "$API_APP_UUID" "$WEB_APP_UUID"; do
-            curl -fsS "${auth[@]}" -X PATCH "$COOLIFY_URL/applications/$uuid" \
-              -d "{\"docker_registry_image_tag\":\"$GITHUB_SHA\"}" > /dev/null
-            dep=$(curl -fsS "${auth[@]}" -X POST "$COOLIFY_URL/deploy?uuid=$uuid" \
-              | python3 -c 'import json,sys; print(json.load(sys.stdin)["deployments"][0]["deployment_uuid"])')
-            echo "queued $uuid → deployment $dep"
-            # Complete the API rollout (including migrations) before starting web.
-            deployment_status=""
-            for i in $(seq 1 60); do
-              deployment_status=$(curl -fsS "${auth[@]}" "$COOLIFY_URL/deployments/$dep" \
-                | python3 -c 'import json,sys; print(json.load(sys.stdin).get("status",""))')
-              case "$deployment_status" in
-                finished) break ;;
-                failed|cancelled) echo "::error::deployment $dep is $deployment_status"; exit 1 ;;
-              esac
-              sleep 5
-            done
-            [ "$deployment_status" = "finished" ] || { echo "::error::deployment $dep timed out"; exit 1; }
-            status=""
-            for i in $(seq 1 24); do
-              status=$(curl -fsS "${auth[@]}" "$COOLIFY_URL/applications/$uuid" \
-                | python3 -c 'import json,sys; print(json.load(sys.stdin).get("status",""))')
-              case "$status" in running:healthy*) break ;; esac
-              sleep 5
-            done
-            case "$status" in running:healthy*) ;; *) echo "::error::app $uuid is $status"; exit 1 ;; esac
-          done
-      - name: Wait for deployments to finish
-        run: |
-          set -euo pipefail
-          auth=(-H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}")
-          for i in $(seq 1 30); do
-            sleep 10
-            left=$(curl -fsS "${auth[@]}" "$COOLIFY_URL/deployments" \
-              | python3 -c 'import json,sys; d=json.load(sys.stdin); items=d if isinstance(d,list) else d.get("deployments",[]); print(sum(1 for x in items if (name:=str(x.get("application_name","")).lower()) and ("neuronexus" in name or "reomi" in name)))')
-            echo "[$i] in-flight: $left"
-            [ "$left" = "0" ] && break
-          done
-          # The pull finishes well before the container clears its healthcheck
-          # start period — poll the app status, treating transitional states
-          # (starting/unhealthy right after boot) as in-progress.
-          for uuid in "$API_APP_UUID" "$WEB_APP_UUID"; do
-            status=""
-            for i in $(seq 1 24); do
-              status=$(curl -fsS "${auth[@]}" "$COOLIFY_URL/applications/$uuid" \
-                | python3 -c 'import json,sys; print(json.load(sys.stdin).get("status",""))')
-              echo "[$i] $uuid → $status"
-              case "$status" in running:healthy*) break;; esac
-              sleep 10
-            done
-            case "$status" in running:healthy*) ;; *) echo "::error::app $uuid is $status"; exit 1;; esac
-          done
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: Prepare images, drain API, deploy and recover on failure
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: bun scripts/deploy-coolify.ts
