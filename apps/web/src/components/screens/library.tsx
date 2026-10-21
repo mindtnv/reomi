@@ -30,6 +30,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState, type SetState
 import { useSearchParams } from 'next/navigation';
 import type { IngestErrorCode, SourceKind, SourceMime, SourceStatus } from '@reomi/shared';
 import { LibraryFolderNavigation, LibraryFolderBreadcrumbs, useLibraryFolders } from '@/components/library-folders';
+import { LibraryDocumentation } from '@/components/library-documentation';
 import { PageSurface, TextInput, SegmentedControl, Button, Checkbox } from '@/components/design-system/primitives';
 import { NNSelect } from '@/components/nn-select';
 import { NNBtn, NNCard, NNIcon, NNBadge, NNInlineRefresh, NNLoadError, NNSkeleton, type IconName } from '@/components/ui';
@@ -212,6 +213,7 @@ export const LibraryScreen = () => {
   // ── Add-source UI ──────────────────────────────────────────────────────────────
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [addDialog, setAddDialog] = useState<'url' | 'text' | null>(null);
+  const [documentationOpen, setDocumentationOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<{ total: number; done: number; name: string } | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -286,6 +288,10 @@ export const LibraryScreen = () => {
   }, [libraryResource.mutate]);
   const refresh = libraryResource.refresh;
   const folderControls = useLibraryFolders(folderId, setFolderId, refresh);
+  const documentationChanged = useCallback(() => {
+    invalidateSessionResourceScope('library:list'); invalidateSessionResourceScope('library:folders');
+    refresh(); folderControls.refresh();
+  }, [refresh, folderControls.refresh]);
   useEffect(() => setSelectedIds(new Set()), [libraryKey, searchMode]);
   const toggleSelected = (id: string) => setSelectedIds(previous => {
     const next = new Set(previous);
@@ -598,10 +604,13 @@ export const LibraryScreen = () => {
           setAddMenuOpen(false);
           setAddDialog('text');
         }}
+        onAddDocumentation={() => { setAddMenuOpen(false); setDocumentationOpen(true); }}
         isMobile={isMobile}
         t={t}
       />
 
+      <LibraryDocumentation open={documentationOpen} onClose={() => setDocumentationOpen(false)} onChanged={documentationChanged}
+        onOpenFolder={id => { setFolderId(id); setViewPersisted('list'); }} />
       <div className="reomi-library-layout">
       <LibraryFolderNavigation controls={folderControls} scope={folderId} onScopeChange={setFolderId} />
       <div className="reomi-library-content">
@@ -812,6 +821,7 @@ const LibraryHeader = ({
   onPickFiles,
   onAddUrl,
   onAddText,
+  onAddDocumentation,
   t,
 }: {
   refreshing: boolean;
@@ -838,6 +848,7 @@ const LibraryHeader = ({
   onPickFiles: () => void;
   onAddUrl: () => void;
   onAddText: () => void;
+  onAddDocumentation: () => void;
   isMobile: boolean;
   t: Tr;
 }) => {
@@ -875,6 +886,9 @@ const LibraryHeader = ({
               </Button>
               <Button variant="bare" type="button" className="nn-lib-menu-item" onClick={onAddText}>
                 <NNIcon name="edit" size={14} color="var(--text-muted)" />{t('library.header.addText')}
+              </Button>
+              <Button variant="bare" type="button" className="nn-lib-menu-item" onClick={onAddDocumentation}>
+                <NNIcon name="book" size={14} color="var(--text-muted)" />{t('library.documentation.add')}
               </Button>
             </div>
           </>

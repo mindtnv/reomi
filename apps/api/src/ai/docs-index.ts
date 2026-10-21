@@ -639,7 +639,7 @@ async function loadSeedIndex(seedUrl: string, locale: PlanLocale): Promise<reado
   return frozen;
 }
 
-async function buildSeedIndex(identity: SeedIdentity, locale: PlanLocale): Promise<FrozenPage[]> {
+export async function buildSeedIndex(identity: SeedIdentity, locale: PlanLocale): Promise<FrozenPage[]> {
   const llms = await readLlms(identity.origin);
   const sitemap = await readSitemap(identity.origin, locale);
   const fromSitemap = inScopePages(sitemap, llms.titles, identity, locale);

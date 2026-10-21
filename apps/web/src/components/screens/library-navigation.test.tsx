@@ -149,7 +149,7 @@ test('switching folders clears selection and rejects a late page from the previo
     if (query?.cursor) return new Promise(resolve => { finishPage = resolve; });
     return { items: [item(query?.folderId ? 'b' : 'a', query?.folderId ? 'Current material' : 'Previous material')], nextCursor: query?.folderId ? null : 'next' } as any;
   } });
-  globalThis.fetch = (async () => Response.json({ items: [{ id: folder, name: 'Destination', parentId: null, revision: 0, purpose: null, count: 1, directCount: 1 }], totalCount: 2, unfiledCount: 1 })) as unknown as typeof fetch;
+  globalThis.fetch = (async (url: unknown) => String(url).includes('/library/documentation') ? Response.json({ items: [] }) : Response.json({ items: [{ id: folder, name: 'Destination', parentId: null, revision: 0, purpose: null, count: 1, directCount: 1 }], totalCount: 2, unfiledCount: 1 })) as unknown as typeof fetch;
   history.replaceState({}, '');
   await render();
   await act(async () => host.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());

@@ -46,6 +46,8 @@ export interface PageContent {
 export interface PageReadOpts {
   signal?: AbortSignal;
   log?: Logger;
+  /** Documentation imports stay within their confirmed scope, including redirects. */
+  scope?: { origin: string; pathPrefix: string; canonicalPath?: string };
 }
 
 export interface PageReader {
@@ -458,12 +460,21 @@ async function probePageMethod(start: URL, method: 'HEAD' | 'GET'): Promise<bool
 export class DirectPageReader implements PageReader {
   async read(url: string, opts: PageReadOpts = {}): Promise<PageContent> {
     let current = validatePageUrl(url);
+    const assertScope = (target: URL) => {
+      if (opts.scope && (target.origin !== opts.scope.origin ||
+        !(target.pathname.endsWith('/') ? target.pathname : `${target.pathname}/`).startsWith(opts.scope.pathPrefix) ||
+        (opts.scope.canonicalPath !== undefined && target.pathname.replace(/\/+$/, '') !== opts.scope.canonicalPath.replace(/\/+$/, '')))) {
+        throw new Error('outside documentation scope');
+      }
+    };
+    assertScope(current);
     await assertPublicHost(current);
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), env.ai.FETCH_PAGE_TIMEOUT_MS);
     const onExternalAbort = () => controller.abort();
     opts.signal?.addEventListener('abort', onExternalAbort, { once: true });
+    if (opts.signal?.aborted) controller.abort();
     try {
       const MAX_REDIRECTS = 3;
       for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
@@ -481,8 +492,10 @@ export class DirectPageReader implements PageReader {
 
         if (res.status >= 300 && res.status < 400) {
           const loc = res.headers.get('location');
+          await releaseResponse(res);
           if (!loc) throw new Error(`redirect (HTTP ${res.status}) without a Location header`);
           current = validatePageUrl(new URL(loc, current).href);
+          assertScope(current);
           await assertPublicHost(current);
           continue;
         }

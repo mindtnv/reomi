@@ -16,6 +16,8 @@ import { ensureVectorExtension, kbChunk } from '@reomi/db';
 import { sql } from 'drizzle-orm';
 
 const TABLES = [
+  'library_documentation_pages',
+  'library_documentation',
   'ui_action_receipts',
   'deck_hierarchy_revisions',
   'operation_retry_receipts',
