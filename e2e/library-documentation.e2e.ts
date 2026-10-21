@@ -73,7 +73,7 @@ test('documentation preview, collection controls and compact source reading', as
     expect(selected).toContain('/docs/concepts/'); expect(selected).toContain('!/docs/tasks/');
     await expect(page.locator('.nn-lib-row').filter({ hasText: 'Pods' })).toBeVisible();
     await expect(page.locator('.nn-lib-grid')).toHaveCount(0);
-    const schedule = page.getByRole('button', { name: 'Auto-update: Kubernetes', exact: true });
+    const schedule = page.getByRole('button', { name: 'Auto-update: Kubernetes' });
     await schedule.focus(); await page.keyboard.press('Enter');
     await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter');
     await expect(schedule).toContainText('Every day');
