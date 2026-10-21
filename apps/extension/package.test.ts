@@ -14,7 +14,7 @@ test('production archives are reproducible, self-contained and grant only the ca
     expect([...manifest.permissions].sort()).toEqual(['activeTab','contextMenus','scripting','storage']);
     expect(manifest.content_scripts).toBeUndefined(); expect(manifest.web_accessible_resources).toBeUndefined();
     expect(manifest.content_security_policy.extension_pages).not.toContain('unsafe-eval');
-    for (const file of ['popup.html','popup.js','popup.css','capture.js','background.js','icon.png']) expect(files[file]!.length).toBeGreaterThan(0);
+    for (const file of ['popup.html','popup.js','popup.css','capture.js','background.js','icon.png','brand-mark.png']) expect(files[file]!.length).toBeGreaterThan(0);
     const js = strFromU8(files['popup.js']!); expect(js).toContain('https://api.reomi.ru'); expect(js).not.toContain('localhost:3000');
     expect(manifest.version).toBe(version);
   }

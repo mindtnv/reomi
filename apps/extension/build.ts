@@ -16,6 +16,7 @@ for (const target of ['chromium', 'firefox'] as const) {
   }
   for (const name of ['popup.html','popup.css']) await copyFile(join(root,'src',name),join(out,name));
   await copyFile(join(root,'../web/public/icons/icon-192.png'),join(out,'icon.png'));
+  await copyFile(join(root,'../web/public/icons/reomi-mark.png'),join(out,'brand-mark.png'));
   const manifest = {
     manifest_version: 3, name: 'Reomi — save and study', version, description: 'Save readable pages to your Reomi library and create reviewed cards with their sources.',
     permissions: ['activeTab', 'scripting', 'storage', 'contextMenus'], host_permissions: [`${api}/*`, ...(dev && process.env.REOMI_EXTENSION_TEST_ORIGIN ? [`${new URL(process.env.REOMI_EXTENSION_TEST_ORIGIN).origin}/*`] : [])],
@@ -27,7 +28,7 @@ for (const target of ['chromium', 'firefox'] as const) {
   };
   await writeFile(join(out,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');
   const entries: Record<string, [Uint8Array, { mtime: Date }]> = {};
-  for (const name of ['background.js','capture.js','icon.png','manifest.json','popup.css','popup.html','popup.js']) entries[name] = [new Uint8Array(await readFile(join(out,name))), { mtime: new Date('1980-01-01T00:00:00Z') }];
+  for (const name of ['background.js','brand-mark.png','capture.js','icon.png','manifest.json','popup.css','popup.html','popup.js']) entries[name] = [new Uint8Array(await readFile(join(out,name))), { mtime: new Date('1980-01-01T00:00:00Z') }];
   const zip = join(root,'dist',`reomi-${target}${dev ? '-dev' : ''}-${version}.zip`); await writeFile(zip,zipSync(entries,{level:9}));
   process.stdout.write(`${target}: ${zip}\n`);
 }
