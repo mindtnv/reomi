@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Model policy
+
+Use only `grok-4.7-high` (non-fast) for this agent and every subagent.
+Do not select `-fast` variants, Opus, Sonnet, GPT, or any other non-Grok model.
+Work inline, and spawn a subagent only when the task genuinely needs one.
+Read-only pull-request review stays inline: do not spawn comment-sicko, no-comments, explain-verdict, interrogate, arena, or swarm.
+
 ## Commands
 
 All commands run from the repo root via **Bun workspaces**:
