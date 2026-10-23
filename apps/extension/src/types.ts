@@ -1,0 +1,9 @@
+export type Mode = 'page' | 'selection';
+export type Captured = { url: string; title: string; text: string; selection: string };
+export type CaptureResult = { ok: true; capture: Captured } | { ok: false; error: string };
+export type Folder = { id: string; name: string; parentId: string | null; purpose: string | null };
+export type Connection = { user: { id: string; name: string }; folders: Folder[] };
+export type Payload = { requestKey: string; title: string; url: string; text: string; mode: Mode; folderId?: string | null; locale: 'ru' | 'en' };
+export type Pending = { owner: string; payload: Payload; at: number };
+export type Receipt = { receiptId: string; sourceId: string; readerUrl: string };
+export type LocalState = { token?: string; pending?: Pending; preferred?: { owner: string; value: string }; entry?: { tabId: number; selection: boolean; at: number } };

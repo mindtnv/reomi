@@ -1,0 +1,43 @@
+name: extension-release
+
+on:
+  workflow_run:
+    workflows: [deploy]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: extension-release
+  cancel-in-progress: false
+
+jobs:
+  package:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - run: bun run --filter @reomi/extension build
+      - name: Publish immutable browser packages for a new version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          version=$(bun -p 'require("./apps/extension/package.json").version')
+          tag="browser-extension-v${version}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Version $version already published; bump apps/extension/package.json for another release."
+            exit 0
+          fi
+          cd apps/extension/dist
+          sha256sum "reomi-chromium-${version}.zip" "reomi-firefox-${version}.zip" > SHA256SUMS
+          gh release create "$tag" --target "$RELEASE_SHA" --title "Reomi browser capture ${version}" --notes-file ../../../docs/browser-extension-release-notes.md --latest=false "reomi-chromium-${version}.zip" "reomi-firefox-${version}.zip" SHA256SUMS

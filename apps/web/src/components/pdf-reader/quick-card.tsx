@@ -47,6 +47,9 @@ export interface QuickCardDialogProps {
   textSelection?: SourceTextSelection;
   prefillFront?: string;
   prefillBack?: string;
+  contextHint?: string;
+  /** A URL-backed capture handoff already owns its browser history entry. */
+  history?: boolean;
   /** W4: marquee/selection rects so the server can plant a card marker. */
   rects?: MarkRect[];
   /** Locale (e.g. 'en'|'ru') — passed to suggest-card so AI writes in the user's language. */
@@ -67,6 +70,8 @@ export function QuickCardDialog({
   textSelection,
   prefillFront,
   prefillBack,
+  contextHint,
+  history = true,
   rects,
   locale,
   onCreated,
@@ -172,7 +177,7 @@ export function QuickCardDialog({
     }
   }, [sourceId, sourceVersion, deckId, front, back, page, quote, textSelection, rects, submitting, onCreated, onClose]);
 
-  const layer = useTransientLayer({ root: dialogRoot, enabled: open, modal: true, busy: submitting || suggesting, onClose });
+  const layer = useTransientLayer({ root: dialogRoot, enabled: open, modal: true, history, busy: submitting || suggesting, onClose });
   useNavigationGuard(async () => {
     if (submitLock.current || suggesting) return false;
     if (front === (prefillFront ?? '') && back === (prefillBack ?? quote ?? '')) return true;
@@ -275,6 +280,7 @@ export function QuickCardDialog({
 
         {/* Body */}
         <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {contextHint && <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)' }}>{contextHint}</p>}
           {/* Deck picker */}
           <div>
             <label
@@ -291,6 +297,7 @@ export function QuickCardDialog({
               {t('notebooks.quickcard.deckLabel')}
             </label>
             <NNSelect<string>
+              ariaLabel={t('notebooks.quickcard.deckLabel')}
               value={deckId}
               onChange={handleDeckChange}
               options={deckOptions}

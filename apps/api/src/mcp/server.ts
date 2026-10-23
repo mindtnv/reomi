@@ -93,7 +93,7 @@ export async function handleMcp(request: Request, handle: (request: Request) => 
   const initial = rateLimitCheck(clientIpFromRequest(request), { bucket: 'mcp:ip', limit: 300, windowMs: 60_000 });
   if (!initial.allowed) return Response.json({ error: 'rate_limited' }, { status: 429, headers: { ...headers, 'retry-after': String(Math.ceil(initial.retryAfterMs / 1000)) } });
   const principal = await authenticateToken(request);
-  if (!principal) return Response.json({ error: 'invalid_token' }, { status: 401, headers: { ...headers, 'www-authenticate': 'Bearer realm="Reomi MCP"' } });
+  if (!principal || principal.scope === 'capture') return Response.json({ error: 'invalid_token' }, { status: 401, headers: { ...headers, 'www-authenticate': 'Bearer realm="Reomi MCP"' } });
   const rate = rateLimitCheck(principal.tokenId, { bucket: 'mcp:token', limit: 120, windowMs: 60_000 });
   if (!rate.allowed) return Response.json({ error: 'rate_limited' }, { status: 429, headers: { ...headers, 'retry-after': String(Math.ceil(rate.retryAfterMs / 1000)) } });
   if (request.method !== 'POST') return new Response(null, { status: 405, headers: { ...headers, allow: 'POST' } });

@@ -40,8 +40,8 @@
 
 ## 7. Ручные шаги владельца после зелёного деплоя PR-5
 
-- [ ] 7.1 Владелец вручную в тех же приложениях Coolify меняет репозиторий образа на `ghcr.io/mindtnv/reomi-api` и `ghcr.io/mindtnv/reomi-web`, тег оставляет SHA уже выложенного деплоя. Новые приложения не создавать. Проверка: оба UUID `running:healthy`, `/ready` и вход на `app.reomi.ru` работают.
-- [ ] 7.2 Владелец вручную, после 7.1 и вне идущего deploy run, переименовывает репозиторий GitHub `neuronexus` в `reomi`. Проверка: `gh repo view mindtnv/reomi` открывается, старый URL редиректит, следующий push в `main` собирается.
+- [x] 7.1 Владелец вручную в тех же приложениях Coolify меняет репозиторий образа на `ghcr.io/mindtnv/reomi-api` и `ghcr.io/mindtnv/reomi-web`, тег оставляет SHA уже выложенного деплоя. Новые приложения не создавать. Проверка: оба UUID `running:healthy`, `/ready` и вход на `app.reomi.ru` работают.
+- [x] 7.2 Владелец вручную, после 7.1 и вне идущего deploy run, переименовывает репозиторий GitHub `neuronexus` в `reomi`. Проверка: `gh repo view mindtnv/reomi` открывается, старый URL редиректит, следующий push в `main` собирается.
 
 ## 8. Снятие старых тегов образов (PR-6)
 
@@ -52,3 +52,5 @@
 - [x] 9.1 Прогнать `openspec validate --all --strict` (или `bun run spec:validate`) и убедиться, что change `rename-to-reomi` и остальные changes проходят.
 - [x] 9.2 Прогнать `bun run typecheck` и миграционно-верный `bun run test:ci` на срезе после последней правки кода. Отдельно отметить, что реальных S3 и браузерный вход на `app.reomi.ru` этим локальным прогоном не покрыты. Локальный прогон: `bun run test:ci` — 3052 pass, 0 fail, 7 skip (реальные S3/MinIO round-trip не поднимались). Браузерный вход на `app.reomi.ru` не проверялся.
 - [ ] 9.3 При архивации change заменить в purpose `openspec/specs/knowledge-mcp/spec.md` и `openspec/specs/personal-access-tokens/spec.md` слово NeuroNexus на Reomi. Архив `openspec/changes/archive/**` не переписывать. Проверка: повторный strict validate после архива.
+
+Evidence reconciliation 2026-10-21: both existing Coolify UUIDs use `ghcr.io/mindtnv/reomi-{api,web}`; deploy runs 39656088314, 39657396451 and 39662527753 completed with healthy API/web. Production login and user journeys passed in 39658523955 and 39664168872. GitHub `mindtnv/reomi` and the redirected former `mindtnv/neuronexus` resolve to repository ID 1213904203; the renamed repository built and deployed subsequent main pushes. These observations close 7.1–7.2 without repeating the migration. Old API alias removal and actual reset-email From remain unverified; 4.1–4.2 and archive work stay open.

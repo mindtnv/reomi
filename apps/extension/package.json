@@ -1,0 +1,21 @@
+{
+  "name": "@reomi/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun build.ts",
+    "build:dev": "bun build.ts --dev",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "webextension-polyfill": "^0.12.0",
+    "fflate": "^0.8.3"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.11",
+    "@types/webextension-polyfill": "^0.12.3",
+    "happy-dom": "20.14.5"
+  }
+}

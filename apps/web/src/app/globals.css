@@ -2756,6 +2756,7 @@ a, button { -webkit-tap-highlight-color: transparent; touch-action: manipulation
 .reomi-doc-schedule > span { flex-shrink: 0; white-space: nowrap; }
 .reomi-doc-schedule > .reomi-select { flex: 1; width: auto; min-width: 120px; }
 .reomi-doc-next { font-size: 10px; }
+.reomi-capture-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 16px; font-size: 12px; color: var(--text-muted); border-bottom: 1px solid var(--border); }
 .reomi-doc-error { color: var(--tone-danger-text, var(--rose-400)); font-size: 12px; line-height: 1.6; }
 .reomi-doc-errors { padding: 0 14px 14px; }
 .reomi-doc-errors > div:not(:first-child) { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; font-size: 12px; border-top: 1px solid var(--border); }

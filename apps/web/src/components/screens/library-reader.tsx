@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/design-system/primitives';
+import { BrowserCaptureHandoff } from '@/components/browser-capture-handoff';
 
 import { AssistantAskButton } from '../chat/assistant-ask-button';
 import { SourceStudioPanel } from '../notebook/source-studio-panel';
@@ -566,6 +567,7 @@ export const SourceStudyWorkspace = ({ sourceId, initialLocation, origin }: Sour
 
   return (
     <div className="reomi-library-reader">
+      {source && <BrowserCaptureHandoff sourceId={sourceId} sourceName={source.title} chatEnabled={chatEnabled} onCreated={() => setLoadRevision(v => v + 1)} />}
       <ReaderHeader
         source={source}
         author={detail?.author ?? null}

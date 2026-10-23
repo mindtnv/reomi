@@ -39,6 +39,17 @@ function checkName(all: Folder[], name: string, parentId: string | null, except?
   if (all.some(f => f.id !== except && f.parentId === parentId && f.name.toLowerCase() === name.toLowerCase()))
     throw new LibraryFolderError(409, 'folder_name_exists');
 }
+export async function ensureBrowserFolder(tx: Tx, userId: string, requestedName = 'From browser') {
+  await lockLibraryFolders(tx, userId);
+  const all = await readFolders(tx, userId);
+  const existing = all.find(folder => folder.purpose === 'browser');
+  if (existing) return existing;
+  const name = normalizedName(requestedName);
+  const named = all.find(folder => folder.parentId === null && folder.name.toLowerCase() === name.toLowerCase());
+  if (named) return (await tx.update(libraryFolders).set({ purpose: 'browser', revision: sql`${libraryFolders.revision} + 1` }).where(eq(libraryFolders.id, named.id)).returning())[0]!;
+  if (all.length >= 1000) throw new LibraryFolderError(409, 'folder_limit');
+  return (await tx.insert(libraryFolders).values({ userId, name, purpose: 'browser' }).returning())[0]!;
+}
 async function preview(tx: Tx, userId: string, id: string) {
   const all = await readFolders(tx, userId);
   if (!all.some(folder => folder.id === id)) throw new LibraryFolderError(404, 'folder_not_found');
@@ -73,17 +84,8 @@ export const libraryFoldersModule = new Elysia({ prefix: '/library/folders' })
     checkName(all, name, parentId);
     return (await tx.insert(libraryFolders).values({ userId: user.id, name, parentId }).returning())[0]!;
   }), { auth: true, body: t.Object({ name: t.String({ maxLength: 200 }), parentId: t.Optional(destinationSchema) }) })
-  .post('/browser-default', ({ user, body }) => db.transaction(async tx => {
-    await lockLibraryFolders(tx, user.id);
-    const all = await readFolders(tx, user.id);
-    const existing = all.find(folder => folder.purpose === 'browser');
-    if (existing) return existing;
-    const name = normalizedName(body.name ?? 'From browser');
-    const named = all.find(folder => folder.parentId === null && folder.name.toLowerCase() === name.toLowerCase());
-    if (named) return (await tx.update(libraryFolders).set({ purpose: 'browser', revision: sql`${libraryFolders.revision} + 1` }).where(eq(libraryFolders.id, named.id)).returning())[0]!;
-    if (all.length >= 1000) throw new LibraryFolderError(409, 'folder_limit');
-    return (await tx.insert(libraryFolders).values({ userId: user.id, name, purpose: 'browser' }).returning())[0]!;
-  }), { auth: true, body: t.Object({ name: t.Optional(t.String({ maxLength: 200 })) }) })
+  .post('/browser-default', ({ user, body }) => db.transaction(tx => ensureBrowserFolder(tx, user.id, body.name)),
+    { auth: true, body: t.Object({ name: t.Optional(t.String({ maxLength: 200 })) }) })
   .post('/move-items', ({ user, body }) => db.transaction(async tx => {
     await lockLibraryFolders(tx, user.id);
     await validateLibraryFolder(tx, user.id, body.folderId);

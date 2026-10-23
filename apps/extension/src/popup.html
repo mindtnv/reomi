@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Reomi</title><link rel="stylesheet" href="popup.css"></head>
+<body>
+  <header><div class="brand"><i class="brand-mark" aria-hidden="true"></i><strong>reomi</strong><span data-i18n="library"></span></div><button id="settings" class="quiet" data-i18n="connection"></button></header>
+  <main>
+    <section id="setup" hidden>
+      <div class="eyebrow" data-i18n="connectTitle"></div><h1 data-i18n="collect"></h1><p class="muted" data-i18n="connectHint"></p>
+      <a id="web-settings" target="_blank" rel="noopener" data-i18n="openSettings"></a>
+      <form id="connect-form"><label for="token" data-i18n="token"></label><input id="token" type="password" autocomplete="off" spellcheck="false" required placeholder="nn_pat_…"><button id="connect" class="primary" data-i18n="connect"></button></form>
+    </section>
+    <section id="capture" hidden>
+      <div class="eyebrow" data-i18n="saveFromPage"></div>
+      <label for="title" class="sr-only" data-i18n="title"></label><input id="title" class="title" maxlength="300" required>
+      <p id="url" class="url"></p>
+      <div class="modes" role="group" data-label="mode"><button id="page-mode" data-i18n="page"></button><button id="selection-mode" data-i18n="selection"></button></div>
+      <div class="preview"><div class="preview-meta"><span data-i18n="preview"></span><span id="size"></span></div><div id="excerpt"></div></div>
+      <label for="folder" data-i18n="folder"></label><select id="folder"></select>
+      <div class="actions"><button id="save" class="primary" data-i18n="save"></button><button id="save-card" class="secondary" data-i18n="saveCard"></button></div>
+      <p class="footnote" data-i18n="sourceFirst"></p>
+    </section>
+    <section id="saved" hidden><div class="success-mark">✓</div><h1 data-i18n="saved"></h1><p id="saved-title" class="muted"></p><div class="actions"><button id="open-material" class="primary" data-i18n="openMaterial"></button><button id="make-card" class="secondary" data-i18n="makeCard"></button></div><button id="another" class="quiet wide" data-i18n="another"></button></section>
+    <div id="loading" role="status" class="loading" data-i18n="loading"></div>
+    <div id="error" role="alert" hidden></div><button id="retry" class="secondary wide" hidden data-i18n="retry"></button>
+  </main>
+  <footer><span id="account"></span><button id="disconnect" class="quiet" hidden data-i18n="disconnect"></button></footer>
+  <script src="popup.js"></script>
+</body></html>
